@@ -1,0 +1,18 @@
+[Unit]
+Description=AI-Powered SOC Dashboard
+After=network.target wazuh-indexer.service wazuh-manager.service
+Wants=wazuh-indexer.service wazuh-manager.service
+
+[Service]
+Type=simple
+User=terickson
+WorkingDirectory=/opt/wazuh-soc/dashboard
+ExecStart=/usr/bin/python3 /opt/wazuh-soc/dashboard/app.py
+Restart=always
+RestartSec=15
+StandardOutput=append:/opt/wazuh-soc/logs/dashboard.log
+StandardError=append:/opt/wazuh-soc/logs/dashboard.log
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

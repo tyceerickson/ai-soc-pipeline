@@ -19,3 +19,13 @@
     <log_format>apache</log_format>
     <location>/opt/cowrie-logs/nginx/access.log</location>
     <label key="honeypot">nginx-web</label>
+  </localfile>
+
+  <!-- Dionaea malware capture -->
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/opt/cowrie-logs/dionaea/dionaea.log</location>
+    <label key="honeypot">dionaea</label>
+  </localfile>
+
+</ossec_config>

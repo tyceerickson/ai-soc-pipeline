@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI-Powered SOC Dashboard</title>
+<style>
+:root{
+  --bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;
+  --text:#e6edf3;--muted:#8b949e;
+  --blue:#388bfd;--green:#3fb950;--yellow:#d29922;
+  --red:#f85149;--pink:#ff79c6;--purple:#a371f7;--cyan:#39d353;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:10px}
+.live-dot{width:9px;height:9px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.logo h1{font-size:15px;font-weight:600}
+.logo small{color:var(--muted);font-size:11px}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{padding:3px 9px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-g{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3)}
+select{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer}
+select:focus{outline:none;border-color:var(--purple)}
+.icon-btn{background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;transition:border-color .2s}
+.icon-btn:hover{border-color:var(--purple)}
+.icon-btn.running{border-color:var(--yellow);color:var(--yellow)}
+.main{padding:16px 24px;max-width:1440px;margin:0 auto}
+.section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:16px 0 10px}
+/* Stat cards */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.scard{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative;overflow:hidden}
+.scard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.scard.s-total::before{background:var(--purple)}
+.scard.s-crit::before{background:var(--red)}
+.scard.s-high::before{background:var(--pink)}
+.scard.s-med::before{background:var(--yellow)}
+.scard.s-low::before{background:var(--blue)}
+.scard-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.scard-val{font-size:28px;font-weight:700;line-height:1}
+.scard-val.purple{color:var(--purple)}.scard-val.red{color:var(--red)}
+.scard-val.pink{color:var(--pink)}.scard-val.yellow{color:var(--yellow)}.scard-val.blue{color:var(--blue)}
+/* Panels */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px}
+.panel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.panel-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.panel-meta{font-size:11px;color:var(--muted)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+/* Timeline */
+#tl-canvas{width:100%;height:200px;display:block}
+.tl-controls{display:flex;gap:8px;flex-wrap:wrap}
+.tl-btn{background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;transition:all .15s}
+.tl-btn.s-total.active{border-color:var(--purple);color:var(--purple)}
+.tl-btn.s-high.active{border-color:var(--pink);color:var(--pink)}
+.tl-btn.s-medium.active{border-color:var(--yellow);color:var(--yellow)}
+.tl-btn.s-low.active{border-color:var(--blue);color:var(--blue)}
+/* Bar charts */
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.bar-label{width:120px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.bar-track{flex:1;height:5px;background:var(--bg3);border-radius:3px}
+.bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.bar-count{width:44px;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.sort-btn{background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;padding:2px 7px;cursor:pointer}
+.sort-btn:hover{border-color:var(--purple);color:var(--purple)}
+/* Tables */
+.dtable{width:100%;border-collapse:collapse}
+.dtable th{font-size:10px;color:var(--muted);text-align:left;padding:0 4px 8px;border-bottom:1px solid var(--border);font-weight:500;cursor:pointer;user-select:none}
+.dtable th:hover{color:var(--text)}
+.dtable td{padding:6px 4px;border-bottom:1px solid rgba(48,54,61,.4);font-size:12px;vertical-align:middle}
+.dtable tr:last-child td{border-bottom:none}
+.dtable .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.mono{font-family:monospace;font-size:11px;color:var(--cyan)}
+.dim{font-size:10px;color:var(--muted)}
+.scroll{max-height:260px;overflow-y:auto}
+.scroll::-webkit-scrollbar{width:3px}
+.scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+/* MITRE */
+.mitre-grid{display:flex;flex-direction:column;gap:6px}
+.mitre-row{background:var(--bg3);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.mitre-hdr{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;transition:background .15s}
+.mitre-hdr:hover{background:rgba(163,113,247,.08)}
+.mitre-tactic{font-size:12px;font-weight:600;flex:1}
+.mitre-ids{display:flex;gap:4px;flex-wrap:wrap}
+.mitre-id-tag{background:rgba(163,113,247,.15);color:var(--purple);border:1px solid rgba(163,113,247,.3);border-radius:4px;padding:2px 6px;font-size:10px;font-family:monospace}
+.mitre-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mitre-chevron{color:var(--muted);font-size:10px;transition:transform .2s;flex-shrink:0}
+.mitre-row.open .mitre-chevron{transform:rotate(90deg)}
+.mitre-examples{display:none;border-top:1px solid var(--border)}
+.mitre-row.open .mitre-examples{display:block}
+.example-item{padding:10px 12px;border-bottom:1px solid rgba(48,54,61,.4)}
+.example-item:last-child{border-bottom:none}
+.ex-hdr{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.ex-desc{font-size:12px;font-weight:500}
+.ex-time{font-size:10px;color:var(--muted)}
+.ex-fields{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ex-field{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:11px}
+.ex-field span{color:var(--muted)}
+.lvl{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.lvl-crit{background:rgba(248,81,73,.15);color:var(--red)}
+.lvl-high{background:rgba(255,121,198,.15);color:var(--pink)}
+.lvl-med{background:rgba(210,153,34,.15);color:var(--yellow)}
+.lvl-low{background:rgba(56,139,253,.15);color:var(--blue)}
+/* AI Panel */
+.ai-panel{background:var(--bg2);border:1px solid var(--purple);border-radius:8px;padding:18px;margin-bottom:12px}
+.ai-title{font-size:13px;font-weight:600;color:var(--purple);margin-bottom:14px}
+.controls{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.ctrl-grp{display:flex;flex-direction:column;gap:5px}
+.ctrl-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.ctrl-grp select{min-width:180px}
+.run-btn{background:var(--purple);color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .2s;white-space:nowrap}
+.run-btn:hover{opacity:.85}
+.run-btn:disabled{opacity:.4;cursor:not-allowed}
+.run-btn.running{background:var(--yellow);color:#000}
+.prog-wrap{margin-top:12px;display:none}
+.prog-wrap.show{display:block}
+.prog-bar{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--purple);border-radius:2px;transition:width .8s ease;width:0%}
+.prog-steps{display:flex;gap:6px;margin-top:8px}
+.prog-step{flex:1;height:3px;background:var(--bg3);border-radius:2px;transition:background .3s}
+.prog-step.done{background:var(--green)}
+.prog-step.active{background:var(--yellow);animation:pulse 1s infinite}
+.prog-text{font-size:11px;color:var(--muted);margin-top:6px}
+.triage-out{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:16px;margin-top:14px;display:none}
+.triage-out.show{display:block}
+.verdict{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:14px}
+.v-HIGH,.v-CRITICAL{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3)}
+.v-MEDIUM{background:rgba(210,153,34,.15);color:var(--yellow);border:1px solid rgba(210,153,34,.3)}
+.v-LOW{background:rgba(56,139,253,.15);color:var(--blue);border:1px solid rgba(56,139,253,.3)}
+.t-section{margin-bottom:14px}
+.t-section h4{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.t-section p{font-size:13px;line-height:1.6}
+.ioc-wrap{display:flex;flex-wrap:wrap;gap:5px}
+.ioc-tag{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-family:monospace;font-size:11px;color:var(--cyan)}
+.find-list,.act-list{list-style:none}
+.find-list li{padding:4px 0;border-bottom:1px solid rgba(48,54,61,.4);font-size:12px;line-height:1.5}
+.find-list li:last-child{border-bottom:none}
+.find-list li::before{content:'→ ';color:var(--purple)}
+.act-list li{padding:4px 0;font-size:12px;color:var(--green)}
+.act-list li::before{content:'✓ '}
+.t-meta{display:flex;gap:16px;font-size:10px;color:var(--muted);margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.refresh-banner{background:rgba(210,153,34,.1);border:1px solid rgba(210,153,34,.3);border-radius:6px;padding:8px 14px;margin-bottom:12px;font-size:12px;color:var(--yellow);display:none;align-items:center;gap:8px}
+.refresh-banner.show{display:flex}
+footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="live-dot"></div>
+    <div>
+      <h1>AI-Powered SOC Dashboard</h1>
+      <small>Wazuh SIEM · Cowrie Honeypot · llama3.1:8b · RTX 4070</small>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="refresh-time" class="badge badge-g">Loading...</span>
+    <select id="win-sel" onchange="setWindow(this.value)">
+      <option value="60">Last hour</option>
+      <option value="360">Last 6 hours</option>
+      <option value="1440">Last 24 hours</option>
+      <option value="10080">Last 7 days</option>
+      <option value="43200">Last 30 days</option>
+      <option value="129600">Last 90 days</option>
+    </select>
+    <button class="icon-btn" id="refresh-btn" onclick="manualRefresh()">⟳ Refresh Data</button>
+  </div>
+</header>
+<div class="main">
+  <div class="refresh-banner" id="refresh-banner"><span>⟳</span><span id="refresh-msg"></span></div>
+  <div class="section-label">Live Alert Summary</div>
+  <div class="stats-row">
+    <div class="scard s-total"><div class="scard-label">Total Alerts</div><div class="scard-val purple" id="s-total">—</div></div>
+    <div class="scard s-crit"><div class="scard-label">Critical</div><div class="scard-val red" id="s-crit">—</div></div>
+    <div class="scard s-high"><div class="scard-label">High</div><div class="scard-val pink" id="s-high">—</div></div>
+    <div class="scard s-med"><div class="scard-label">Medium</div><div class="scard-val yellow" id="s-med">—</div></div>
+    <div class="scard s-low"><div class="scard-label">Low</div><div class="scard-val blue" id="s-low">—</div></div>
+  </div>
+  <div class="panel" style="margin-bottom:12px">
+    <div class="panel-hdr">
+      <span class="panel-title">Alert Timeline</span>
+      <div class="tl-controls">
+        <button class="tl-btn s-total active" onclick="toggleSeries('total',this)">Total</button>
+        <button class="tl-btn s-high"         onclick="toggleSeries('high',this)">High</button>
+        <button class="tl-btn s-medium"       onclick="toggleSeries('medium',this)">Medium</button>
+        <button class="tl-btn s-low"          onclick="toggleSeries('low',this)">Low</button>
+      </div>
+    </div>
+    <canvas id="tl-canvas"></canvas>
+  </div>
+  <div class="g3">
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">Top Attacker Countries</span><button class="sort-btn" onclick="toggleBarSort('countries')">⇅</button></div>
+      <div id="countries-chart"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">Top Attacker IPs</span></div>
+      <div class="scroll">
+        <table class="dtable">
+          <thead><tr><th onclick="sortTbl('ips-tb','ip')">IP</th><th onclick="sortTbl('ips-tb','country')">Country</th><th class="num" onclick="sortTbl('ips-tb','count',true)">Alerts ▾</th></tr></thead>
+          <tbody id="ips-tb"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">Event Types</span><button class="sort-btn" onclick="toggleBarSort('events')">⇅</button></div>
+      <div id="events-chart"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">Top Credentials Attempted</span></div>
+      <div class="scroll">
+        <table class="dtable">
+          <thead><tr><th onclick="sortTbl('creds-tb','cred')">Username / Password</th><th class="num" onclick="sortTbl('creds-tb','count',true)">Attempts ▾</th></tr></thead>
+          <tbody id="creds-tb"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr"><span class="panel-title">Top Commands Executed</span></div>
+      <div class="scroll" id="cmds-list"></div>
+    </div>
+  </div>
+  <div class="section-label">MITRE ATT&CK Framework</div>
+  <div class="panel" style="margin-bottom:12px">
+    <div class="panel-hdr"><span class="panel-title">Observed Tactics & Techniques</span><span class="panel-meta" id="mitre-meta"></span></div>
+    <div class="mitre-grid" id="mitre-grid"></div>
+  </div>
+  <div class="section-label">On-Demand AI Analysis</div>
+  <div class="ai-panel">
+    <div class="ai-title">◈ AI Threat Analysis — llama3.1:8b on RTX 4070</div>
+    <div class="controls">
+      <div class="ctrl-grp"><div class="ctrl-label">Analysis Mode</div>
+        <select id="ai-mode">
+          <option value="summary">Summary — Top 10 threats (~30s)</option>
+          <option value="full">Full — All alerts in batches (~3 min)</option>
+          <option value="executive">Executive — Full + CISO summary (~5 min)</option>
+        </select>
+      </div>
+      <div class="ctrl-grp"><div class="ctrl-label">Timeframe</div>
+        <select id="ai-mins">
+          <option value="60">Last 1 hour</option>
+          <option value="360">Last 6 hours</option>
+          <option value="1440">Last 24 hours</option>
+          <option value="10080">Last 7 days</option>
+          <option value="43200">Last 30 days</option>
+          <option value="129600">Last 90 days</option>
+        </select>
+      </div>
+      <div class="ctrl-grp"><div class="ctrl-label">Alert Depth</div>
+        <select id="ai-limit">
+          <option value="10">Top 10</option>
+          <option value="50">Top 50</option>
+          <option value="100" selected>Top 100</option>
+          <option value="250">Top 250</option>
+          <option value="500">Top 500</option>
+        </select>
+      </div>
+      <button class="run-btn" id="run-btn" onclick="runAnalysis()">▶ Run AI Analysis</button>
+    </div>
+    <div class="prog-wrap" id="prog-wrap">
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+      <div class="prog-steps">
+        <div class="prog-step" id="ps-1"></div><div class="prog-step" id="ps-2"></div>
+        <div class="prog-step" id="ps-3"></div><div class="prog-step" id="ps-4"></div>
+      </div>
+      <div class="prog-text" id="prog-text"></div>
+    </div>
+    <div class="triage-out" id="triage-out">
+      <div id="verdict-el"></div>
+      <div class="g2">
+        <div>
+          <div class="t-section"><h4>Threat Assessment</h4><p id="t-assess"></p></div>
+          <div class="t-section"><h4>Attacker Profile</h4><p id="t-profile"></p></div>
+          <div class="t-section"><h4>MITRE Summary</h4><p id="t-mitre"></p></div>
+        </div>
+        <div>
+          <div class="t-section"><h4>Indicators of Compromise</h4><div id="t-iocs"></div></div>
+          <div class="t-section"><h4>Analyst Notes</h4><p id="t-notes"></p></div>
+        </div>
+      </div>
+      <div id="exec-section" style="display:none">
+        <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
+          <div class="t-section"><h4>Executive Summary</h4><p id="t-exec"></p></div>
+          <div class="g2">
+            <div class="t-section"><h4>Key Findings</h4><ul class="find-list" id="t-finds"></ul></div>
+            <div class="t-section"><h4>Recommended Actions</h4><ul class="act-list" id="t-acts"></ul></div>
+          </div>
+        </div>
+      </div>
+      <div class="t-meta"><span id="t-m-model"></span><span id="t-m-alerts"></span><span id="t-m-time"></span></div>
+    </div>
+  </div>
+</div>
+<footer>wazuh-soc-pipeline · Project 4 · CMU MSISPM Portfolio · Tyce Erickson · Cowrie SSH Honeypot (DigitalOcean NYC1) · AI: llama3.1:8b on RTX 4070</footer>
+
+<script>
+// ===== State =====
+let currentWindow = 60;
+let tlData = [];
+let tlInterval = '5m';
+let activeSeries = new Set(['total']);
+let sortDirs = {};
+let barSortAsc = {};
+let pollTimer = null;
+
+// ===== Utils =====
+const fmt = n => (n||0).toLocaleString();
+const timeAgo = iso => {
+  const s = Math.floor((Date.now()-new Date(iso))/1000);
+  return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:`${Math.floor(s/3600)}h ago`;
+};
+
+// Per-window timeline config: {interval sent to backend, label format fn, label every N points}
+const WINDOW_CONFIG = {
+  60:     {interval:'5m',   labelEvery:2,  fmt: d=>`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`},
+  360:    {interval:'30m',  labelEvery:2,  fmt: d=>`${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`},
+  1440:   {interval:'2h',   labelEvery:2,  fmt: d=>`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:00`},
+  10080:  {interval:'12h',  labelEvery:2,  fmt: d=>`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:00`},
+  43200:  {interval:'2d',   labelEvery:1,  fmt: d=>`${d.getMonth()+1}/${d.getDate()}`},
+  129600: {interval:'7d',   labelEvery:1,  fmt: d=>`${d.toLocaleString('default',{month:'short'})} ${d.getDate()}`},
+};
+
+// ===== Stats =====
+async function loadStats(){
+  try{
+    const r = await fetch(`/api/stats?minutes=${currentWindow}`);
+    const d = await r.json();
+    if(d.error){console.error(d.error);return;}
+    renderStats(d);
+    document.getElementById('refresh-time').textContent = `Updated ${timeAgo(d.as_of)}`;
+  }catch(e){console.error(e);}
+}
+
+function renderStats(d){
+  const sev = d.severity||{};
+  document.getElementById('s-total').textContent = fmt(d.total);
+  document.getElementById('s-crit').textContent  = fmt(sev.critical||0);
+  document.getElementById('s-high').textContent  = fmt(sev.high||0);
+  document.getElementById('s-med').textContent   = fmt(sev.medium||0);
+  document.getElementById('s-low').textContent   = fmt(sev.low||0);
+
+  tlData     = d.timeline||[];
+  tlInterval = d.timeline_interval||'5m';
+  drawTimeline();
+
+  renderBars('countries-chart', d.countries||{}, '#f0883e', 'countries');
+  renderBars('events-chart', d.event_types||{}, '#39d353', 'events');
+  renderIPTable(d.top_ips||[]);
+  renderMITRE(d.mitre_panel||[], d.mitre_tactics||{});
+
+  const es = d.enriched_stats||{};
+  renderCredsTable(es.top_credentials||{});
+  renderCmds(es.top_commands||{});
+}
+
+// ===== Timeline =====
+function toggleSeries(name, btn){
+  if(activeSeries.has(name)){
+    if(activeSeries.size===1) return;
+    activeSeries.delete(name);
+    btn.classList.remove('active');
+  }else{
+    activeSeries.add(name);
+    btn.classList.add('active');
+  }
+  drawTimeline();
+}
+
+function drawTimeline(){
+  const canvas = document.getElementById('tl-canvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width  = canvas.offsetWidth;
+  const H = canvas.height = 200;
+
+  const pad = {top:14, bottom:36, left:52, right:16};
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top  - pad.bottom;
+  ctx.clearRect(0,0,W,H);
+
+  if(!tlData.length) return;
+
+  // Build a full time-spanning point array for the x-axis
+  // This ensures labels always span the full selected window even with sparse data
+  const now = Date.now();
+  const windowMs = currentWindow * 60 * 1000;
+  const windowStart = now - windowMs;
+
+  // Build a lookup of actual data by timestamp bucket
+  const dataByTs = {};
+  tlData.forEach(pt => {
+    const ts = pt.ts || new Date(pt.time).getTime();
+    dataByTs[ts] = pt;
+  });
+
+  // Determine bucket size in ms from interval
+  const intervalMs = {
+    '5m': 5*60*1000, '30m': 30*60*1000, '2h': 2*3600*1000,
+    '12h': 12*3600*1000, '1d': 86400*1000, '1w': 7*86400*1000
+  }[tlInterval] || 3600*1000;
+
+  // Generate evenly-spaced points across the full window
+  const targetPoints = Math.min(Math.max(Math.round(windowMs / intervalMs), 2), 200);
+  const stepMs = windowMs / Math.max(targetPoints - 1, 1);
+
+  const pts = [];
+  for (let i = 0; i < targetPoints; i++) {
+    const ts = Math.round(windowStart + i * stepMs);
+    // Find closest actual data bucket within half a step
+    let match = null;
+    let minDiff = stepMs / 2;
+    for (const [bts, bpt] of Object.entries(dataByTs)) {
+      const diff = Math.abs(parseInt(bts) - ts);
+      if (diff < minDiff) { minDiff = diff; match = bpt; }
+    }
+    pts.push({
+      ts,
+      time: new Date(ts).toISOString(),
+      total:  match ? (match.total  || 0) : 0,
+      high:   match ? (match.high   || 0) : 0,
+      medium: match ? (match.medium || 0) : 0,
+      low:    match ? (match.low    || 0) : 0,
+    });
+  }
+
+  const seriesColors = {
+    total: '#a371f7', high: '#ff79c6', medium: '#d29922', low: '#388bfd'
+  };
+
+  // Max across active series
+  let maxVal = 1;
+  pts.forEach(pt => {
+    activeSeries.forEach(s => { maxVal = Math.max(maxVal, pt[s]||0); });
+  });
+
+  // ---- Y axis grid lines ----
+  const yTicks = 4;
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth   = 1;
+  for(let i=0; i<=yTicks; i++){
+    const y = pad.top + ch * (1 - i/yTicks);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W-pad.right, y); ctx.stroke();
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    const label = fmt(Math.round(maxVal * i/yTicks));
+    ctx.fillText(label, pad.left-6, y+4);
+  }
+
+  // ---- X axis labels ----
+  // Label density per window
+  const labelTargets = {
+    60: 21, 360: 7, 1440: 24, 10080: 14, 43200: 21, 129600: 21
+  };
+  const targetLabels = labelTargets[currentWindow] || 7;
+  const wcfg  = WINDOW_CONFIG[currentWindow] || WINDOW_CONFIG[60];
+  const step  = cw / Math.max(pts.length-1, 1);
+  const rawEvery  = Math.ceil(pts.length / targetLabels);
+  const labelEvery = Math.max(1, rawEvery);
+
+  ctx.fillStyle  = '#8b949e';
+  ctx.font       = '10px monospace';
+  ctx.textAlign  = 'center';
+  ctx.strokeStyle= '#30363d';
+  ctx.lineWidth  = 0.5;
+
+  pts.forEach((pt, i) => {
+    if(i % labelEvery === 0 || i === pts.length-1){
+      const x   = pad.left + i*step;
+      const ts  = pt.ts || new Date(pt.time).getTime();
+      const d   = new Date(ts);
+      const lbl = wcfg.fmt(d);
+
+      // Tick mark
+      ctx.beginPath();
+      ctx.moveTo(x, H-pad.bottom);
+      ctx.lineTo(x, H-pad.bottom+4);
+      ctx.stroke();
+
+      // Label
+      ctx.fillText(lbl, x, H-pad.bottom+16);
+    }
+  });
+
+  // ---- Series ----
+  activeSeries.forEach(series => {
+    const color = seriesColors[series]||'#a371f7';
+    const xypts = pts.map((pt,i)=>({
+      x: pad.left + i*step,
+      y: pad.top  + ch*(1 - (pt[series]||0)/maxVal),
+    }));
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, pad.top, 0, H-pad.bottom);
+    grad.addColorStop(0, color+'55');
+    grad.addColorStop(1, color+'05');
+    ctx.beginPath();
+    xypts.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+    ctx.lineTo(xypts[xypts.length-1].x, H-pad.bottom);
+    ctx.lineTo(xypts[0].x, H-pad.bottom);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    xypts.forEach((p,i)=> i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+  });
+}
+
+// ===== Bar charts =====
+function renderBars(id, data, color, key){
+  const el = document.getElementById(id);
+  let entries = Object.entries(data);
+  entries.sort((a,b)=> barSortAsc[key] ? a[1]-b[1] : b[1]-a[1]);
+  const max = Math.max(...entries.map(e=>e[1]), 1);
+  el.innerHTML = entries.slice(0,10).map(([k,v])=>`
+    <div class="bar-row">
+      <div class="bar-label" title="${k}">${k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%;background:${color}"></div></div>
+      <div class="bar-count">${fmt(v)}</div>
+    </div>`).join('');
+}
+
+function toggleBarSort(key){
+  barSortAsc[key] = !barSortAsc[key];
+  loadStats();
+}
+
+// ===== IP table =====
+function renderIPTable(ips){
+  document.getElementById('ips-tb').innerHTML = ips.map(ip=>`
+    <tr data-ip="${ip.ip}" data-country="${ip.country||''}" data-count="${ip.count}">
+      <td><div class="mono">${ip.ip}</div><div class="dim">${ip.org||''}</div></td>
+      <td>${ip.country||'—'}</td>
+      <td class="num">${fmt(ip.count)}</td>
+    </tr>`).join('');
+}
+
+// ===== Table sort =====
+function sortTbl(tbId, col, numDesc){
+  const tb = document.getElementById(tbId);
+  if(!tb) return;
+  const rows = Array.from(tb.rows);
+  const asc  = sortDirs[tbId+col] = !sortDirs[tbId+col];
+  rows.sort((a,b)=>{
+    const av = a.dataset[col]||'';
+    const bv = b.dataset[col]||'';
+    if(numDesc||!isNaN(parseFloat(av)))
+      return asc ? parseFloat(av)-parseFloat(bv) : parseFloat(bv)-parseFloat(av);
+    return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  rows.forEach(r=>tb.appendChild(r));
+}
+
+// ===== Credentials =====
+function renderCredsTable(creds){
+  document.getElementById('creds-tb').innerHTML = Object.entries(creds)
+    .sort((a,b)=>b[1]-a[1]).slice(0,15)
+    .map(([k,v])=>`
+      <tr data-cred="${k}" data-count="${v}">
+        <td class="mono">${k}</td><td class="num">${v}x</td>
+      </tr>`).join('');
+}
+
+// ===== Commands =====
+function renderCmds(cmds){
+  document.getElementById('cmds-list').innerHTML = Object.entries(cmds)
+    .sort((a,b)=>b[1]-a[1]).slice(0,6)
+    .map(([cmd,n])=>`
+      <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        <div class="mono" style="word-break:break-all;line-height:1.5;font-size:11px">${cmd.length>140?cmd.slice(0,140)+'…':cmd}</div>
+        <div class="dim" style="margin-top:3px">${n}× executed</div>
+      </div>`).join('');
+}
+
+// ===== MITRE =====
+function lvlClass(l){ return l>=15?'lvl-crit':l>=12?'lvl-high':l>=7?'lvl-med':'lvl-low'; }
+function lvlLabel(l){ return l>=15?'CRIT':l>=12?'HIGH':l>=7?'MED':'LOW'; }
+
+function renderMITRE(panel, tactics){
+  const grid  = document.getElementById('mitre-grid');
+  const total = Object.values(tactics).reduce((a,b)=>a+b,0);
+  document.getElementById('mitre-meta').textContent =
+    `${panel.length} tactics · ${fmt(total)} events`;
+
+  grid.innerHTML = panel.map((t,i)=>{
+    const idTags = t.tactic_ids.map(id=>`<span class="mitre-id-tag">${id}</span>`).join('');
+    const pct    = total>0 ? Math.round(t.count/total*100) : 0;
+    const examples = t.examples.map(ex=>{
+      const fields=[];
+      if(ex.src_ip)   fields.push(`<div class="ex-field"><span>IP </span>${ex.src_ip}</div>`);
+      if(ex.username) fields.push(`<div class="ex-field"><span>user </span>${ex.username}</div>`);
+      if(ex.password) fields.push(`<div class="ex-field"><span>pass </span>${ex.password}</div>`);
+      if(ex.command)  fields.push(`<div class="ex-field"><span>cmd </span>${ex.command.slice(0,50)}${ex.command.length>50?'…':''}</div>`);
+      if(ex.eventid)  fields.push(`<div class="ex-field"><span>event </span>${ex.eventid.replace('cowrie.','')}</div>`);
+      return `
+        <div class="example-item">
+          <div class="ex-hdr">
+            <span class="lvl ${lvlClass(ex.level)}">${lvlLabel(ex.level)}</span>
+            <span class="ex-desc">${ex.description||'Alert'}</span>
+            <span class="ex-time">${ex.timestamp?timeAgo(ex.timestamp):''}</span>
+          </div>
+          <div class="ex-fields">${fields.join('')}</div>
+        </div>`;
+    }).join('');
+    return `
+      <div class="mitre-row" id="mitre-${i}">
+        <div class="mitre-hdr" onclick="document.getElementById('mitre-${i}').classList.toggle('open')">
+          <div style="width:6px;height:6px;border-radius:50%;background:var(--purple);flex-shrink:0"></div>
+          <div class="mitre-tactic">${t.tactic}</div>
+          <div class="mitre-ids">${idTags}</div>
+          <div class="mitre-count">${fmt(t.count)} events · ${pct}%</div>
+          <div class="mitre-chevron">▶</div>
+        </div>
+        <div class="mitre-examples">
+          ${examples||'<div style="padding:12px;color:var(--muted);font-size:12px">No examples in current window</div>'}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ===== Manual Refresh =====
+async function manualRefresh(){
+  const btn=document.getElementById('refresh-btn');
+  const banner=document.getElementById('refresh-banner');
+  const msg=document.getElementById('refresh-msg');
+  btn.disabled=true; btn.classList.add('running'); btn.textContent='⟳ Refreshing...';
+  banner.classList.add('show'); msg.textContent='Enriching and exporting logs...';
+  try{ await fetch('/api/refresh',{method:'POST'}); }catch(e){ resetRefreshBtn(); return; }
+  const poll=setInterval(async()=>{
+    try{
+      const s=await(await fetch('/api/refresh/status')).json();
+      msg.textContent=s.progress||'Running...';
+      if(!s.running){ clearInterval(poll); banner.classList.remove('show'); resetRefreshBtn(); loadStats(); }
+    }catch(e){}
+  },1500);
+}
+function resetRefreshBtn(){
+  const btn=document.getElementById('refresh-btn');
+  btn.disabled=false; btn.classList.remove('running'); btn.textContent='⟳ Refresh Data';
+}
+
+// ===== AI Analysis =====
+async function runAnalysis(){
+  const mode=document.getElementById('ai-mode').value;
+  const mins=document.getElementById('ai-mins').value;
+  const limit=document.getElementById('ai-limit').value;
+  const btn=document.getElementById('run-btn');
+  const wrap=document.getElementById('prog-wrap');
+  const fill=document.getElementById('prog-fill');
+  const text=document.getElementById('prog-text');
+  btn.disabled=true; btn.textContent='⏳ Running...'; btn.classList.add('running');
+  wrap.classList.add('show'); document.getElementById('triage-out').classList.remove('show');
+  fill.style.width='3%'; text.textContent='Starting...';
+  [1,2,3,4].forEach(i=>document.getElementById(`ps-${i}`).className='prog-step');
+  try{
+    const r=await fetch('/api/analysis/run',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mode,minutes:parseInt(mins),limit:parseInt(limit)})});
+    if(!r.ok){const e=await r.json();throw new Error(e.error||'Failed');}
+  }catch(e){text.textContent=`Error: ${e.message}`;resetRunBtn();return;}
+  let pct=3;
+  pollTimer=setInterval(async()=>{
+    try{
+      const s=await(await fetch('/api/analysis/status')).json();
+      text.textContent=s.progress||'Running...';
+      const step=s.step||0;
+      [1,2,3,4].forEach(i=>{
+        document.getElementById(`ps-${i}`).className='prog-step'+(i<step?' done':i===step?' active':'');
+      });
+      if(!s.running&&s.progress==='Complete'){
+        clearInterval(pollTimer); fill.style.width='100%';
+        setTimeout(()=>{loadTriage();resetRunBtn();wrap.classList.remove('show');},600);
+      }else if(s.error){clearInterval(pollTimer);text.textContent=`Error: ${s.error}`;resetRunBtn();}
+      else{pct=Math.min(pct+5,92);fill.style.width=pct+'%';}
+    }catch(e){}
+  },2000);
+}
+function resetRunBtn(){
+  const btn=document.getElementById('run-btn');
+  btn.disabled=false; btn.textContent='▶ Run AI Analysis'; btn.classList.remove('running');
+}
+
+// ===== Triage =====
+async function loadTriage(){
+  try{ renderTriage(await(await fetch('/api/triage')).json()); }catch(e){}
+}
+function renderTriage(d){
+  if(!d||!d.triage_results||!d.triage_results.length)return;
+  const out=document.getElementById('triage-out');
+  out.classList.add('show');
+  const best=d.triage_results.find(r=>r.severity_verdict==='critical')||
+             d.triage_results.find(r=>r.severity_verdict==='high')||d.triage_results[0];
+  if(!best)return;
+  const v=(best.severity_verdict||'medium').toUpperCase();
+  document.getElementById('verdict-el').innerHTML=`<div class="verdict v-${v}">◈ Threat Verdict: ${v}</div>`;
+  const set=(id,val)=>{const e=document.getElementById(id);if(e)e.textContent=val||'—';};
+  set('t-assess',best.threat_assessment);set('t-profile',best.attacker_profile);
+  set('t-mitre',best.mitre_summary);set('t-notes',best.analyst_notes);
+  const iocs=best.iocs||{};
+  const iocEl=document.getElementById('t-iocs');iocEl.innerHTML='';
+  ['ip_addresses','credentials','commands'].forEach(type=>{
+    const items=iocs[type]||[];if(!items.length)return;
+    iocEl.innerHTML+=`<div style="margin-bottom:8px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">${type.replace('_',' ').toUpperCase()}</div>
+      <div class="ioc-wrap">${items.slice(0,5).map(i=>`<span class="ioc-tag">${i.length>50?i.slice(0,50)+'…':i}</span>`).join('')}</div>
+    </div>`;
+  });
+  const exec=d.executive_summary;
+  const es=document.getElementById('exec-section');
+  if(exec){
+    es.style.display='block';set('t-exec',exec.executive_summary);
+    const rl=(id,items)=>{const e=document.getElementById(id);if(e)e.innerHTML=(items||[]).map(i=>`<li>${i}</li>`).join('');};
+    rl('t-finds',exec.key_findings);rl('t-acts',exec.recommended_actions);
+  }else{es.style.display='none';}
+  set('t-m-model',`Model: ${d.model}`);
+  set('t-m-alerts',`Alerts: ${d.alerts_analyzed}`);
+  set('t-m-time',`Generated: ${timeAgo(d.generated_at)}`);
+}
+
+// ===== Window =====
+function setWindow(v){
+  currentWindow=parseInt(v);
+  loadStats();
+}
+
+// ===== Init =====
+window.addEventListener('load',()=>{
+  loadStats(); loadTriage();
+  setInterval(loadStats,60000);
+  window.addEventListener('resize', drawTimeline);
+});
+</script>
+</body>
+</html>

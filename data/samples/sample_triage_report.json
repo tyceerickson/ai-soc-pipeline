@@ -1,287 +1,132 @@
 {
-  "generated_at": "2026-05-23T21:14:10.808616+00:00",
-  "mode": "executive",
+  "generated_at": "2026-05-23T22:30:21.333790+00:00",
+  "mode": "summary",
   "model": "llama3.1:8b",
   "ollama_host": "http://100.72.171.104:11434",
-  "alerts_analyzed": 50,
+  "alerts_analyzed": 100,
   "stats": {
-    "total": 50,
-    "honeypot_alerts": 50,
+    "total": 100,
+    "honeypot_alerts": 100,
     "by_severity": {
-      "low": 13,
-      "medium": 37
+      "medium": 74,
+      "low": 26
     },
     "top_rule_ids": {
-      "100103": 18,
-      "100104": 17,
-      "100102": 13,
-      "100110": 2
+      "100104": 50,
+      "100102": 26,
+      "100103": 24
     },
     "top_src_ips": {
-      "102.88.137.213": 12,
-      "103.118.82.254": 10,
-      "101.79.23.38": 8,
-      "79.143.188.82": 6,
-      "43.160.214.230": 6,
-      "138.124.85.214": 5,
-      "4.240.82.91": 2,
-      "45.84.107.17": 1
+      "47.254.30.91": 32,
+      "43.156.24.132": 14,
+      "152.32.187.177": 13,
+      "103.118.82.254": 11,
+      "102.88.137.213": 6,
+      "4.240.82.91": 6,
+      "101.79.23.38": 6,
+      "80.94.92.171": 3,
+      "168.144.95.137": 3,
+      "79.143.188.82": 2
     },
     "top_countries": {
-      "Nigeria": 12,
-      "Indonesia": 10,
-      "South Korea": 8,
-      "France": 6,
-      "Singapore": 6,
-      "Switzerland": 5,
-      "India": 2,
-      "Sweden": 1
+      "United States": 34,
+      "Singapore": 14,
+      "Hong Kong": 13,
+      "Indonesia": 11,
+      "India": 9,
+      "Nigeria": 6,
+      "South Korea": 6,
+      "Romania": 3,
+      "France": 2,
+      "Switzerland": 1
     },
     "top_orgs": {
-      "MTN NIGERIA Communication limited": 12,
-      "Yayasan Pendidikan Universitas Presiden": 10,
-      "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.": 8,
-      "Contabo GmbH": 6,
-      "Tencent Building, Kejizhongyi Avenue": 6
+      "Alibaba US Technology Co., Ltd.": 32,
+      "Tencent Building, Kejizhongyi Avenue": 14,
+      "UCLOUD INFORMATION TECHNOLOGY HK LIMITED": 13,
+      "Yayasan Pendidikan Universitas Presiden": 11,
+      "Microsoft Corporation": 8
     },
     "mitre_tactics": {
-      "Credential Access": 33,
-      "Defense Evasion": 18,
-      "Persistence": 18,
-      "Privilege Escalation": 18,
-      "Initial Access": 18,
-      "Execution": 17
+      "Execution": 50,
+      "Credential Access": 50,
+      "Defense Evasion": 24,
+      "Persistence": 24,
+      "Privilege Escalation": 24,
+      "Initial Access": 24
     },
     "cowrie_eventids": {
-      "cowrie.login.success": 18,
-      "cowrie.command.input": 17,
-      "cowrie.login.failed": 15
+      "cowrie.command.input": 50,
+      "cowrie.login.failed": 26,
+      "cowrie.login.success": 24
     },
     "top_credentials": {
-      "345gs5662d34/345gs5662d34": 10,
-      "root/3245gs5662d34": 9,
-      "root/root123456": 2,
-      "root/a123456789": 1,
-      "group1/group1": 1,
-      "root/123zxc123": 1,
-      "root/computer": 1,
-      "root/linux123": 1,
-      "root/Aaa123321": 1,
-      "root/1qaz2WSX": 1
+      "root/3245gs5662d34": 10,
+      "345gs5662d34/345gs5662d34": 9,
+      "runner/123456": 2,
+      "postgres/postgres@2025": 2,
+      "root/root": 1,
+      "admin/123456": 1,
+      "root/111111": 1,
+      "root/default": 1,
+      "root/system": 1,
+      "root/Haslo-123": 1
     },
     "top_commands": {
-      "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~": 9,
-      "cd ~; chattr -ia .ssh; lockr -ia .ssh": 8
+      "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~": 11,
+      "cd ~; chattr -ia .ssh; lockr -ia .ssh": 9,
+      "cat /proc/uptime 2 > /dev/null | cut -d. -f1": 6,
+      "uname -s -v -n -m 2 > /dev/null": 6,
+      "uname -m 2 > /dev/null": 6,
+      "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH; uname=$(uname -s -v -n -m 2>/dev/null); arch=$(uname -m 2>/dev/null); uptime=$(cat /proc/uptime 2>/dev/null | cut -d. -f1); cpus=$( (nproc 2>/dev/null || /usr/bin/nproc 2>/dev/null || grep -c \"^processor\" /proc/cpuinfo 2>/dev/null) | head -1); cpu_model=$( (grep -m1 -E \"model name|Hardware\" /proc/cpuinfo | cut -d: -f2- | sed 's/^ *//;s/ *$//' ; lscpu 2>/dev/null | awk -F: '/Model name/ {gsub(/^ +| +$/,\"\",$2); print $2; exit}' ; dmidecode -s processor-version 2>/dev/null | head -n1 ; uname -p 2>/dev/null) | awk 'NF{print; exit}' ); gpu_info=$( (lspci 2>/dev/null | grep -i vga; lspci 2>/dev/null | grep -i nvidia) 2>/dev/null | head -n50); cat_help=$( (cat --help 2>&1 | tr '\\n' ' ') || cat --help 2>&1); ls_help=$( (ls --help 2>&1 | tr '\\n' ' ') || ls --help 2>&1); last_output=$(last 2>/dev/null | head -n 10); echo \"UNAME:$uname\"; echo \"ARCH:$arch\"; echo \"UPTIME:$uptime\"; echo \"CPUS:$cpus\"; echo \"CPU_MODEL:$cpu_model\"; echo \"GPU:$gpu_info\"; echo \"CAT_HELP:$cat_help\"; echo \"LS_HELP:$ls_help\"; echo \"LAST:$last_output\"": 6,
+      "whoami": 1,
+      "lscpu | grep Model": 1,
+      "df -h | head -n 2 | awk 'FNR == 2 {print $2;}'": 1,
+      "uname": 1
     }
   },
   "triage_results": [
     {
-      "threat_assessment": "This batch of alerts indicates a coordinated attack from multiple IP addresses, targeting various credentials and attempting to establish persistence on the system.",
-      "attacker_profile": "The attacker appears to be an organized group with a focus on credential access and privilege escalation, likely using automated tools for brute-force attacks.",
-      "top_threats": [
-        {
-          "alert_number": 2,
-          "threat_type": "Credential Access",
-          "explanation": "Successful SSH login attempts were made using compromised credentials from multiple IP addresses.",
-          "recommended_action": "Implement multi-factor authentication and monitor system logs for suspicious activity."
-        },
-        {
-          "alert_number": 5,
-          "threat_type": "Execution",
-          "explanation": "Malicious commands were executed on the honeypot, indicating potential persistence and privilege escalation.",
-          "recommended_action": "Review system configuration and ensure that all SSH keys are properly managed and monitored."
-        }
-      ],
-      "iocs": {
-        "ip_addresses": [
-          "103.118.82.254",
-          "102.88.137.213"
-        ],
-        "credentials": [
-          "root/a123456789",
-          "root/3245gs5662d34",
-          "group1/group1"
-        ],
-        "commands": [
-          "cd ~ && rm -rf .ssh && mkdir .ssh && echo ... >>.ssh/authorized_keys"
-        ]
-      },
-      "mitre_summary": "The observed ATT&CK techniques include Credential Access, Defense Evasion, Persistence, Privilege Escalation, and Initial Access.",
-      "severity_verdict": "high",
-      "analyst_notes": "Further investigation is required to determine the full scope of the attack and identify any potential vulnerabilities in the system.",
-      "batch_number": 1,
-      "alerts_in_batch": 10
-    },
-    {
-      "threat_assessment": "This batch of alerts indicates a coordinated attack on the honeypot, with multiple attackers attempting to gain access and execute malicious commands. The attackers appear to be using credential stuffing and execution techniques.",
-      "attacker_profile": "The attackers are likely script kiddies or low-skilled threat actors, as they are relying on pre-existing exploits and techniques.",
+      "threat_assessment": "This batch of alerts indicates a coordinated attack on the honeypot, with multiple attempts to gain SSH access using common default credentials. The attackers appear to be targeting known weak points in system security.",
+      "attacker_profile": "The likely attacker type is an automated botnet or script kiddie, intent on exploiting easily guessable credentials for initial access and potential persistence.",
       "top_threats": [
         {
           "alert_number": 1,
           "threat_type": "Credential Access",
-          "explanation": "Attackers attempted to log in with a weak password.",
-          "recommended_action": "Implement multi-factor authentication and enforce strong passwords."
+          "explanation": "Attackers attempted to log in with default SSH credentials (root/111111) from a US-based IP.",
+          "recommended_action": "Review and update SSH configuration to prevent brute-force attacks"
         },
         {
           "alert_number": 4,
-          "threat_type": "Execution",
-          "explanation": "Attackers executed a command to modify the .ssh directory.",
-          "recommended_action": "Monitor for suspicious file modifications and implement logging on critical directories."
-        }
-      ],
-      "iocs": {
-        "ip_addresses": [
-          "138.124.85.214",
-          "102.88.137.213"
-        ],
-        "credentials": [
-          "root/3245gs5662d34",
-          "345gs5662d34/345gs5662d34"
-        ],
-        "commands": [
-          "cd ~; chattr -ia .ssh; lockr -ia .ssh",
-          "cd ~ && rm -rf .ssh && mkdir .ssh && echo ... >.ssh/authorized_keys"
-        ]
-      },
-      "mitre_summary": "The attackers observed in this batch of alerts are using techniques from the Credential Access, Execution, and Privilege Escalation tactics.",
-      "severity_verdict": "medium",
-      "analyst_notes": "Note that multiple IP addresses are attempting to access the honeypot with the same weak password. This may indicate a larger-scale attack.",
-      "batch_number": 2,
-      "alerts_in_batch": 10
-    },
-    {
-      "threat_assessment": "This alert batch indicates a coordinated attack campaign targeting SSH login credentials, likely with the intent to gain persistence and escalate privileges.",
-      "attacker_profile": "The attackers appear to be organized, using multiple IP addresses from different countries to attempt various login combinations and execute malicious commands.",
-      "top_threats": [
-        {
-          "alert_number": 1,
-          "threat_type": "Credential Access",
-          "explanation": "Attackers attempted to log in with a root/computer credential combination from an IP address associated with Contabo GmbH.",
-          "recommended_action": "Monitor and block login attempts from suspicious IP addresses"
+          "threat_type": "Initial Access",
+          "explanation": "Attackers attempted to log in with weak, easily guessable credentials (root/Haslo-123) from a Hong Kong-based IP.",
+          "recommended_action": "Enforce strong password policies and consider implementing multi-factor authentication"
         },
         {
           "alert_number": 7,
-          "threat_type": "Execution",
-          "explanation": "Attackers executed a malicious command to modify the SSH authorized_keys file on the honeypot.",
-          "recommended_action": "Review and update SSH configuration to prevent similar attacks"
+          "threat_type": "Persistence",
+          "explanation": "Attackers attempted to log in with previously used credentials (root/3245gs5662d34) from multiple IPs.",
+          "recommended_action": "Monitor login attempts and investigate potential persistence mechanisms"
         }
       ],
       "iocs": {
         "ip_addresses": [
-          "79.143.188.82",
-          "138.124.85.214",
-          "102.88.137.213"
+          "47.254.30.91",
+          "152.32.187.177",
+          "43.156.24.132"
         ],
         "credentials": [
-          "root/computer",
-          "root/3245gs5662d34",
-          "root/root123456"
+          "root/111111",
+          "root/default",
+          "root/system",
+          "root/Haslo-123",
+          "root/3245gs5662d34"
         ],
-        "commands": [
-          "cd ~; chattr -ia .ssh; lockr -ia .ssh",
-          "cd ~ && rm -rf .ssh && mkdir .ssh && echo ... > .ssh/authorized_keys"
-        ]
-      },
-      "mitre_summary": "The attackers employed techniques from the Credential Access, Defense Evasion, Persistence, Privilege Escalation, and Initial Access categories.",
-      "severity_verdict": "high",
-      "analyst_notes": "Note that multiple IP addresses attempted to log in with the same root/root123456 credential combination, indicating a possible attack campaign.",
-      "batch_number": 3,
-      "alerts_in_batch": 10
-    },
-    {
-      "threat_assessment": "This batch of alerts indicates a coordinated attack on the honeypot, with multiple successful logins and command executions from different IP addresses. The attackers appear to be attempting to gain persistence and escalate privileges. Further investigation is required to determine the full scope of the attack.",
-      "attacker_profile": "The likely attacker type is an organized group or nation-state actor, given the sophistication of their tactics and the use of multiple IP addresses. Their intent appears to be gaining unauthorized access to systems for malicious purposes.",
-      "top_threats": [
-        {
-          "alert_number": 1,
-          "threat_type": "Credential Access",
-          "explanation": "Attackers attempted to log in with a valid username and password combination, indicating they may have obtained this information through other means.",
-          "recommended_action": "Implement multi-factor authentication to prevent unauthorized access"
-        },
-        {
-          "alert_number": 5,
-          "threat_type": "Execution",
-          "explanation": "Attackers executed commands to modify the SSH configuration and create a backdoor, indicating they are attempting to maintain persistence.",
-          "recommended_action": "Monitor system logs for suspicious activity and implement regular security audits"
-        }
-      ],
-      "iocs": {
-        "ip_addresses": [
-          "43.160.214.230",
-          "101.79.23.38"
-        ],
-        "credentials": [
-          "root/linux123",
-          "root/Aaa123321",
-          "mexal/mexal"
-        ],
-        "commands": [
-          "cd ~; chattr -ia .ssh; lockr -ia .ssh",
-          "rm -rf .ssh && mkdir .ssh && echo ... >>.ssh/authorized_keys"
-        ]
+        "commands": []
       },
       "mitre_summary": "The observed ATT&CK techniques include Credential Access, Defense Evasion, Persistence, Privilege Escalation, and Initial Access.",
       "severity_verdict": "high",
-      "analyst_notes": "Further investigation is required to determine the full scope of the attack and identify any potential vulnerabilities in the system.",
-      "batch_number": 4,
-      "alerts_in_batch": 10
-    },
-    {
-      "threat_assessment": "This batch of alerts indicates a coordinated attack on the honeypot, with multiple attempts to gain access and execute malicious commands. The attackers appear to be using brute-force techniques and exploiting SSH vulnerabilities.",
-      "attacker_profile": "The likely attacker type is an organized group or nation-state actor, with intent to gain unauthorized access to systems for potential espionage or data exfiltration.",
-      "top_threats": [
-        {
-          "alert_number": 2,
-          "threat_type": "Credential Access",
-          "explanation": "Successful SSH login attempt using a weak password",
-          "recommended_action": "Implement multi-factor authentication and monitor for similar attacks"
-        },
-        {
-          "alert_number": 9,
-          "threat_type": "Execution",
-          "explanation": "Malicious command executed to modify system files",
-          "recommended_action": "Review system logs and implement file integrity monitoring"
-        }
-      ],
-      "iocs": {
-        "ip_addresses": [
-          "103.118.82.254",
-          "43.160.214.230",
-          "101.79.23.38",
-          "102.88.137.213"
-        ],
-        "credentials": [
-          "345gs5662d34/345gs5662d34",
-          "root/3245gs5662d34",
-          "hossein/123456"
-        ],
-        "commands": [
-          "cd ~ && rm -rf .ssh && mkdir .ssh && echo ...authorized_keys...",
-          "chattr -ia .ssh; lockr -ia .ssh"
-        ]
-      },
-      "mitre_summary": "Observed ATT&CK techniques include Credential Access, Execution, and Defense Evasion.",
-      "severity_verdict": "high",
-      "analyst_notes": "The attackers appear to be using a coordinated approach, with multiple IP addresses attempting to access the honeypot. Further investigation is required to determine the full scope of the attack.",
-      "batch_number": 5,
-      "alerts_in_batch": 10
+      "analyst_notes": ""
     }
-  ],
-  "executive_summary": {
-    "executive_summary": "Our honeypot operation has detected a high-severity threat, with multiple attackers attempting to gain unauthorized access and persist on our systems.",
-    "key_findings": [
-      "Multiple countries are represented among the attacking IPs, indicating a coordinated effort.",
-      "Common tactics include credential access, defense evasion, and privilege escalation.",
-      "The honeypot has been compromised by attackers from Nigeria, Indonesia, South Korea, France, and Singapore."
-    ],
-    "threat_level": "high",
-    "recommended_actions": [
-      "Immediately block the identified attacker IPs at our network perimeter.",
-      "Conduct a thorough review of our system logs to identify any potential vulnerabilities.",
-      "Implement additional security measures to prevent similar attacks in the future."
-    ],
-    "threat_actors": "The attackers appear to be sophisticated, using multiple tactics to evade detection and gain unauthorized access. Their motivations are unclear at this time.",
-    "time_period": "alerts from the last hour",
-    "generated_at": "2026-05-23T21:14:05.485792+00:00"
-  }
+  ]
 }
