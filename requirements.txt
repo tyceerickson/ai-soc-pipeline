@@ -1,0 +1,7 @@
+# No pip installs required — uses Python 3.12 standard library only
+# External services:
+#   Wazuh indexer (OpenSearch) — https://localhost:9200
+#   Ollama — http://100.72.171.104:11434 (llama3.1:8b)
+#
+# Optional dashboard dependencies (if Flask used):
+flask>=3.0.0

@@ -1,0 +1,127 @@
+<!-- ============================================================
+     Custom Wazuh Rules for Cowrie Honeypot
+     File: /var/ossec/etc/rules/cowrie-rules.xml
+     On Wazuh Manager — copy this file there during Project 4
+
+     Rule IDs: 100100-100120
+     ============================================================ -->
+
+<group name="cowrie,honeypot,">
+
+  <!-- ── Base rule — all Cowrie events ──────────────────── -->
+  <rule id="100100" level="3">
+    <decoded_as>json</decoded_as>
+    <field name="honeypot">cowrie</field>
+    <description>Cowrie honeypot event</description>
+    <group>honeypot,</group>
+  </rule>
+
+  <!-- ── SSH connection to honeypot ────────────────────── -->
+  <rule id="100101" level="3">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.session.connect</field>
+    <description>Honeypot: New SSH connection from $(src_ip)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>honeypot,connection,</group>
+  </rule>
+
+  <!-- ── SSH brute force ───────────────────────────────── -->
+  <rule id="100102" level="6">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.login.failed</field>
+    <description>Honeypot: Failed SSH login attempt [$(username)/$(password)] from $(src_ip)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>honeypot,authentication_failed,brute_force,</group>
+  </rule>
+
+  <!-- ── Successful login ──────────────────────────────── -->
+  <rule id="100103" level="10">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.login.success</field>
+    <description>Honeypot: Successful SSH login [$(username)/$(password)] from $(src_ip)</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078</id>
+    </mitre>
+    <group>honeypot,authentication_success,</group>
+  </rule>
+
+  <!-- ── Command execution ─────────────────────────────── -->
+  <rule id="100104" level="8">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.command.input</field>
+    <description>Honeypot: Command executed: $(command)</description>
+    <mitre>
+      <id>T1059</id>
+    </mitre>
+    <group>honeypot,command,</group>
+  </rule>
+
+  <!-- ── SSH key implant ───────────────────────────────── -->
+  <rule id="100105" level="12">
+    <if_sid>100104</if_sid>
+    <field name="command">authorized_keys</field>
+    <description>Honeypot: SSH key backdoor implant attempt from $(src_ip)</description>
+    <mitre>
+      <id>T1098.004</id>
+    </mitre>
+    <group>honeypot,backdoor,persistence,</group>
+  </rule>
+
+  <!-- ── Malware download attempt ─────────────────────── -->
+  <rule id="100106" level="10">
+    <if_sid>100104</if_sid>
+    <field name="command">\.wget |\.curl |\.tftp </field>
+    <description>Honeypot: Malware download attempt from $(src_ip)</description>
+    <mitre>
+      <id>T1105</id>
+    </mitre>
+    <group>honeypot,malware,download,</group>
+  </rule>
+
+  <!-- ── Password change attempt ──────────────────────── -->
+  <rule id="100107" level="12">
+    <if_sid>100104</if_sid>
+    <field name="command">chpasswd|passwd</field>
+    <description>Honeypot: Password change attempt from $(src_ip)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>honeypot,credential_access,</group>
+  </rule>
+
+  <!-- ── Cryptominer recon ─────────────────────────────── -->
+  <rule id="100108" level="8">
+    <if_sid>100104</if_sid>
+    <field name="command">cpuinfo|nproc|lscpu|free -m</field>
+    <description>Honeypot: Cryptominer reconnaissance from $(src_ip)</description>
+    <mitre>
+      <id>T1082</id>
+    </mitre>
+    <group>honeypot,cryptominer,recon,</group>
+  </rule>
+
+  <!-- ── HASSH fingerprint logged ─────────────────────── -->
+  <rule id="100109" level="3">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.client.kex</field>
+    <description>Honeypot: SSH client fingerprinted HASSH=$(hassh) from $(src_ip)</description>
+    <group>honeypot,fingerprint,</group>
+  </rule>
+
+  <!-- ── Brute force frequency alert ──────────────────── -->
+  <rule id="100110" level="10" frequency="10" timeframe="60">
+    <if_matched_sid>100102</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Honeypot: SSH brute force attack — 10+ attempts from $(src_ip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>honeypot,brute_force,</group>
+  </rule>
+
+</group>
