@@ -1,0 +1,21 @@
+<!-- ── Project 3 Honeypot Log Sources ────────────────── -->
+  <!-- Cowrie SSH/Telnet — GeoIP-enriched, Wazuh-normalized -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/opt/cowrie-logs/wazuh/wazuh-cowrie.json</location>
+    <label key="honeypot">cowrie</label>
+    <label key="sensor">digitalocean-nyc1</label>
+  </localfile>
+
+  <!-- Cowrie raw (backup source) -->
+  <localfile>
+    <log_format>json</log_format>
+    <location>/opt/cowrie-logs/cowrie.json</location>
+    <label key="honeypot">cowrie-raw</label>
+  </localfile>
+
+  <!-- nginx web honeypot -->
+  <localfile>
+    <log_format>apache</log_format>
+    <location>/opt/cowrie-logs/nginx/access.log</location>
+    <label key="honeypot">nginx-web</label>

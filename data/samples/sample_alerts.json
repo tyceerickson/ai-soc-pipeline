@@ -1,0 +1,2251 @@
+{
+  "polled_at": "2026-05-23T20:47:59.981623+00:00",
+  "window_minutes": 60,
+  "min_level": 6,
+  "honeypot_only": true,
+  "total_available": 10000,
+  "geoip_enriched": 50,
+  "stats": {
+    "total": 50,
+    "honeypot_alerts": 50,
+    "by_severity": {
+      "low": 13,
+      "medium": 37
+    },
+    "top_rule_ids": {
+      "100103": 18,
+      "100104": 17,
+      "100102": 13,
+      "100110": 2
+    },
+    "top_src_ips": {
+      "102.88.137.213": 12,
+      "103.118.82.254": 10,
+      "101.79.23.38": 8,
+      "79.143.188.82": 6,
+      "43.160.214.230": 6,
+      "138.124.85.214": 5,
+      "4.240.82.91": 2,
+      "45.84.107.17": 1
+    },
+    "top_countries": {
+      "Nigeria": 12,
+      "Indonesia": 10,
+      "South Korea": 8,
+      "France": 6,
+      "Singapore": 6,
+      "Switzerland": 5,
+      "India": 2,
+      "Sweden": 1
+    },
+    "top_orgs": {
+      "MTN NIGERIA Communication limited": 12,
+      "Yayasan Pendidikan Universitas Presiden": 10,
+      "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.": 8,
+      "Contabo GmbH": 6,
+      "Tencent Building, Kejizhongyi Avenue": 6
+    },
+    "mitre_tactics": {
+      "Credential Access": 33,
+      "Defense Evasion": 18,
+      "Persistence": 18,
+      "Privilege Escalation": 18,
+      "Initial Access": 18,
+      "Execution": 17
+    },
+    "cowrie_eventids": {
+      "cowrie.login.success": 18,
+      "cowrie.command.input": 17,
+      "cowrie.login.failed": 15
+    },
+    "top_credentials": {
+      "345gs5662d34/345gs5662d34": 10,
+      "root/3245gs5662d34": 9,
+      "root/root123456": 2,
+      "root/a123456789": 1,
+      "group1/group1": 1,
+      "root/123zxc123": 1,
+      "root/computer": 1,
+      "root/linux123": 1,
+      "root/Aaa123321": 1,
+      "root/1qaz2WSX": 1
+    },
+    "top_commands": {
+      "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~": 9,
+      "cd ~; chattr -ia .ssh; lockr -ia .ssh": 8
+    }
+  },
+  "alerts": [
+    {
+      "alert_id": "3_WVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 138.124.85.214",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "138.124.85.214",
+      "src_country": "Switzerland",
+      "src_city": "Unknown",
+      "src_org": "Baykov Ilya Sergeevich",
+      "src_asn": "AS41745",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "f3ce937460f2",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:52:02.330030Z\",\"src_ip\":\"138.124.85.214\",\"session\":\"f3ce937460f2\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "7PWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/a123456789] from 103.118.82.254",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "c1a7b0986023",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "a123456789",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"a123456789\",\"message\":\"login attempt [root/a123456789] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:03.844456Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"c1a7b0986023\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "_fWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 103.118.82.254",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "ec98a3ab9788",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:09.665763Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"ec98a3ab9788\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "GPWVVp4B2OmtFxAh7hFK",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "f60ecdec033d",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:58.600443Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"f60ecdec033d\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "8vWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "c1a7b0986023",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "-PWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100110",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: SSH brute force attack \u2014 10+ attempts from 103.118.82.254",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "64b03370403f",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:06.961062Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"64b03370403f\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "A_WVVp4B2OmtFxAh7hFA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [group1/group1] from 4.240.82.91",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "4.240.82.91",
+      "src_country": "India",
+      "src_city": "Pune",
+      "src_org": "Microsoft Corporation",
+      "src_asn": "AS8075",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "8497495f6fa8",
+      "protocol": "ssh",
+      "username": "group1",
+      "password": "group1",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"group1\",\"password\":\"group1\",\"message\":\"login attempt [group1/group1] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:52.547776Z\",\"src_ip\":\"4.240.82.91\",\"session\":\"8497495f6fa8\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "BvWVVp4B2OmtFxAh7hFK",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/123zxc123] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "54b86c6818f1",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "123zxc123",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"123zxc123\",\"message\":\"login attempt [root/123zxc123] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:54.017498Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"54b86c6818f1\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "DPWVVp4B2OmtFxAh7hFK",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "54b86c6818f1",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "E_WVVp4B2OmtFxAh7hFK",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "02a227549b2d",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:56.325012Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"02a227549b2d\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "5PWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 138.124.85.214",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "138.124.85.214",
+      "src_country": "Switzerland",
+      "src_city": "Unknown",
+      "src_org": "Baykov Ilya Sergeevich",
+      "src_asn": "AS41745",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "01e10b35ec93",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:52:05.169909Z\",\"src_ip\":\"138.124.85.214\",\"session\":\"01e10b35ec93\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "7vWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "c1a7b0986023",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:04.366466Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"c1a7b0986023\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "CPWVVp4B2OmtFxAh7hFK",
+      "timestamp": "2026-05-23T20:45:22.607+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "54b86c6818f1",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:54:54.417419Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"54b86c6818f1\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "wvWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "79.143.188.82",
+      "src_country": "France",
+      "src_city": "Lauterbourg",
+      "src_org": "Contabo GmbH",
+      "src_asn": "AS51167",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "4a82b7404b31",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "1fWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "138.124.85.214",
+      "src_country": "Switzerland",
+      "src_city": "Unknown",
+      "src_org": "Baykov Ilya Sergeevich",
+      "src_asn": "AS41745",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "4f51803a0c7d",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:51:56.448132Z\",\"src_ip\":\"138.124.85.214\",\"session\":\"4f51803a0c7d\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "qPWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 101.79.23.38",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "a092b9609316",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:36:44.292425Z\",\"src_ip\":\"101.79.23.38\",\"session\":\"a092b9609316\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "tvWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "426671b46ceb",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:50:34.635172Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"426671b46ceb\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "yPWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 79.143.188.82",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "79.143.188.82",
+      "src_country": "France",
+      "src_city": "Lauterbourg",
+      "src_org": "Contabo GmbH",
+      "src_asn": "AS51167",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "a8ac500e20e4",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:51:02.216238Z\",\"src_ip\":\"79.143.188.82\",\"session\":\"a8ac500e20e4\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "2fWVVp4B2OmtFxAh7hBA",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "138.124.85.214",
+      "src_country": "Switzerland",
+      "src_city": "Unknown",
+      "src_org": "Baykov Ilya Sergeevich",
+      "src_asn": "AS41745",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "4f51803a0c7d",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "sfWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "76a468cd3ab7",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:50:32.311257Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"76a468cd3ab7\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "vPWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/computer] from 79.143.188.82",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "79.143.188.82",
+      "src_country": "France",
+      "src_city": "Lauterbourg",
+      "src_org": "Contabo GmbH",
+      "src_asn": "AS51167",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "4a82b7404b31",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "computer",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"computer\",\"message\":\"login attempt [root/computer] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:51:00.975548Z\",\"src_ip\":\"79.143.188.82\",\"session\":\"4a82b7404b31\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "vvWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "79.143.188.82",
+      "src_country": "France",
+      "src_city": "Lauterbourg",
+      "src_org": "Contabo GmbH",
+      "src_asn": "AS51167",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "4a82b7404b31",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:51:01.203053Z\",\"src_ip\":\"79.143.188.82\",\"session\":\"4a82b7404b31\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "zfWVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 79.143.188.82",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "79.143.188.82",
+      "src_country": "France",
+      "src_city": "Lauterbourg",
+      "src_org": "Contabo GmbH",
+      "src_asn": "AS51167",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "c32d53ebb73d",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:51:04.916585Z\",\"src_ip\":\"79.143.188.82\",\"session\":\"c32d53ebb73d\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "0_WVVp4B2OmtFxAh7hAm",
+      "timestamp": "2026-05-23T20:45:22.606+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/root123456] from 138.124.85.214",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "138.124.85.214",
+      "src_country": "Switzerland",
+      "src_city": "Unknown",
+      "src_org": "Baykov Ilya Sergeevich",
+      "src_asn": "AS41745",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "4f51803a0c7d",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "root123456",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"root123456\",\"message\":\"login attempt [root/root123456] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:51:56.120608Z\",\"src_ip\":\"138.124.85.214\",\"session\":\"4f51803a0c7d\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "LvWVVp4B2OmtFxAh7hAG",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "4dd944b70175",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:32:09.084530Z\",\"src_ip\":\"101.79.23.38\",\"session\":\"4dd944b70175\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "RvWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/root123456] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "f362fc006833",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "root123456",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"root123456\",\"message\":\"login attempt [root/root123456] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:33:06.148800Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"f362fc006833\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "TPWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "f362fc006833",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "V_WVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "f90e804bdf79",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:33:10.668770Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"f90e804bdf79\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "ZPWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "7f4b127e2abd",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:34:51.299051Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"7f4b127e2abd\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "gPWVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [root/] from 45.84.107.17",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "45.84.107.17",
+      "src_country": "Sweden",
+      "src_city": "Unknown",
+      "src_org": "QuxLabs AB",
+      "src_asn": "AS214503",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "f011e0cdfda8",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"root\",\"fingerprint\":\"d4:98:c4:f3:12:ef:3e:29:38:34:62:21:fd:99:ec:ef\",\"key\":\"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDdmvEhhfC8Hkqvut8spTxhahy1wKRJ/Bgy8HRDj6n+9EWntZc/L9zfjgReYfwWiZbNX5ziI4dv5lsUAMyCjbqxI4R0Vr5zoQf+YUrQ9nLwIjmkggnqPObpHoEz/n3xvNudIKXjWpEL3b5Be17y8vF01jzFc75asMXz5rLbYOi0EamMu5E+FxhaqNfMMasAkhpom4XfdF3/FZH41UTiaWhoZoPc8KcLJqotmlIZ/z04m0HI9w7l9l+wrUVuEGYbFTN4g3cCtDI21d4AH2JtIJkkKApW4ElLNGasOpid5lDWUHbhbrD4/6Um1u1SqyOmdKopIzkllPFqxJZMjwcw8f9v\",\"type\":\"ssh-rsa\",\"message\":\"public key login attempt for [root] failed\",\"sensor\":\"86fd1ab3f811\",",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "hfWVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/linux123] from 43.160.214.230",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "43.160.214.230",
+      "src_country": "Singapore",
+      "src_city": "Singapore",
+      "src_org": "Tencent Building, Kejizhongyi Avenue",
+      "src_asn": "AS132203",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "a99d6ba93d39",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "linux123",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"linux123\",\"message\":\"login attempt [root/linux123] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:36:37.396374Z\",\"src_ip\":\"43.160.214.230\",\"session\":\"a99d6ba93d39\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "h_WVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "43.160.214.230",
+      "src_country": "Singapore",
+      "src_city": "Singapore",
+      "src_org": "Tencent Building, Kejizhongyi Avenue",
+      "src_asn": "AS132203",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "a99d6ba93d39",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:36:37.920947Z\",\"src_ip\":\"43.160.214.230\",\"session\":\"a99d6ba93d39\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "kfWVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 43.160.214.230",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "43.160.214.230",
+      "src_country": "Singapore",
+      "src_city": "Singapore",
+      "src_org": "Tencent Building, Kejizhongyi Avenue",
+      "src_asn": "AS132203",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "d6c6eed7381b",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:36:40.394599Z\",\"src_ip\":\"43.160.214.230\",\"session\":\"d6c6eed7381b\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "lvWVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/Aaa123321] from 101.79.23.38",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "c22daad227ef",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "Aaa123321",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"Aaa123321\",\"message\":\"login attempt [root/Aaa123321] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:36:41.695285Z\",\"src_ip\":\"101.79.23.38\",\"session\":\"c22daad227ef\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "n_WVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "c22daad227ef",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "oPWVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 43.160.214.230",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "43.160.214.230",
+      "src_country": "Singapore",
+      "src_city": "Singapore",
+      "src_org": "Tencent Building, Kejizhongyi Avenue",
+      "src_asn": "AS132203",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "c56ffbb1f7f0",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:36:43.076962Z\",\"src_ip\":\"43.160.214.230\",\"session\":\"c56ffbb1f7f0\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "LPWVVp4B2OmtFxAh7hAG",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/1qaz2WSX] from 101.79.23.38",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "4dd944b70175",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "1qaz2WSX",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"1qaz2WSX\",\"message\":\"login attempt [root/1qaz2WSX] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:32:08.649938Z\",\"src_ip\":\"101.79.23.38\",\"session\":\"4dd944b70175\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "XfWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [mexal/mexal] from 79.143.188.82",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "79.143.188.82",
+      "src_country": "France",
+      "src_city": "Lauterbourg",
+      "src_org": "Contabo GmbH",
+      "src_asn": "AS51167",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "30610e543dc2",
+      "protocol": "ssh",
+      "username": "mexal",
+      "password": "mexal",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"mexal\",\"password\":\"mexal\",\"message\":\"login attempt [mexal/mexal] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:34:23.836937Z\",\"src_ip\":\"79.143.188.82\",\"session\":\"30610e543dc2\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "YvWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/qwe123.] from 103.118.82.254",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "7f4b127e2abd",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "qwe123.",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"qwe123.\",\"message\":\"login attempt [root/qwe123.] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:34:50.778802Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"7f4b127e2abd\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "aPWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "7f4b127e2abd",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "bvWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 103.118.82.254",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "b1a5956ca2bd",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:34:53.812587Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"b1a5956ca2bd\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "c_WVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 103.118.82.254",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "103.118.82.254",
+      "src_country": "Indonesia",
+      "src_city": "Unknown",
+      "src_org": "Yayasan Pendidikan Universitas Presiden",
+      "src_asn": "AS135482",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "b4bd59b20d78",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:34:56.517977Z\",\"src_ip\":\"103.118.82.254\",\"session\":\"b4bd59b20d78\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "e_WVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [hossein/123456] from 4.240.82.91",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "4.240.82.91",
+      "src_country": "India",
+      "src_city": "Pune",
+      "src_org": "Microsoft Corporation",
+      "src_asn": "AS8075",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "2e8dea34d4bb",
+      "protocol": "ssh",
+      "username": "hossein",
+      "password": "123456",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"hossein\",\"password\":\"123456\",\"message\":\"login attempt [hossein/123456] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:35:40.870718Z\",\"src_ip\":\"4.240.82.91\",\"session\":\"2e8dea34d4bb\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "i_WVVp4B2OmtFxAh7hAc",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "43.160.214.230",
+      "src_country": "Singapore",
+      "src_city": "Singapore",
+      "src_org": "Tencent Building, Kejizhongyi Avenue",
+      "src_asn": "AS132203",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "a99d6ba93d39",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "JvWVVp4B2OmtFxAh7hAG",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [minecraft/mine] from 43.160.214.230",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "43.160.214.230",
+      "src_country": "Singapore",
+      "src_city": "Singapore",
+      "src_org": "Tencent Building, Kejizhongyi Avenue",
+      "src_asn": "AS132203",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "7f7e4e56970f",
+      "protocol": "ssh",
+      "username": "minecraft",
+      "password": "mine",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"minecraft\",\"password\":\"mine\",\"message\":\"login attempt [minecraft/mine] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:31:11.214025Z\",\"src_ip\":\"43.160.214.230\",\"session\":\"7f7e4e56970f\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "M_WVVp4B2OmtFxAh7hAG",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "4dd944b70175",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~ && rm -rf .ssh && mkdir .ssh && echo \"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAQEArDp4cun2lhr4KUhBGE7VvAcwdli2a8dbnrTOrbMz1+5O73fcBOx8NVbUT0bUanUV9tJ2/9p7+vD0EpZ3Tz/+0kX34uAx1RV/75GVOmNx+9EuWOnvNoaJe0QXxziIg9eLBHpgLMuakb5+BgTFB+rKJAw9u9FSTDengvS8hX1kNFS4Mjux0hJOK8rvcEmPecjdySYMb66nylAKGwCEE6WEQHmd1mUPgHwGQ0hWCwsQk13yCGPK5w6hYp5zYkFnvlC8hGmd4Ww+u97k6pfTGTUbJk14ujvcD9iUKQTTWYYjIIu5PmUux5bsZ0R4WFwdIe6+i6rBLAsPKgAySVKPRK+oRw== mdrfckr\\\">>.ssh/authorized_keys && chmod -R go= ~/.ssh && cd ~\",\"message\":\"CMD: cd ~ && rm -rf .ssh && mkdir .ssh && echo \\\"ssh-rsa ",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "OfWVVp4B2OmtFxAh7hAG",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100102",
+      "rule_level": 6,
+      "severity": "low",
+      "rule_desc": "Honeypot: Failed SSH login attempt [345gs5662d34/345gs5662d34] from 101.79.23.38",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_failed",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "4baed9dda050",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110.001"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Password Guessing"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:32:11.188843Z\",\"src_ip\":\"101.79.23.38\",\"session\":\"4baed9dda050\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "PvWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100103",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Successful SSH login [root/3245gs5662d34] from 101.79.23.38",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "authentication_success"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "101.79.23.38",
+      "src_country": "South Korea",
+      "src_city": "Unknown",
+      "src_org": "NAVER BUSINESS PLATFORM ASIA PACIFIC PTE. LTD.",
+      "src_asn": "AS135354",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.success",
+      "session": "ab1a6cf380ab",
+      "protocol": "ssh",
+      "username": "root",
+      "password": "3245gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110",
+        "T1078"
+      ],
+      "mitre_tactics": [
+        "Credential Access",
+        "Defense Evasion",
+        "Persistence",
+        "Privilege Escalation",
+        "Initial Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force",
+        "Valid Accounts"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.success\",\"username\":\"root\",\"password\":\"3245gs5662d34\",\"message\":\"login attempt [root/3245gs5662d34] succeeded\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:32:13.620898Z\",\"src_ip\":\"101.79.23.38\",\"session\":\"ab1a6cf380ab\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "SPWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100104",
+      "rule_level": 8,
+      "severity": "medium",
+      "rule_desc": "Honeypot: Command executed: ",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "command"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.command.input",
+      "session": "f362fc006833",
+      "protocol": "ssh",
+      "username": "",
+      "password": "",
+      "command": "cd ~; chattr -ia .ssh; lockr -ia .ssh",
+      "mitre_ids": [
+        "T1059"
+      ],
+      "mitre_tactics": [
+        "Execution"
+      ],
+      "mitre_techniques": [
+        "Command and Scripting Interpreter"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.command.input\",\"input\":\"cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"message\":\"CMD: cd ~; chattr -ia .ssh; lockr -ia .ssh\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:33:06.542055Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"f362fc006833\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    },
+    {
+      "alert_id": "UvWVVp4B2OmtFxAh7hAS",
+      "timestamp": "2026-05-23T20:45:22.577+0000",
+      "rule_id": "100110",
+      "rule_level": 10,
+      "severity": "medium",
+      "rule_desc": "Honeypot: SSH brute force attack \u2014 10+ attempts from 102.88.137.213",
+      "rule_groups": [
+        "cowrie",
+        "honeypot",
+        "honeypot",
+        "brute_force"
+      ],
+      "agent_name": "homeserver",
+      "log_location": "/opt/cowrie-logs/cowrie.json",
+      "src_ip": "102.88.137.213",
+      "src_country": "Nigeria",
+      "src_city": "Lagos",
+      "src_org": "MTN NIGERIA Communication limited",
+      "src_asn": "AS29465",
+      "honeypot": "cowrie-raw",
+      "honeypot_sensor": "",
+      "eventid": "cowrie.login.failed",
+      "session": "ea383835732a",
+      "protocol": "ssh",
+      "username": "345gs5662d34",
+      "password": "345gs5662d34",
+      "command": "",
+      "mitre_ids": [
+        "T1110"
+      ],
+      "mitre_tactics": [
+        "Credential Access"
+      ],
+      "mitre_techniques": [
+        "Brute Force"
+      ],
+      "full_log": "{\"eventid\":\"cowrie.login.failed\",\"username\":\"345gs5662d34\",\"password\":\"345gs5662d34\",\"message\":\"login attempt [345gs5662d34/345gs5662d34] failed\",\"sensor\":\"86fd1ab3f811\",\"uuid\":\"287e2678-54d7-11f1-9301-966f163ec6f0\",\"timestamp\":\"2026-05-23T19:33:08.395396Z\",\"src_ip\":\"102.88.137.213\",\"session\":\"ea383835732a\",\"protocol\":\"ssh\",\"honeypot\":\"cowrie-raw\"}",
+      "pci_dss": [],
+      "nist_800_53": []
+    }
+  ]
+}
