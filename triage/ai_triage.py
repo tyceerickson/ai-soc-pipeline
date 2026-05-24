@@ -44,7 +44,7 @@ BATCH_SIZE = 10
 # ============================================================
 # Ollama API
 # ============================================================
-def ollama_generate(prompt, system=None, timeout=120):
+def ollama_generate(prompt, system=None, timeout=600):
     """
     Send a prompt to Ollama and return the response text.
     Uses the /api/generate endpoint (non-streaming).
