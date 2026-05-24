@@ -1,0 +1,2 @@
+0 * * * * terickson cat /opt/cowrie-logs/cowrie.json.* /opt/cowrie-logs/cowrie.json > /opt/cowrie-logs/cowrie_all.json 2>/dev/null && cp /opt/cowrie-logs/cowrie_all.json /opt/cowrie-logs/cowrie.json && python3 /opt/cowrie-tools/pipeline/enrich_logs.py >> /var/log/geoip-enrich.log 2>&1
+0 6 * * 1 terickson /opt/geoip/update_db.sh >> /var/log/geoip-update.log 2>&1

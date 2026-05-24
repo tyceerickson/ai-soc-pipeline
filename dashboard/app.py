@@ -186,6 +186,27 @@ def get_live_stats(minutes=60):
             "mitre_ids": {
                 "terms": {"field": "rule.mitre.id", "size": 20}
             },
+
+            # Tactic timeline — date histogram with per-tactic breakdown
+            "tactic_timeline": {
+                "date_histogram": dict(
+                    [("field", "data.timestamp"),
+                     (i_type, i_val),
+                     ("min_doc_count", 0),
+                     ("extended_bounds", {
+                         "min": since.isoformat(),
+                         "max": datetime.now(timezone.utc).isoformat(),
+                     })]
+                ),
+                "aggs": {
+                    "by_tactic": {
+                        "terms": {
+                            "field": "rule.mitre.tactic",
+                            "size": 10,
+                        }
+                    }
+                }
+            },
         }
     }
 
@@ -265,6 +286,23 @@ def get_live_stats(minutes=60):
     for b in aggs.get("mitre_ids", {}).get("buckets", []):
         mitre_ids[b["key"]] = b["doc_count"]
 
+    # Tactic timeline — reshape into per-point dicts keyed by tactic
+    tactic_timeline = []
+    all_tactics = set()
+    for b in aggs.get("tactic_timeline", {}).get("buckets", []):
+        pt = {
+            "time": b.get("key_as_string", ""),
+            "ts":   b.get("key", 0),
+        }
+        for tb in b.get("by_tactic", {}).get("buckets", []):
+            pt[tb["key"]] = tb["doc_count"]
+            all_tactics.add(tb["key"])
+        tactic_timeline.append(pt)
+    # Fill missing tactics with 0
+    for pt in tactic_timeline:
+        for t in all_tactics:
+            pt.setdefault(t, 0)
+
     # Build MITRE panel data: tactic → techniques + IDs + example alerts
     mitre_panel = build_mitre_panel(minutes, since_ms, mitre_tactics,
                                     mitre_techniques, mitre_ids)
@@ -290,6 +328,8 @@ def get_live_stats(minutes=60):
         "mitre_techniques":mitre_techniques,
         "mitre_ids":       mitre_ids,
         "mitre_panel":     mitre_panel,
+        "tactic_timeline": tactic_timeline,
+        "all_tactics":     sorted(list(all_tactics)),
         "enriched_stats":  enriched_stats,
         "window_minutes":  minutes,
         "as_of":           datetime.now(timezone.utc).isoformat(),
