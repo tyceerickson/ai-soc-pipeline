@@ -77,6 +77,17 @@ def os_query(path, body=None):
 # GeoIP lookup
 # ============================================================
 def build_geoip_lookup():
+    """
+    Load GeoIP from geoip_cache.json — covers all 921 IPs seen by Wazuh.
+    Falls back to scanning cowrie_enriched.json if cache missing.
+    """
+    cache_path = "/opt/cowrie-logs/geoip_cache.json"
+    try:
+        with open(cache_path) as f:
+            return json.load(f)
+    except Exception:
+        pass
+    # Fallback: scan enriched file
     lookup = {}
     try:
         with open(GEOIP_SOURCE, encoding="utf-8") as f:
@@ -100,6 +111,96 @@ def build_geoip_lookup():
 # ============================================================
 # Live stats query
 # ============================================================
+
+def get_enriched_stats(since_ms, since):
+    """
+    Query OpenSearch directly for credential and command data.
+    Uses aggregations for accurate counts across the full dataset.
+    Commands stored in data.input field for cowrie.command.input events.
+    """
+    # Credential aggregation — uses scripted terms for username/password combo
+    body_creds = {
+        "size": 0,
+        "query": {
+            "bool": {"filter": [
+                {"range":  {"data.timestamp": {"gte": since.isoformat()}}},
+                {"exists": {"field": "data.honeypot"}},
+                {"exists": {"field": "data.username"}},
+                {"exists": {"field": "data.password"}},
+                {"bool": {"should": [
+                    {"term": {"data.eventid": "cowrie.login.failed"}},
+                    {"term": {"data.eventid": "cowrie.login.success"}},
+                ], "minimum_should_match": 1}},
+            ]}
+        },
+        "aggs": {
+            "unique_creds": {
+                "terms": {
+                    "script": {
+                        "source": "doc[\'data.username\'].value + \'/\' + doc[\'data.password\'].value"
+                    },
+                    "size": 100,
+                    "order": {"_count": "desc"}
+                }
+            }
+        }
+    }
+    result  = os_query(f"/{ALERT_INDEX}/_search", body_creds)
+    buckets = result.get("aggregations", {}).get("unique_creds", {}).get("buckets", [])
+    creds   = {b["key"]: b["doc_count"] for b in buckets}
+
+    # Command aggregation — use data.input field (cowrie.command.input events)
+    body_cmds = {
+        "size": 0,
+        "query": {
+            "bool": {"filter": [
+                {"range": {"data.timestamp": {"gte": since.isoformat()}}},
+                {"exists": {"field": "data.honeypot"}},
+                {"term":  {"data.eventid": "cowrie.command.input"}},
+            ]}
+        },
+        "aggs": {
+            "unique_cmds": {
+                "terms": {
+                    "field": "data.input",
+                    "size":  100,
+                    "order": {"_count": "desc"},
+                    "min_doc_count": 2,
+                }
+            }
+        }
+    }
+    result  = os_query(f"/{ALERT_INDEX}/_search", body_cmds)
+    buckets = result.get("aggregations", {}).get("unique_cmds", {}).get("buckets", [])
+    cmds    = dict(sorted(
+        {b["key"]: b["doc_count"] for b in buckets}.items(),
+        key=lambda x: x[1], reverse=True
+    ))
+
+    # Filter junk credentials — remove HTTP/protocol noise
+    junk_patterns = ['GET ', 'POST ', 'USER ', 'PASS ', 'Host:', 'Mozilla',
+                     'Accept', 'Content-', 'HTTP/', '*1/', 'EHLO', 'HELO']
+    clean_creds = {
+        k: v for k, v in creds.items()
+        if not any(p in k for p in junk_patterns) and len(k) < 100
+    }
+
+    # Sort BOTH by count descending — override aggregation ordering
+    # Return as sorted lists of [credential, count] to preserve order through JSON
+    top_creds = [
+        {"cred": k, "count": v}
+        for k, v in sorted(clean_creds.items(), key=lambda x: x[1], reverse=True)[:100]
+    ]
+    top_cmds = [
+        {"cmd": k, "count": v}
+        for k, v in sorted(cmds.items(), key=lambda x: x[1], reverse=True)[:100]
+    ]
+
+    return {
+        "top_credentials": top_creds,
+        "top_commands":    top_cmds,
+    }
+
 def get_live_stats(minutes=60):
     since    = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     since_ms = int(since.timestamp() * 1000)
@@ -157,19 +258,19 @@ def get_live_stats(minutes=60):
             "by_country": {
                 "terms": {
                     "field": "data.location.country_name",
-                    "size":  15,
+                    "size":  100,
                     "missing": "Unknown",
                 }
             },
 
             # Source IPs
             "by_src_ip": {
-                "terms": {"field": "data.src_ip", "size": 15}
+                "terms": {"field": "data.src_ip", "size": 2000}
             },
 
             # Event types
             "by_eventid": {
-                "terms": {"field": "data.eventid", "size": 15}
+                "terms": {"field": "data.eventid", "size": 50}
             },
 
             # MITRE tactics
@@ -307,14 +408,9 @@ def get_live_stats(minutes=60):
     mitre_panel = build_mitre_panel(minutes, since_ms, mitre_tactics,
                                     mitre_techniques, mitre_ids)
 
-    # Enriched stats from alerts_raw
-    enriched_stats = {}
-    try:
-        with open(ALERTS_RAW) as f:
-            raw = json.load(f)
-        enriched_stats = raw.get("stats", {})
-    except Exception:
-        pass
+    # Enriched stats — query OpenSearch directly using current window
+    # This ensures credentials/commands match the selected timeframe
+    enriched_stats = get_enriched_stats(since_ms, since)
 
     return {
         "total":           total,
@@ -356,7 +452,7 @@ def build_mitre_panel(minutes, since_ms, tactics, techniques, ids):
     for tactic, count in sorted(tactics.items(), key=lambda x: x[1], reverse=True):
         # Get example alerts for this tactic
         body = {
-            "size": 3,
+            "size": 8,
             "query": {
                 "bool": {"filter": [
                     {"range": {"data.timestamp": {"gte": datetime.fromtimestamp(since_ms/1000, tz=timezone.utc).isoformat()}}},
@@ -364,7 +460,7 @@ def build_mitre_panel(minutes, since_ms, tactics, techniques, ids):
                     {"term":  {"rule.mitre.tactic": tactic}},
                 ]}
             },
-            "sort": [{"rule.level": "desc"}, {"timestamp": "desc"}],
+            "sort": [{"rule.level": "desc"}, {"data.timestamp": "desc"}],
             "_source": ["timestamp", "rule.description", "rule.level",
                         "data.src_ip", "data.username", "data.password",
                         "data.command", "data.eventid", "rule.mitre"],

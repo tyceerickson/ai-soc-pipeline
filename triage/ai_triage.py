@@ -21,11 +21,181 @@ Usage:
 import json
 import argparse
 import sys
+import ssl
+import base64
 import urllib.request
 import urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from collections import Counter
+
+# OpenSearch connection for pre-aggregation
+OPENSEARCH_URL  = "https://localhost:9200"
+OS_USER         = "admin"
+OS_PASS         = "BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj"
+ALERT_INDEX     = "wazuh-alerts-4.x-*"
+GEOIP_CACHE     = "/opt/cowrie-logs/geoip_cache.json"
+
+_SSL_CTX = ssl.create_default_context()
+_SSL_CTX.check_hostname = False
+_SSL_CTX.verify_mode    = ssl.CERT_NONE
+_AUTH = "Basic " + base64.b64encode(
+    f"{OS_USER}:{OS_PASS}".encode()
+).decode()
+
+def os_query(body):
+    data = json.dumps(body).encode()
+    req  = urllib.request.Request(
+        f"{OPENSEARCH_URL}/{ALERT_INDEX}/_search",
+        data=data,
+        headers={"Content-Type": "application/json", "Authorization": _AUTH},
+        method="POST"
+    )
+    with urllib.request.urlopen(req, context=_SSL_CTX, timeout=20) as r:
+        return json.loads(r.read().decode())
+
+def build_intelligence_summary(minutes=10080):
+    """
+    Query OpenSearch directly to build a rich intelligence summary
+    for the LLM. Gets aggregated statistics across ALL alerts in the
+    window — not just the sampled 500 — plus the most interesting
+    individual events.
+    """
+    since = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).isoformat()
+
+    # Load GeoIP cache
+    try:
+        with open(GEOIP_CACHE) as f:
+            geo = json.load(f)
+    except Exception:
+        geo = {}
+
+    def enrich_ip(ip):
+        g = geo.get(ip, {})
+        if isinstance(g, dict):
+            country = g.get("country", "")
+            org     = g.get("org", "")
+            if country and org:
+                return f"{ip} ({country}, {org})"
+            elif country:
+                return f"{ip} ({country})"
+        return ip
+
+    # Big aggregation query
+    body = {
+        "size": 0,
+        "query": {"bool": {"filter": [
+            {"range":  {"data.timestamp": {"gte": since}}},
+            {"exists": {"field": "data.honeypot"}},
+        ]}},
+        "aggs": {
+            "total":          {"value_count": {"field": "data.src_ip"}},
+            "by_severity_high":   {"filter": {"range": {"rule.level": {"gte": 12}}}},
+            "by_severity_med":    {"filter": {"range": {"rule.level": {"gte": 7, "lt": 12}}}},
+            "login_success":      {"filter": {"term": {"data.eventid": "cowrie.login.success"}}},
+            "login_failed":       {"filter": {"term": {"data.eventid": "cowrie.login.failed"}}},
+            "cmd_input":          {"filter": {"term": {"data.eventid": "cowrie.command.input"}}},
+            "file_download":      {"filter": {"term": {"data.eventid": "cowrie.session.file_download"}}},
+            "top_ips":       {"terms": {"field": "data.src_ip",               "size": 20, "order": {"_count": "desc"}}},
+            "top_eventids":  {"terms": {"field": "data.eventid",              "size": 15}},
+            "mitre_tactics": {"terms": {"field": "rule.mitre.tactic",         "size": 10}},
+            "mitre_ids":     {"terms": {"field": "rule.mitre.id",             "size": 15}},
+            "top_creds":     {"terms": {
+                "script": {
+                    "lang": "painless",
+                    "source": "doc[\'data.username\'].size() > 0 && doc[\'data.password\'].size() > 0 ? doc[\'data.username\'].value + \'/\' + doc[\'data.password\'].value : null"
+                },
+                "size": 20,
+                "order": {"_count": "desc"},
+                "min_doc_count": 1
+            }},
+            "top_cmds":      {"terms": {"field": "data.input", "size": 20, "order": {"_count": "desc"}}},
+            "top_sessions":  {"terms": {"field": "data.session", "size": 5,  "order": {"_count": "desc"}}},
+        }
+    }
+
+    result = os_query(body)
+    aggs   = result.get("aggregations", {})
+    total  = aggs.get("total", {}).get("value", 0)
+
+    # Top IPs with GeoIP
+    top_ips = []
+    for b in aggs.get("top_ips", {}).get("buckets", []):
+        top_ips.append(f"{enrich_ip(b['key'])} — {b['doc_count']:,} alerts")
+
+    # Credentials
+    top_creds = []
+    junk = ['GET ', 'POST ', 'HTTP/', 'USER ', 'Mozilla']
+    for b in aggs.get("top_creds", {}).get("buckets", []):
+        if not any(p in b["key"] for p in junk) and len(b["key"]) < 80:
+            top_creds.append(f"{b['key']} ({b['doc_count']:,}x)")
+
+    # Commands
+    top_cmds = [
+        f"{b['key'][:120]} ({b['doc_count']:,}x)"
+        for b in aggs.get("top_cmds", {}).get("buckets", [])
+    ]
+
+    # MITRE
+    tactics = {b["key"]: b["doc_count"] for b in aggs.get("mitre_tactics", {}).get("buckets", [])}
+    mitre_ids = [b["key"] for b in aggs.get("mitre_ids", {}).get("buckets", [])]
+
+    # Now get the 20 most interesting individual events
+    # Prioritize: high severity > login.success > command.input > file_download
+    interesting_body = {
+        "size": 20,
+        "query": {"bool": {"filter": [
+            {"range":  {"data.timestamp": {"gte": since}}},
+            {"exists": {"field": "data.honeypot"}},
+            {"bool": {"should": [
+                {"range": {"rule.level": {"gte": 10}}},
+                {"terms": {"data.eventid": [
+                    "cowrie.login.success",
+                    "cowrie.command.input",
+                    "cowrie.session.file_download",
+                    "cowrie.session.file_upload",
+                ]}},
+            ], "minimum_should_match": 1}},
+        ]}},
+        "sort": [{"rule.level": "desc"}, {"data.timestamp": "desc"}],
+        "_source": ["data", "rule", "timestamp"],
+    }
+    interesting = os_query(interesting_body)
+    notable_events = []
+    for h in interesting.get("hits", {}).get("hits", []):
+        src  = h.get("_source", {})
+        data = src.get("data", {})
+        rule = src.get("rule", {})
+        ip   = data.get("src_ip", "")
+        event = {
+            "eventid":  data.get("eventid", ""),
+            "level":    rule.get("level", 0),
+            "rule":     rule.get("description", ""),
+            "src":      enrich_ip(ip) if ip else "",
+            "cred":     f"{data.get('username','')}/{data.get('password','')}" if data.get("username") and data.get("password") else "",
+            "command":  (data.get("command","") or data.get("input",""))[:150],
+            "mitre":    rule.get("mitre", {}).get("id", []),
+            "ts":       src.get("timestamp","")[:19],
+        }
+        notable_events.append(event)
+
+    summary = {
+        "window_minutes":    minutes,
+        "total_events":      total,
+        "high_severity":     aggs.get("by_severity_high", {}).get("doc_count", 0),
+        "medium_severity":   aggs.get("by_severity_med",  {}).get("doc_count", 0),
+        "login_success":     aggs.get("login_success",    {}).get("doc_count", 0),
+        "login_failed":      aggs.get("login_failed",     {}).get("doc_count", 0),
+        "commands_executed": aggs.get("cmd_input",        {}).get("doc_count", 0),
+        "files_downloaded":  aggs.get("file_download",    {}).get("doc_count", 0),
+        "top_attacker_ips":  top_ips,
+        "top_credentials":   top_creds,
+        "top_commands":      top_cmds,
+        "mitre_tactics":     tactics,
+        "mitre_technique_ids": mitre_ids,
+        "notable_events":    notable_events,
+    }
+    return summary
 
 # ============================================================
 # Configuration
@@ -38,7 +208,7 @@ DEFAULT_OUTPUT = "/opt/wazuh-soc/data/triage_report.json"
 
 # How many alerts to send per AI batch
 # llama3.1:8b context = 4096 tokens — keep batches small
-BATCH_SIZE = 10
+BATCH_SIZE = 5
 
 
 # ============================================================
@@ -102,63 +272,77 @@ def check_ollama():
 # ============================================================
 # Prompt builders
 # ============================================================
-SYSTEM_PROMPT = """You are a senior SOC analyst reviewing honeypot security alerts.
-Your job is to analyze attack data captured by a Cowrie SSH honeypot and provide
-clear, actionable intelligence. Be concise and precise. Use security terminology
-correctly. Always structure your output as valid JSON."""
+SYSTEM_PROMPT = """You are an expert threat intelligence analyst at a top-tier SOC.
+You are analyzing real attack data captured by a Cowrie SSH honeypot deployed on
+DigitalOcean NYC1. Your analysis must be SPECIFIC and DETAILED — not generic.
+
+Rules:
+- Reference actual IP addresses, countries, and organizations by name
+- Quote actual commands and credentials observed
+- Identify specific attack tools and techniques by name (e.g. Mirai, mdrfckr botnet)
+- Explain WHY each finding matters operationally
+- Give specific, actionable recommendations (not generic advice)
+- If you see the same credential or command repeated many times, call it out as a botnet
+- The SSH key with username 'mdrfckr' is a known botnet implant — identify it by name
+- Always structure your output as valid JSON with no markdown fences"""
 
 
 def build_batch_prompt(alerts):
     """
-    Build a prompt for a batch of alerts.
-    Sends compact alert data to stay within context limits.
+    Build a detailed prompt for a batch of alerts with full context.
     """
-    # Compact representation for the LLM
     alert_lines = []
     for i, a in enumerate(alerts, 1):
         parts = [f"Alert {i}: [{a['severity'].upper()}] {a['rule_desc']}"]
         if a["src_ip"]:
-            loc = a["src_country"] or "Unknown"
-            parts.append(f"  Source: {a['src_ip']} ({loc})")
-            if a["src_org"]:
-                parts.append(f"  Org: {a['src_org']}")
-        if a["username"] or a["password"]:
-            parts.append(f"  Credentials tried: {a['username']}/{a['password']}")
+            loc = f"{a['src_country']}" if a['src_country'] else "Unknown country"
+            org = f", {a['src_org']}" if a['src_org'] else ""
+            parts.append(f"  Source IP: {a['src_ip']} ({loc}{org})")
+        if a["username"] and a["password"]:
+            parts.append(f"  Credential: {a['username']}/{a['password']}")
+        elif a["username"]:
+            parts.append(f"  Username: {a['username']}")
         if a["command"]:
-            parts.append(f"  Command: {a['command']}")
-        if a["mitre_tactics"]:
-            parts.append(f"  MITRE: {', '.join(a['mitre_tactics'])}")
+            cmd = a["command"][:200]
+            parts.append(f"  Command: {cmd}")
         if a["eventid"]:
-            parts.append(f"  Event: {a['eventid']}")
+            parts.append(f"  Event type: {a['eventid']}")
+        if a["mitre_tactics"]:
+            ids = ", ".join(a.get("mitre_ids", []))
+            tactics = ", ".join(a["mitre_tactics"])
+            parts.append(f"  MITRE: {tactics} ({ids})")
+        if a["session"]:
+            parts.append(f"  Session: {a['session']}")
         alert_lines.append("\n".join(parts))
 
     alerts_text = "\n\n".join(alert_lines)
 
-    prompt = f"""Analyze these {len(alerts)} honeypot security alerts and respond with ONLY a JSON object.
+    prompt = f"""Analyze these {len(alerts)} real honeypot alerts. Be SPECIFIC — name actual IPs,
+credentials, commands, and organizations. Do NOT give generic advice.
 
 ALERTS:
 {alerts_text}
 
-Respond with ONLY this JSON structure, no other text:
+Respond with ONLY valid JSON, no markdown:
 {{
-  "threat_assessment": "2-3 sentence overall assessment of this alert batch",
-  "attacker_profile": "1-2 sentences describing the likely attacker type and intent",
+  "threat_assessment": "3-4 sentences. Name specific IPs, countries, orgs. Describe the attack pattern precisely.",
+  "attacker_profile": "2-3 sentences. Identify if this is a botnet, script kiddie, or targeted attack. Name known tools if recognized.",
   "top_threats": [
     {{
       "alert_number": 1,
-      "threat_type": "short threat category name",
-      "explanation": "1 sentence plain-English explanation",
-      "recommended_action": "specific defensive action"
+      "threat_type": "specific threat name (e.g. SSH Key Implant, Mirai Botnet, Credential Stuffing)",
+      "explanation": "2 sentences — what specifically happened and why it matters",
+      "recommended_action": "specific action (e.g. block ASN AS12345, add this SSH key to watchlist)"
     }}
   ],
   "iocs": {{
-    "ip_addresses": ["list of notable attacker IPs"],
-    "credentials": ["notable username/password pairs tried"],
-    "commands": ["notable commands executed"]
+    "ip_addresses": ["IP (Country, Org) — list all notable ones"],
+    "credentials": ["user/pass — flag if seen repeatedly"],
+    "commands": ["actual command — explain what it does"]
   }},
-  "mitre_summary": "1 sentence summarizing observed ATT&CK techniques",
+  "mitre_summary": "2 sentences naming specific techniques and their IDs (e.g. T1110.001 Password Guessing)",
   "severity_verdict": "critical|high|medium|low",
-  "analyst_notes": "any additional observations worth flagging"
+  "analyst_notes": "2-3 sentences of specific observations — patterns, anomalies, threat actor signatures"
 }}"""
 
     return prompt
@@ -182,34 +366,46 @@ def build_executive_prompt(stats, triage_results):
 
     top_verdict = all_verdicts.most_common(1)[0][0] if all_verdicts else "medium"
 
-    prompt = f"""Write an executive summary of a honeypot security operation.
-Respond with ONLY a JSON object, no other text.
+    # Build top credentials and commands summary for context
+    top_creds = dict(list(stats.get('top_credentials', {}).items())[:5]) if isinstance(stats.get('top_credentials'), dict) else {}
+    top_cmds  = list(stats.get('top_commands', {}).keys())[:3] if isinstance(stats.get('top_commands'), dict) else []
+    top_countries = dict(list(stats.get('top_countries', {}).items())[:8])
+    top_orgs      = dict(list(stats.get('top_orgs', {}).items())[:5])
+
+    prompt = f"""Write a detailed executive summary of a honeypot security operation for a CISO.
+Be SPECIFIC — include actual country names, IP addresses, credential patterns, and commands.
+Respond with ONLY a JSON object, no markdown.
 
 OPERATIONAL DATA:
-- Total alerts analyzed: {stats['total']}
-- Honeypot alerts: {stats['honeypot_alerts']}
-- Severity breakdown: {json.dumps(stats['by_severity'])}
-- Top attacker countries: {json.dumps(dict(list(stats.get('top_countries', {}).items())[:5]))}
-- MITRE ATT&CK tactics observed: {json.dumps(list(stats.get('mitre_tactics', {}).keys())[:6])}
-- Top attacker IPs seen: {list(set(all_ips))[:5]}
-- Overall severity verdict: {top_verdict}
+- Total alerts: {stats['total']} | Severity: {json.dumps(stats['by_severity'])}
+- Top attacker countries: {json.dumps(top_countries)}
+- Top hosting orgs: {json.dumps(top_orgs)}
+- Top attacker IPs: {list(set(all_ips))[:8]}
+- MITRE tactics: {json.dumps(list(stats.get('mitre_tactics', {}).keys()))}
+- Most used credentials: {json.dumps(top_creds)}
+- Most executed commands: {top_cmds}
+- All triage verdicts: {json.dumps(dict(all_verdicts))}
+- Overall verdict: {top_verdict}
 
-Respond with ONLY this JSON structure:
+Respond with ONLY this JSON:
 {{
-  "executive_summary": "3-4 sentence non-technical summary suitable for a CISO",
+  "executive_summary": "4-5 sentences for a CISO. Name specific countries, mention the dominant botnet credential (345gs5662d34), note the SSH key implant attempts, quantify the threat.",
   "key_findings": [
-    "finding 1",
-    "finding 2",
-    "finding 3"
+    "Specific finding with numbers and country/IP names",
+    "Specific finding about credential patterns observed",
+    "Specific finding about commands/techniques used",
+    "Specific finding about attack infrastructure",
+    "Specific finding about threat actor profile"
   ],
   "threat_level": "critical|high|medium|low",
   "recommended_actions": [
-    "action 1",
-    "action 2",
-    "action 3"
+    "Specific action with details",
+    "Specific action with details",
+    "Specific action with details",
+    "Specific action with details"
   ],
-  "threat_actors": "1-2 sentences characterizing the observed threat actors",
-  "time_period": "alerts from the last hour",
+  "threat_actors": "2-3 sentences identifying the likely threat actors by behavior pattern, tools used, and infrastructure",
+  "time_period": "alerts analyzed",
   "generated_at": "{datetime.now(timezone.utc).isoformat()}"
 }}"""
 
@@ -264,32 +460,153 @@ def triage_batch_mode(alerts, stats):
 
 
 def triage_summary_mode(alerts, stats):
-    """Analyze a representative sample for a quick summary."""
-    # Take top alerts by severity level
-    sorted_alerts = sorted(alerts, key=lambda a: a["rule_level"], reverse=True)
-    sample = sorted_alerts[:BATCH_SIZE]
+    """
+    Summary mode: build full intelligence summary from OpenSearch,
+    send to LLM in one comprehensive prompt for maximum depth.
+    """
+    minutes = stats.get("window_minutes", 10080) if isinstance(stats, dict) else 10080
 
-    print(f"[+] Summary mode: analyzing top {len(sample)} highest-severity alerts...")
-    prompt   = build_batch_prompt(sample)
-    response = ollama_generate(prompt, system=SYSTEM_PROMPT, timeout=180)
+    print(f"[+] Building intelligence summary from OpenSearch (window: {minutes} min)...")
+    intel = build_intelligence_summary(minutes)
 
+    print(f"[+] Summary mode: {intel['total_events']:,} total events, "
+          f"{intel['high_severity']:,} high, "
+          f"{len(intel['notable_events'])} notable events for analysis...")
+
+    prompt = f"""You are analyzing a Cowrie SSH honeypot deployment. You have access to
+COMPLETE AGGREGATED INTELLIGENCE across ALL {intel['total_events']:,} events — not just a sample.
+Be SPECIFIC, DETAILED, and name actual IPs, countries, organizations, credentials, and commands.
+
+=== FULL INTELLIGENCE SUMMARY ===
+Window: last {intel['window_minutes']} minutes
+Total events: {intel['total_events']:,}
+High severity: {intel['high_severity']:,} | Medium: {intel['medium_severity']:,}
+Login successes: {intel['login_success']:,} | Login failures: {intel['login_failed']:,}
+Commands executed: {intel['commands_executed']:,} | Files downloaded: {intel['files_downloaded']:,}
+
+TOP 20 ATTACKER IPs (by volume):
+{chr(10).join(f"  {ip}" for ip in intel['top_attacker_ips'])}
+
+TOP CREDENTIALS USED:
+{chr(10).join(f"  {c}" for c in intel['top_credentials'][:15])}
+
+TOP COMMANDS EXECUTED:
+{chr(10).join(f"  {c}" for c in intel['top_commands'][:10])}
+
+MITRE ATT&CK TACTICS:
+{json.dumps(intel['mitre_tactics'], indent=2)}
+
+MITRE TECHNIQUE IDs: {', '.join(intel['mitre_technique_ids'])}
+
+=== 20 MOST NOTABLE INDIVIDUAL EVENTS ===
+{json.dumps(intel['notable_events'], indent=2)}
+
+Respond with ONLY valid JSON:
+{{
+  "threat_assessment": "4-5 sentences. Use specific numbers, name top attacker IPs with countries/orgs, describe the dominant attack pattern. Mention the botnet if credentials repeat.",
+  "attacker_profile": "3-4 sentences. Identify specific threat actors by behavior. Is this Mirai? A credential stuffing botnet? Name the mdrfckr SSH key implant if present. Characterize sophistication level.",
+  "top_threats": [
+    {{
+      "threat_type": "specific name",
+      "count": "how many times observed",
+      "explanation": "2-3 sentences with specific details — IPs, creds, commands involved",
+      "recommended_action": "specific action with details (e.g. block AS12345, add IOC to threat intel)"
+    }}
+  ],
+  "iocs": {{
+    "ip_addresses": ["IP (Country, Org) for top 10 most active"],
+    "credentials": ["top credentials with repeat counts"],
+    "commands": ["notable commands with what they do"]
+  }},
+  "mitre_summary": "3 sentences naming specific techniques by ID and name, explaining what they indicate",
+  "severity_verdict": "critical|high|medium|low",
+  "analyst_notes": "3-4 sentences of specific threat intelligence observations — patterns, anomalies, attack infrastructure, threat actor signatures"
+}}"""
+
+    response = ollama_generate(prompt, system=SYSTEM_PROMPT, timeout=300)
     try:
         clean = response.strip()
         if clean.startswith("```"):
             clean = clean.split("```")[1]
             if clean.startswith("json"):
                 clean = clean[4:]
-        return [json.loads(clean.strip())]
+        result = json.loads(clean.strip())
+        result["batch_number"] = 1
+        result["alerts_in_batch"] = intel["total_events"]
+        return [result]
     except json.JSONDecodeError:
         return [{"raw_response": response, "parse_error": True}]
 
 
 def triage_executive_mode(alerts, stats, batch_results):
-    """Generate executive summary from batch results."""
-    print("[+] Generating executive summary...")
-    prompt   = build_executive_prompt(stats, batch_results)
-    response = ollama_generate(prompt, system=SYSTEM_PROMPT, timeout=180)
+    """
+    Executive mode: use full intelligence summary for CISO-level output.
+    Runs after batch analysis to add strategic context.
+    """
+    print("[+] Generating executive summary with full intelligence context...")
 
+    minutes = stats.get("window_minutes", 10080) if isinstance(stats, dict) else 10080
+    intel   = build_intelligence_summary(minutes)
+
+    # Extract verdicts from batch results
+    from collections import Counter
+    verdicts = Counter(r.get("severity_verdict","") for r in batch_results if "severity_verdict" in r)
+    top_verdict = verdicts.most_common(1)[0][0] if verdicts else "high"
+
+    prompt = f"""Write a comprehensive executive security briefing for a CISO based on
+real honeypot threat intelligence data. Be SPECIFIC — include actual numbers,
+country names, IP addresses, and attack patterns.
+
+=== COMPLETE THREAT INTELLIGENCE ===
+Window: last {intel['window_minutes']} minutes
+Total events: {intel['total_events']:,}
+High severity: {intel['high_severity']:,} | Medium: {intel['medium_severity']:,}
+Successful logins: {intel['login_success']:,} | Failed attempts: {intel['login_failed']:,}
+Commands run by attackers: {intel['commands_executed']:,}
+Files downloaded by attackers: {intel['files_downloaded']:,}
+
+TOP ATTACKER INFRASTRUCTURE:
+{chr(10).join(f"  {ip}" for ip in intel['top_attacker_ips'][:12])}
+
+CREDENTIAL INTELLIGENCE:
+{chr(10).join(f"  {c}" for c in intel['top_credentials'][:10])}
+
+COMMAND INTELLIGENCE:
+{chr(10).join(f"  {c}" for c in intel['top_commands'][:8])}
+
+MITRE ATT&CK: {json.dumps(intel['mitre_tactics'])}
+TECHNIQUE IDs: {', '.join(intel['mitre_technique_ids'])}
+OVERALL VERDICT: {top_verdict.upper()}
+
+Respond with ONLY valid JSON:
+{{
+  "executive_summary": "5-6 sentences for a CISO. Start with the threat level and total scope. Name the dominant attack source countries. Describe the primary attack methodology. Mention credential patterns (the 345gs5662d34 botnet if present). Quantify the successful intrusion attempts. End with operational impact assessment.",
+  "key_findings": [
+    "Finding 1: specific numbers and geography (e.g. X attacks from Y countries, top attacker Z org)",
+    "Finding 2: credential analysis (dominant patterns, botnet signatures)",
+    "Finding 3: command/technique analysis (what attackers did after login)",
+    "Finding 4: attack infrastructure (hosting providers, ASNs used)",
+    "Finding 5: MITRE ATT&CK coverage and technique breakdown"
+  ],
+  "threat_level": "{top_verdict}",
+  "recommended_actions": [
+    "Specific action 1 with details",
+    "Specific action 2 with details",
+    "Specific action 3 with details",
+    "Specific action 4 with details",
+    "Specific action 5 with details"
+  ],
+  "threat_actors": "3-4 sentences. Characterize the threat actors by their tools, credentials, infrastructure, and behavior. Identify botnets by name if recognizable. Assess nation-state vs criminal vs opportunistic.",
+  "ioc_summary": {{
+    "top_ips": [list top 5 attacker IPs with country and org],
+    "botnet_credentials": [list the most-repeated credential pairs],
+    "malicious_commands": [list the most executed post-login commands]
+  }},
+  "time_period": "last {intel['window_minutes']} minutes",
+  "generated_at": "{datetime.now(timezone.utc).isoformat()}"
+}}"""
+
+    response = ollama_generate(prompt, system=SYSTEM_PROMPT, timeout=300)
     try:
         clean = response.strip()
         if clean.startswith("```"):
@@ -327,6 +644,8 @@ Examples:
     parser.add_argument("--mode",   type=str, default="summary",
                         choices=["summary", "full", "executive"],
                         help="Triage mode (default: summary)")
+    parser.add_argument("--minutes", type=int, default=10080,
+                        help="Time window in minutes for intelligence query (default: 10080 = 7 days)")
     parser.add_argument("--no-save", action="store_true",
                         help="Print report to stdout only")
     return parser.parse_args()
@@ -376,6 +695,16 @@ def main():
     # Run triage
     batch_results    = []
     executive_summary = None
+
+    # Pass minutes for intelligence window
+    if not hasattr(stats, "get"):
+        stats = {}
+    stats["window_minutes"] = args.minutes
+
+    # Pass minutes for intelligence window
+    if not hasattr(stats, "get"):
+        stats = {}
+    stats["window_minutes"] = args.minutes
 
     if args.mode == "summary":
         batch_results = triage_summary_mode(alerts, stats)

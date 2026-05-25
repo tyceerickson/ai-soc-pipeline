@@ -92,7 +92,7 @@ select:focus{outline:none;border-color:var(--purple)}
 .sort-btn{background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;padding:2px 7px;cursor:pointer}
 .sort-btn:hover{border-color:var(--purple);color:var(--purple)}
 .dtable{width:100%;border-collapse:collapse}
-.dtable th{font-size:10px;color:var(--muted);text-align:left;padding:0 4px 8px;border-bottom:1px solid var(--border);font-weight:500;cursor:pointer;user-select:none}
+.dtable th{font-size:10px;color:var(--muted);text-align:left;padding:0 4px 8px;border-bottom:1px solid var(--border);font-weight:500;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg2);z-index:1}
 .dtable th:hover{color:var(--text)}
 .dtable td{padding:6px 4px;border-bottom:1px solid rgba(48,54,61,.4);font-size:12px;vertical-align:middle}
 .dtable tr:last-child td{border-bottom:none}
@@ -248,11 +248,11 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <div class="g3">
     <div class="panel">
       <div class="panel-hdr"><span class="panel-title">Top Attacker Countries</span><button class="sort-btn" onclick="toggleBarSort('countries')">⇅</button></div>
-      <div id="countries-chart"></div>
+      <div id="countries-chart" style="height:253px;overflow-y:auto"></div>
     </div>
     <div class="panel">
       <div class="panel-hdr"><span class="panel-title">Top Attacker IPs</span></div>
-      <div class="scroll">
+      <div style="height:253px;overflow-y:auto">
         <table class="dtable">
           <thead><tr>
             <th onclick="sortTbl('ips-tb','ip')">IP</th>
@@ -265,7 +265,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
     <div class="panel">
       <div class="panel-hdr"><span class="panel-title">Event Types</span><button class="sort-btn" onclick="toggleBarSort('events')">⇅</button></div>
-      <div id="events-chart"></div>
+      <div id="events-chart" style="height:253px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -401,8 +401,10 @@ const SEV_COLORS = {
 // ===== Utils =====
 const fmt = n => (n||0).toLocaleString();
 const timeAgo = iso => {
+  if(!iso) return 'unknown';
   const s = Math.floor((Date.now()-new Date(iso))/1000);
-  return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:`${Math.floor(s/3600)}h ago`;
+  if(s < 0) return 'just now';
+  return s<60?`${s}s ago`:s<3600?`${Math.floor(s/60)}m ago`:s<86400?`${Math.floor(s/3600)}h ago`:`${Math.floor(s/86400)}d ago`;
 };
 
 const WINDOW_CONFIG = {
@@ -698,7 +700,8 @@ function renderBars(id,data,color,key){
   let entries=Object.entries(data);
   entries.sort((a,b)=>barSortAsc[key]?a[1]-b[1]:b[1]-a[1]);
   const max=Math.max(...entries.map(e=>e[1]),1);
-  el.innerHTML=entries.slice(0,10).map(([k,v])=>`
+  const limit=key==="countries"?20:key==="events"?15:10;
+  el.innerHTML=entries.slice(0,limit).map(([k,v])=>`
     <div class="bar-row">
       <div class="bar-label" title="${k}">${k}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%;background:${color}"></div></div>
@@ -732,19 +735,24 @@ function sortTbl(tbId,col,numDesc){
 
 // ===== Credentials =====
 function renderCredsTable(creds){
-  document.getElementById('creds-tb').innerHTML=Object.entries(creds)
-    .sort((a,b)=>b[1]-a[1]).slice(0,15)
-    .map(([k,v])=>`<tr data-cred="${k}" data-count="${v}"><td class="mono">${k}</td><td class="num">${v}x</td></tr>`).join('');
+  const items = Array.isArray(creds)
+    ? creds
+    : Object.entries(creds).map(([k,v])=>({cred:k,count:v})).sort((a,b)=>b.count-a.count);
+  document.getElementById('creds-tb').innerHTML = items.slice(0,100)
+    .map(({cred,count})=>`<tr data-cred="${cred}" data-count="${count}"><td class="mono">${cred}</td><td class="num">${count.toLocaleString()}x</td></tr>`)
+    .join('');
 }
 
 // ===== Commands =====
 function renderCmds(cmds){
-  document.getElementById('cmds-list').innerHTML=Object.entries(cmds)
-    .sort((a,b)=>b[1]-a[1]).slice(0,6)
-    .map(([cmd,n])=>`
+  const items = Array.isArray(cmds)
+    ? cmds
+    : Object.entries(cmds).map(([k,v])=>({cmd:k,count:v})).sort((a,b)=>b.count-a.count);
+  document.getElementById('cmds-list').innerHTML = items.slice(0,100)
+    .map(({cmd,count})=>`
       <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-        <div class="mono" style="word-break:break-all;line-height:1.5;font-size:11px">${cmd.length>140?cmd.slice(0,140)+'…':cmd}</div>
-        <div class="dim" style="margin-top:3px">${n}× executed</div>
+        <div class="mono" style="word-break:break-all;line-height:1.5;font-size:11px">${cmd.length>140?cmd.slice(0,140)+'\u2026':cmd}</div>
+        <div class="dim" style="margin-top:3px">${count.toLocaleString()}\u00d7 executed</div>
       </div>`).join('');
 }
 
