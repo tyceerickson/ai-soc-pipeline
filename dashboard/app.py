@@ -80,6 +80,52 @@ def build_geoip_lookup():
             return json.load(f)
     except Exception:
         pass
+    return {}
+
+
+def resolve_missing_ips_async(ips_list):
+    """Background thread: resolve any IPs not in the GeoIP cache."""
+    import threading
+    def _resolve():
+        try:
+            cache_path = "/opt/cowrie-logs/geoip_cache.json"
+            try:
+                with open(cache_path) as f:
+                    cache = json.load(f)
+            except Exception:
+                cache = {}
+            missing = [ip for ip in ips_list if ip not in cache]
+            if not missing:
+                return
+            try:
+                import geoip2.database
+                city_db = "/opt/geoip/GeoLite2-City.mmdb"
+                asn_db  = "/opt/geoip/GeoLite2-ASN.mmdb"
+                city_reader = geoip2.database.Reader(city_db)
+                asn_reader  = geoip2.database.Reader(asn_db)
+                resolved = 0
+                for ip in missing[:50]:  # resolve up to 50 at a time
+                    try:
+                        city = city_reader.city(ip)
+                        asn  = asn_reader.asn(ip)
+                        cache[ip] = {
+                            "country": city.country.name or "",
+                            "city":    city.city.name or "",
+                            "org":     asn.autonomous_system_organization or "",
+                        }
+                        resolved += 1
+                    except Exception:
+                        cache[ip] = {"country": "", "city": "", "org": ""}
+                city_reader.close()
+                asn_reader.close()
+                if resolved > 0:
+                    with open(cache_path, 'w') as f:
+                        json.dump(cache, f)
+            except Exception:
+                pass
+        except Exception:
+            pass
+    threading.Thread(target=_resolve, daemon=True).start()
     lookup = {}
     try:
         with open(GEOIP_SOURCE, encoding="utf-8") as f:
@@ -309,6 +355,11 @@ def get_live_stats(minutes=60):
             "org":     geo.get("org", "") if isinstance(geo, dict) else "",
         })
 
+    # Async-resolve any IPs not yet in GeoIP cache
+    uncached = [ip["ip"] for ip in top_ips if not ip.get("country")]
+    if uncached:
+        resolve_missing_ips_async(uncached)
+
     mitre_tactics    = {b["key"]: b["doc_count"] for b in aggs.get("mitre_tactics",    {}).get("buckets", [])}
     mitre_techniques = {b["key"]: b["doc_count"] for b in aggs.get("mitre_techniques", {}).get("buckets", [])}
     mitre_ids        = {b["key"]: b["doc_count"] for b in aggs.get("mitre_ids",        {}).get("buckets", [])}
@@ -403,6 +454,76 @@ def build_mitre_panel(minutes, since_ms, tactics, techniques, ids):
 # ============================================================
 # NEW API: Attack Chain Funnel
 # ============================================================
+def resolve_alert_ips():
+    """Resolve all unique IPs from recent OpenSearch alerts into GeoIP cache."""
+    cache_path = "/opt/cowrie-logs/geoip_cache.json"
+    try:
+        with open(cache_path) as f:
+            cache = json.load(f)
+    except Exception:
+        cache = {}
+
+    # Get all unique IPs from alerts
+    body = {
+        "size": 0,
+        "query": {"exists": {"field": "data.honeypot"}},
+        "aggs": {
+            "all_ips": {"terms": {"field": "data.src_ip", "size": 5000}}
+        }
+    }
+    result = os_query(f"/{ALERT_INDEX}/_search", body)
+    buckets = result.get("aggregations", {}).get("all_ips", {}).get("buckets", [])
+    all_ips = [b["key"] for b in buckets]
+
+    missing = [ip for ip in all_ips if ip not in cache or not cache[ip].get("country")]
+    if not missing:
+        return len(cache), 0
+
+    try:
+        import geoip2.database, glob
+        # Search common locations for MaxMind databases
+        search_dirs = [
+            "/opt/geoip",
+            "/opt/cowrie-tools/pipeline",
+            "/opt/cowrie-tools",
+            "/opt/cowrie-logs",
+            "/usr/share/GeoIP",
+            "/var/lib/GeoIP",
+        ]
+        city_db = asn_db = None
+        for d in search_dirs:
+            c = glob.glob(f"{d}/GeoLite2-City*.mmdb")
+            a = glob.glob(f"{d}/GeoLite2-ASN*.mmdb")
+            if c: city_db = c[0]
+            if a: asn_db  = a[0]
+            if city_db and asn_db: break
+        if not city_db or not asn_db:
+            return len(cache), -1  # databases not found
+
+        city_reader = geoip2.database.Reader(city_db)
+        asn_reader  = geoip2.database.Reader(asn_db)
+        resolved = 0
+        for ip in missing:
+            try:
+                city = city_reader.city(ip)
+                asn  = asn_reader.asn(ip)
+                cache[ip] = {
+                    "country": city.country.name or "",
+                    "city":    city.city.name or "",
+                    "org":     asn.autonomous_system_organization or "",
+                }
+                resolved += 1
+            except Exception:
+                cache[ip] = {"country": "", "city": "", "org": ""}
+        city_reader.close()
+        asn_reader.close()
+        with open(cache_path, 'w') as f:
+            json.dump(cache, f)
+        return len(cache), resolved
+    except Exception as e:
+        return len(cache), -1
+
+
 def get_attack_chain(minutes):
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     body = {
@@ -425,13 +546,13 @@ def get_attack_chain(minutes):
     aggs = result.get("aggregations", {})
     return {
         "stages": [
-            {"name": "Session Connect",    "count": aggs.get("connect",       {}).get("doc_count", 0), "color": "#388bfd"},
-            {"name": "SSH Key Exchange",   "count": aggs.get("client_kex",    {}).get("doc_count", 0), "color": "#a371f7"},
-            {"name": "Login Failed",       "count": aggs.get("login_failed",  {}).get("doc_count", 0), "color": "#f85149"},
-            {"name": "Login Success",      "count": aggs.get("login_success", {}).get("doc_count", 0), "color": "#d29922"},
-            {"name": "Command Executed",   "count": aggs.get("cmd_input",     {}).get("doc_count", 0), "color": "#f0883e"},
-            {"name": "File Downloaded",    "count": aggs.get("file_download", {}).get("doc_count", 0), "color": "#ff79c6"},
-            {"name": "File Uploaded",      "count": aggs.get("file_upload",   {}).get("doc_count", 0), "color": "#3fb950"},
+            {"name": "Session Connect",    "count": aggs.get("connect",       {}).get("doc_count", 0), "color": "#A0E7E5"},
+            {"name": "SSH Key Exchange",   "count": aggs.get("client_kex",    {}).get("doc_count", 0), "color": "#7BC9FF"},
+            {"name": "Login Failed",       "count": aggs.get("login_failed",  {}).get("doc_count", 0), "color": "#9395D3"},
+            {"name": "Login Success",      "count": aggs.get("login_success", {}).get("doc_count", 0), "color": "#9395D3"},
+            {"name": "Command Executed",   "count": aggs.get("cmd_input",     {}).get("doc_count", 0), "color": "#B388EB"},
+            {"name": "File Downloaded",    "count": aggs.get("file_download", {}).get("doc_count", 0), "color": "#DDA0DD"},
+            {"name": "File Uploaded",      "count": aggs.get("file_upload",   {}).get("doc_count", 0), "color": "#FF7F71"},
         ]
     }
 
@@ -571,11 +692,11 @@ def get_sessions(minutes):
 
     # Fetch events for top sessions
     body2 = {
-        "size": 500,
+        "size": 1000,
         "query": {"bool": {"filter": [
             {"range": {"data.timestamp": {"gte": since.isoformat()}}},
             {"exists": {"field": "data.honeypot"}},
-            {"terms": {"data.session": top_session_ids[:10]}},
+            {"terms": {"data.session": top_session_ids[:20]}},
         ]}},
         "sort": [{"data.timestamp": "asc"}],
         "_source": ["data.session", "data.eventid", "data.src_ip", "data.timestamp",
@@ -770,21 +891,31 @@ def run_refresh_thread():
         "running": True, "error": None,
         "started_at": datetime.now(timezone.utc).isoformat(),
     })
-    steps = [
-        ("Enriching logs with GeoIP...", [PYTHON, ENRICH_SCRIPT]),
-        ("Exporting to Wazuh format...", [PYTHON, EXPORT_SCRIPT,
-          "--input", "/opt/cowrie-logs/cowrie_enriched.json",
-          "--output-dir", "/opt/cowrie-logs/wazuh/",
-          "--wazuh-manager", "127.0.0.1"]),
-    ]
-    for msg, cmd in steps:
-        refresh_state["progress"] = msg
-        try:
-            subprocess.run(cmd, timeout=180, capture_output=True)
-        except Exception as e:
-            refresh_state["error"] = str(e)
-            refresh_state["running"] = False
-            return
+    # Step 1: Enrich Cowrie logs
+    refresh_state["progress"] = "Step 1/3: Enriching logs with GeoIP..."
+    try:
+        subprocess.run([PYTHON, ENRICH_SCRIPT], timeout=180, capture_output=True)
+    except Exception as e:
+        refresh_state["error"] = str(e)
+
+    # Step 2: Resolve ALL alert IPs from OpenSearch into cache
+    refresh_state["progress"] = "Step 2/3: Resolving all attacker IPs via MaxMind..."
+    try:
+        total, resolved = resolve_alert_ips()
+        refresh_state["progress"] = f"Step 2/3: Resolved {resolved} new IPs ({total} total in cache)"
+    except Exception as e:
+        refresh_state["error"] = str(e)
+
+    # Step 3: Export to Wazuh format
+    refresh_state["progress"] = "Step 3/3: Exporting to Wazuh format..."
+    try:
+        subprocess.run([PYTHON, EXPORT_SCRIPT,
+            "--input", "/opt/cowrie-logs/cowrie_enriched.json",
+            "--output-dir", "/opt/cowrie-logs/wazuh/",
+            "--wazuh-manager", "127.0.0.1"],
+            timeout=180, capture_output=True)
+    except Exception as e:
+        refresh_state["error"] = str(e)
     refresh_state["running"]  = False
     refresh_state["progress"] = "Complete"
 
@@ -855,7 +986,7 @@ def analyze_botnet_with_ai(name, count, unique_ips):
 
     query = BOTNET_QUERIES.get(name, {"term": {"data.honeypot": "cowrie-raw"}})
     sample_body = {
-        "size": 5,
+        "size": 25,
         "query": {"bool": {"filter": [
             {"exists": {"field": "data.honeypot"}},
             query,
@@ -901,7 +1032,7 @@ Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid J
             "model": "llama3.1:8b",
             "prompt": prompt,
             "stream": False,
-            "options": {"temperature": 0.3},
+            "options": {"temperature": 0.3, "num_predict": 2048},
         }).encode()
         req = urllib.request.Request(
             OLLAMA_URL, data=body,
