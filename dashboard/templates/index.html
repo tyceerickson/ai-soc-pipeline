@@ -558,18 +558,18 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   </div>
 
   <!-- Row 6: Top Commands + Session Depth -->
-  <div class="g2" style="margin-bottom:12px">
+  <div class="g2" style="margin-bottom:12px;align-items:stretch">
     <div class="panel" style="display:flex;flex-direction:column">
       <div class="panel-hdr"><span class="panel-title">Top Commands Executed</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Shell commands run by attackers AFTER gaining access to the honeypot. High counts = automated botnet activity.">post-login shell ⓘ</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Shell commands run by attackers after gaining access. High repeat counts = automated botnet scripts.">post-login shell commands ⓘ</span></div>
-      <div class="scroll" id="cmds-list" style="min-height:200px;height:100%"></div>
+      <div class="scroll" id="cmds-list" style="flex:1;overflow-y:auto"></div>
     </div>
-    <div class="panel">
+    <div class="panel" style="display:flex;flex-direction:column">
       <div class="panel-hdr">
         <span class="panel-title">Attacker Intelligence</span>
         <span class="panel-meta" id="attacker-meta"></span>
         <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Top attackers ranked by threat score. Shows credentials tried, commands run, and persistence attempts per IP. Click any row to expand.">threat-scored attackers ⓘ</span>
       </div>
-      <div id="attacker-list" style="max-height:500px;overflow-y:auto"></div>
+      <div id="attacker-list" style="flex:1;overflow-y:auto"></div>
     </div>
 
   </div>
@@ -704,6 +704,27 @@ let activeSevSeries = new Set(['total']);
 let activeTactics = new Set(), allTactics = [], tacticCounts = {};
 let sortDirs = {}, barSortAsc = {}, pollTimer = null;
 
+
+
+// MITRE Technique definitions (most common in SSH honeypots)
+const MITRE_TECH_DEFS = {
+  'T1046':     'Network Service Discovery — Adversaries may attempt to get a listing of services running on remote hosts and local network infrastructure.',
+  'T1110':     'Brute Force — Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained.',
+  'T1110.001': 'Password Guessing — Without knowledge of the password, an adversary may opt to guess passwords using a list of common passwords.',
+  'T1110.002': 'Password Cracking — Adversaries may use password cracking to attempt to recover usable credentials from hashed passwords.',
+  'T1098':     'Account Manipulation — Adversaries may manipulate accounts to maintain or elevate access to victim systems.',
+  'T1098.004': 'SSH Authorized Keys — Adversaries may modify the SSH authorized_keys file to maintain persistence on a victim host.',
+  'T1059':     'Command and Scripting Interpreter — Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries.',
+  'T1059.004': 'Unix Shell — Adversaries may abuse Unix shell commands and scripts for execution.',
+  'T1078':     'Valid Accounts — Adversaries may obtain and abuse credentials of existing accounts as a means of gaining initial access, persistence, or privilege escalation.',
+  'T1021':     'Remote Services — Adversaries may use valid accounts to log into a service specifically designed to accept remote connections.',
+  'T1021.004': 'SSH — Adversaries may use Valid Accounts to log into remote machines using Secure Shell (SSH).',
+  'T1105':     'Ingress Tool Transfer — Adversaries may transfer tools or other files from an external system into a compromised environment.',
+  'T1027':     'Obfuscated Files or Information — Adversaries may attempt to make an executable or file difficult to discover or analyze.',
+  'T1222':     'File and Directory Permissions Modification — Adversaries may modify file or directory permissions/attributes to evade access control lists.',
+  'T1136':     'Create Account — Adversaries may create an account to maintain access to victim systems.',
+  'T1547':     'Boot or Logon Autostart Execution — Adversaries may configure system settings to automatically execute a program during system boot or logon.',
+};
 
 // Official MITRE ATT&CK tactic definitions
 const MITRE_DEFS = {
@@ -1195,7 +1216,7 @@ const EVENT_ICONS = {
 };
 /** @param {Object} d - Sessions API response (used to build attacker intelligence) */
 function renderSessions(d){
-  // Build attacker intelligence from session data
+  window._lastSessionData = d;
   renderAttackerIntel(d);
 }
 
@@ -1207,6 +1228,8 @@ function renderAttackerIntel(d){
   const listEl = document.getElementById('attacker-list');
   const metaEl = document.getElementById('attacker-meta');
   if(!listEl) return;
+  // Store full list for show-all toggle
+  window._attackerFull = null;
 
   // Group sessions by IP and compute threat score
   const byIP = {};
@@ -1250,12 +1273,24 @@ function renderAttackerIntel(d){
   });
 
   const attackers = Object.values(byIP).sort((a,b)=>b.maxLevel-a.maxLevel||b.sessions-a.sessions);
-  if(metaEl) metaEl.textContent = `${attackers.length} unique attackers`;
+  // meta set inside display logic above
 
   const LEVEL_COLOR = l=> l>=12?'#c85a3a':l>=10?'#8B5E3C':l>=8?'#b89050':'var(--text3)';
   const LEVEL_LABEL = l=> l>=12?'CRITICAL':l>=10?'HIGH':l>=8?'MEDIUM':'LOW';
 
-  listEl.innerHTML = attackers.slice(0,200).map((a,i)=>{
+  window._attackerFull = attackers;
+  const showAll = window._attackerShowAll || false;
+  const display = showAll ? attackers : attackers.slice(0, 5);
+  if(metaEl) metaEl.textContent = `${display.length} of ${attackers.length} attackers`;
+  // Add show all / collapse button
+  const btnHtml = attackers.length > 5
+    ? `<div style="margin-bottom:8px">
+        <button onclick="window._attackerShowAll=!window._attackerShowAll;renderAttackerIntel(window._lastSessionData||{sessions:[]})" 
+          style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 12px;font-size:11px;color:var(--forest);cursor:pointer">
+          ${showAll ? `▲ Show Top 5` : `▼ Show All ${attackers.length} Attackers`}
+        </button>
+       </div>` : '';
+  listEl.innerHTML = btnHtml + display.map((a,i)=>{
     const badges = [
       a.hasKeyImplant ? '<span style="background:rgba(200,90,58,.12);color:#c85a3a;border:1px solid rgba(200,90,58,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">SSH KEY</span>' : '',
       a.hasDownload   ? '<span style="background:rgba(139,94,60,.12);color:#8B5E3C;border:1px solid rgba(139,94,60,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">DOWNLOAD</span>' : '',
@@ -1405,9 +1440,12 @@ async function showSpikeDetail(ts, count, interval){
   // ts = epoch ms of the bucket START.
   // We need: how many minutes ago was the END of this bucket?
   // That gives us the most focused query.
-  const bucketMs = interval==='1h'?3600000:interval==='2h'?7200000:
-                   interval==='6h'?21600000:interval==='12h'?43200000:
-                   interval==='3h'?10800000:interval==='30m'?1800000:300000;
+  // Must match backend interval table exactly
+  const INTERVAL_MS = {
+    '5m':300000,'15m':900000,'30m':1800000,'1h':3600000,
+    '2h':7200000,'3h':10800000,'6h':21600000,'12h':43200000,'1d':86400000,'1w':604800000
+  };
+  const bucketMs = INTERVAL_MS[interval] || 3600000;
   const now = Date.now();
   // Minutes from now back to the START of this bucket (furthest edge)
   const minsToStart = Math.max(5, Math.ceil((now - ts) / 60000));
@@ -1818,7 +1856,7 @@ function renderMITRE(panel,tactics){
   document.getElementById('mitre-meta').textContent=`${panel.length} tactics · ${fmt(total)} events`;
   document.getElementById('mitre-grid').innerHTML=panel.map((t,i)=>{
     const color=TACTIC_COLORS[t.tactic]||TACTIC_COLORS_DEFAULT;
-    const idTags=t.tactic_ids.map(id=>`<span class="mitre-id-tag">${id}</span>`).join('');
+    const idTags=t.tactic_ids.map(id=>`<span class="mitre-id-tag" title="${id}: ${(typeof MITRE_TECH_DEFS!=='undefined'&&MITRE_TECH_DEFS[id])||'See attack.mitre.org/techniques/'+id}" style="cursor:help">${id}</span>`).join('');
     const pct=total>0?Math.round(t.count/total*100):0;
     const examples=t.examples.map(ex=>{
       const fields=[];

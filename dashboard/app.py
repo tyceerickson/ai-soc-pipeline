@@ -414,17 +414,21 @@ def get_live_stats(minutes=60):
     since_ms = int(since.timestamp() * 1000)
 
     if minutes <= 120:
-        i_type, i_val, interval = "fixed_interval",    "5m",  "5m"
+        i_type, i_val, interval = "fixed_interval",    "5m",   "5m"
+    elif minutes <= 360:
+        i_type, i_val, interval = "fixed_interval",    "15m",  "15m"
     elif minutes <= 720:
-        i_type, i_val, interval = "fixed_interval",    "30m", "30m"
+        i_type, i_val, interval = "fixed_interval",    "30m",  "30m"
     elif minutes <= 1440:
-        i_type, i_val, interval = "fixed_interval",    "2h",  "2h"
+        i_type, i_val, interval = "fixed_interval",    "1h",   "1h"
+    elif minutes <= 4320:
+        i_type, i_val, interval = "fixed_interval",    "2h",   "2h"
     elif minutes <= 10080:
-        i_type, i_val, interval = "fixed_interval",    "12h", "12h"
+        i_type, i_val, interval = "fixed_interval",    "6h",   "6h"
     elif minutes <= 43200:
-        i_type, i_val, interval = "calendar_interval", "day", "1d"
+        i_type, i_val, interval = "fixed_interval",    "12h",  "12h"
     else:
-        i_type, i_val, interval = "calendar_interval", "week","1w"
+        i_type, i_val, interval = "calendar_interval", "day",  "1d"
 
     body = {
         "size": 0,
