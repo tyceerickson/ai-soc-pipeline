@@ -131,6 +131,12 @@ select:focus{outline:none;border-color:var(--purple)}
 .bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
 .bar-count{width:54px;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;margin-right:4px}
 .sort-btn{background:none;border:1px solid var(--border);border-radius:4px;color:var(--muted);font-size:10px;padding:2px 7px;cursor:pointer;transition:all .15s}
+.bl-btn{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:11px;color:var(--text3);cursor:pointer;transition:all .15s}
+.bl-btn:hover{border-color:var(--forest,#4a7c59);color:var(--forest,#4a7c59)}
+.bt-sel{display:flex;gap:3px;margin-left:auto}
+.bt-btn{background:none;border:1px solid var(--border);border-radius:3px;padding:1px 6px;font-size:9px;color:var(--text3);cursor:pointer;transition:all .15s;font-family:monospace}
+.bt-btn:hover,.bt-btn.active{border-color:var(--forest,#4a7c59);color:var(--forest,#4a7c59)}
+.bl-active{border-color:var(--forest,#4a7c59) !important;color:var(--forest,#4a7c59) !important}
 .sort-btn:hover{border-color:var(--pine);color:var(--pine)}
 .dtable{width:100%;border-collapse:collapse}
 .dtable th{font-size:10px;color:var(--text3);text-align:left;padding:0 4px 8px;border-bottom:1px solid var(--border);font-weight:600;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--bg2);z-index:1;letter-spacing:.04em;text-transform:uppercase}
@@ -193,6 +199,39 @@ select:focus{outline:none;border-color:var(--purple)}
 .prog-text{font-size:11px;color:var(--muted);margin-top:6px}
 .triage-out{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:16px;margin-top:14px;display:none}
 .triage-out.show{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ===== RESPONSIVE DESIGN ===== */
+/* Tablet: collapse 3-col to 2-col */
+@media (max-width: 1100px) {
+  .g3{grid-template-columns:1fr 1fr}
+  .g4{grid-template-columns:1fr 1fr}
+  .stats-row{grid-template-columns:1fr 1fr 1fr}
+}
+/* Mobile: single column */
+@media (max-width: 700px) {
+  .main{padding:10px 12px 60px}
+  .g2,.g3,.g4{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .controls{flex-direction:column}
+  .ctrl-grp select{min-width:unset;width:100%}
+  .run-btn{width:100%;padding:12px}
+  header{padding:0 14px;height:52px;flex-wrap:wrap;gap:6px}
+  .header-right{gap:6px}
+  .win-select{font-size:11px;padding:5px 8px}
+  .icon-btn{padding:5px 8px;font-size:11px}
+  .logo-text h1{font-size:13px}
+  .funnel-count,.funnel-pct{display:none}
+  #status-bar{gap:8px;flex-wrap:wrap;padding:4px 12px}
+  .botnet-list{grid-template-columns:1fr !important}
+}
+/* Touch-friendly minimum tap target sizes */
+@media (hover: none) {
+  .tl-btn,.sort-btn,.bl-btn,.icon-btn{min-height:36px;min-width:36px}
+  .mitre-hdr{min-height:44px}
+  .session-hdr{min-height:44px}
+  .run-btn{min-height:44px}
+}
 .verdict{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:14px}
 .v-HIGH,.v-CRITICAL{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3)}
 .v-MEDIUM{background:rgba(210,153,34,.15);color:var(--yellow);border:1px solid rgba(210,153,34,.3)}
@@ -301,7 +340,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   </div>
   <div class="header-right">
     <span id="refresh-time" class="badge badge-g">Loading...</span>
-    <select id="win-sel" onchange="setWindow(this.value)">
+    <select id="win-sel" onchange="setWindow(this.value)" aria-label="Time window selector">
       <option value="60">Last hour</option>
       <option value="360">Last 6 hours</option>
       <option value="1440">Last 24 hours</option>
@@ -313,17 +352,17 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   </div>
 </header>
 
-<div class="main">
+<div class="main" role="main" aria-label="SOC Dashboard">
   <div class="refresh-banner" id="refresh-banner"><span>⟳</span><span id="refresh-msg"></span></div>
 
   <!-- Live Alert Summary -->
   <div class="section-label">Live Alert Summary</div>
   <div class="stats-row">
-    <div class="scard s-total"><div class="scard-label">Total Alerts</div><div class="scard-val purple" id="s-total">—</div></div>
-    <div class="scard s-crit" style="position:relative" onmouseenter="showSevTooltip(this,'crit')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">Critical ⓘ</div><div class="scard-val red" id="s-crit">—</div></div>
-    <div class="scard s-high" style="position:relative" onmouseenter="showSevTooltip(this,'high')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">High ⓘ</div><div class="scard-val pink" id="s-high">—</div></div>
-    <div class="scard s-med" style="position:relative" onmouseenter="showSevTooltip(this,'med')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">Medium ⓘ</div><div class="scard-val yellow" id="s-med">—</div></div>
-    <div class="scard s-low" style="position:relative" onmouseenter="showSevTooltip(this,'low')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">Low ⓘ</div><div class="scard-val blue" id="s-low">—</div></div>
+    <div class="scard s-total"><div class="scard-label">Total Alerts</div><div class="scard-val purple" id="s-total" aria-label="Total alerts count">—</div></div>
+    <div class="scard s-crit" style="position:relative" onmouseenter="showSevTooltip(this,'crit')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">Critical ⓘ</div><div class="scard-val red" id="s-crit" aria-label="Critical alerts count">—</div></div>
+    <div class="scard s-high" style="position:relative" onmouseenter="showSevTooltip(this,'high')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">High ⓘ</div><div class="scard-val pink" id="s-high" aria-label="High severity alerts count">—</div></div>
+    <div class="scard s-med" style="position:relative" onmouseenter="showSevTooltip(this,'med')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">Medium ⓘ</div><div class="scard-val yellow" id="s-med" aria-label="Medium severity alerts count">—</div></div>
+    <div class="scard s-low" style="position:relative" onmouseenter="showSevTooltip(this,'low')" onmouseleave="hideSevTooltip()"><div class="scard-label" style="cursor:help">Low ⓘ</div><div class="scard-val blue" id="s-low" aria-label="Low severity alerts count">—</div></div>
   </div>
   <!-- Severity tooltip -->
   <div id="sev-tooltip" style="display:none;position:fixed;z-index:500;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;max-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.5);font-size:12px;line-height:1.6"></div>
@@ -331,7 +370,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <!-- Alert Timeline -->
   <div class="panel" style="margin-bottom:12px">
     <div class="panel-hdr">
-      <span class="panel-title">Alert Timeline</span>
+      <span class="panel-title">Alert Timeline</span><span class="panel-meta" style="font-size:10px;color:var(--text3);margin-left:4px" title="Wazuh alert events over your time window. Filter by severity or MITRE tactic with the buttons above.">alerts over time ⓘ</span>
       <div class="tl-ctrl-row">
         <div class="tl-group">
           <span class="tl-group-label">Severity:</span>
@@ -365,7 +404,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <!-- Row 1: Countries + Geographic Map -->
   <div class="g2" style="margin-bottom:12px">
     <div class="panel">
-      <div class="panel-hdr"><span class="panel-title">Top Attacker Countries</span><span class="panel-meta" style="font-size:10px;color:var(--text3)">by total Wazuh alerts</span><button class="sort-btn" onclick="toggleBarSort('countries')">⇅</button></div>
+      <div class="panel-hdr"><span class="panel-title">Top Attacker Countries</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Countries ranked by total Wazuh rule violations. Includes all alert severities. Bar width = relative volume.">by total Wazuh alerts ⓘ</span><span class="panel-meta" style="font-size:10px;color:var(--text3)">by total Wazuh alerts</span><button class="sort-btn" onclick="toggleBarSort('countries')">⇅</button></div>
       <div id="countries-chart" style="height:300px;overflow-y:auto;padding-right:20px;overflow-x:hidden"></div>
     </div>
     <div class="panel">
@@ -381,7 +420,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <!-- Row 2: Top Attacker IPs + Attack Velocity + Event Types -->
   <div class="g3" style="margin-bottom:12px">
     <div class="panel">
-      <div class="panel-hdr"><span class="panel-title">Top Attacker IPs</span></div>
+      <div class="panel-hdr"><span class="panel-title">Top Attacker IPs</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Source IPs ranked by alert count. resolving... = GeoIP lookup pending, updates hourly.">by alert volume ⓘ</span></div>
       <div style="height:253px;overflow-y:auto;padding-right:8px">
         <table class="dtable">
           <thead><tr>
@@ -396,7 +435,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     <div class="panel" style="min-height:280px">
       <div class="panel-hdr">
         <span class="panel-title">Attack Velocity</span>
-        <span class="panel-meta">Live · 30-min spark</span>
+        <span class="panel-meta">Live · 60-min spark</span>
       </div>
       <div class="velocity-wrap">
         <div style="text-align:center">
@@ -408,8 +447,12 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
           <div class="vel-stat"><div class="vel-stat-val" id="vel-24h">—</div><div class="vel-stat-lbl">avg/min 24h</div></div>
           <div class="vel-stat"><div class="vel-stat-val" id="vel-5m">—</div><div class="vel-stat-lbl">last 5 min</div></div>
         </div>
-        <div class="vel-mini" id="vel-mini"></div>
-        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+        <div style="position:relative;width:100%">
+          <div class="vel-mini" id="vel-mini" style="width:100%;justify-content:center"
+               onmouseleave="document.getElementById('vel-tip').style.display='none'"></div>
+          <div id="vel-tip" style="display:none;position:absolute;top:-28px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-family:monospace;font-size:10px;color:var(--text2);pointer-events:none;white-space:nowrap"></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);width:100%">
           <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)">
             <span style="width:10px;height:10px;background:#c85a3a;border-radius:2px;display:inline-block;flex-shrink:0"></span>Surge (&gt;2× avg)
           </span>
@@ -419,7 +462,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
           <span style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3)">
             <span style="width:10px;height:10px;background:#4a7c59;border-radius:2px;display:inline-block;flex-shrink:0"></span>Normal
           </span>
-          <span style="font-size:10px;color:var(--muted);padding-left:8px;border-left:1px solid var(--border)">Each bar = 1 min</span>
+          <span style="font-size:10px;color:var(--muted);padding-left:8px;border-left:1px solid var(--border)">Each bar = 1 min · 60 min total</span>
         </div>
       </div>
     </div>
@@ -434,14 +477,14 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <div class="g2" style="margin-bottom:12px">
     <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Attack Chain Funnel</span>
+        <span class="panel-title">Attack Chain Funnel</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Kill chain: what % of attackers progressed through each stage. Bar width = volume. % of prev = drop from previous stage.">kill chain stages ⓘ</span>
         <span class="panel-meta" id="chain-meta"></span>
       </div>
       <div class="funnel-wrap" id="funnel-wrap"></div>
     </div>
     <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Attack Heatmap (Hour × Day)</span>
+        <span class="panel-title">Attack Heatmap (Hour × Day)</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Attack density by hour (X axis) and day (Y axis). Darker cell = more alerts in that hour. Hover to see exact count.">hover for count ⓘ</span>
         <span class="panel-meta">Last 14 days · UTC</span>
       </div>
       <div class="heatmap-wrap">
@@ -466,9 +509,16 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
 
   <!-- Row 4: Botnet Fingerprints (full width) -->
   <div class="panel" style="margin-bottom:12px">
-    <div class="panel-hdr">
-      <span class="panel-title">Botnet Fingerprints</span><span class="panel-meta" style="font-size:10px;color:var(--text3)">6 signature-matched · manual detection only</span>
+    <div class="panel-hdr" style="flex-wrap:wrap;gap:8px">
+      <span class="panel-title">Botnet Fingerprints</span>
+      <span class="panel-meta" style="font-size:10px;color:var(--text3)">auto-detected from live credential & command patterns · sorted by volume</span>
       <span class="panel-meta" id="botnet-meta"></span>
+      <div style="display:flex;gap:4px;margin-left:auto">
+        <button onclick="setBotnetLimit(4)"  id="bl-4"  class="bl-btn">Top 4</button>
+        <button onclick="setBotnetLimit(8)"  id="bl-8"  class="bl-btn">Top 8</button>
+        <button onclick="setBotnetLimit(12)" id="bl-12" class="bl-btn bl-active">Top 12</button>
+        <button onclick="setBotnetLimit(0)"  id="bl-0"  class="bl-btn">All</button>
+      </div>
     </div>
     <div class="botnet-list" id="botnet-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
   </div>
@@ -476,7 +526,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <!-- Row 5: Top Credentials + Credential Intelligence -->
   <div class="g2" style="margin-bottom:12px">
     <div class="panel">
-      <div class="panel-hdr"><span class="panel-title">Top Credentials Attempted</span></div>
+      <div class="panel-hdr"><span class="panel-title">Top Credentials Attempted</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Most-used username/password pairs. Click any row to copy to clipboard. High counts = automated botnet scripts.">click row to copy ⓘ</span></div>
       <div class="scroll">
         <table class="dtable">
           <thead><tr>
@@ -489,7 +539,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
     <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Credential Intelligence</span>
+        <span class="panel-title">Credential Intelligence</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Success% = logins that resulted in a successful unauthorized login. 100% = confirmed compromise. 0% = all blocked.">success = actual login ⓘ</span>
         <span class="panel-meta" id="cred-intel-meta"></span>
       </div>
       <div class="cred-intel-stats" id="cred-intel-stats"></div>
@@ -509,24 +559,26 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
 
   <!-- Row 6: Top Commands + Session Depth -->
   <div class="g2" style="margin-bottom:12px">
-    <div class="panel">
-      <div class="panel-hdr"><span class="panel-title">Top Commands Executed</span></div>
-      <div class="scroll" id="cmds-list"></div>
+    <div class="panel" style="display:flex;flex-direction:column">
+      <div class="panel-hdr"><span class="panel-title">Top Commands Executed</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Shell commands run by attackers AFTER gaining access to the honeypot. High counts = automated botnet activity.">post-login shell ⓘ</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Shell commands run by attackers after gaining access. High repeat counts = automated botnet scripts.">post-login shell commands ⓘ</span></div>
+      <div class="scroll" id="cmds-list" style="min-height:200px;height:100%"></div>
     </div>
     <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Session Depth Analyzer</span>
-        <span class="panel-meta" id="session-meta"></span>
+        <span class="panel-title">Attacker Intelligence</span>
+        <span class="panel-meta" id="attacker-meta"></span>
+        <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Top attackers ranked by threat score. Shows credentials tried, commands run, and persistence attempts per IP. Click any row to expand.">threat-scored attackers ⓘ</span>
       </div>
-      <div class="session-list" id="session-list" style="max-height:500px;overflow-y:auto;padding-right:10px"></div>
+      <div id="attacker-list" style="max-height:500px;overflow-y:auto"></div>
     </div>
+
   </div>
 
   <!-- Row 7: MITRE ATT&CK Framework -->
   <div class="section-label">MITRE ATT&amp;CK Framework</div>
   <div class="panel" style="margin-bottom:12px">
     <div class="panel-hdr">
-      <span class="panel-title">Observed Tactics &amp; Techniques</span>
+      <span class="panel-title">Observed Tactics &amp; Techniques</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="MITRE ATT&CK framework tactics seen in your honeypot. Click any row to see real examples from your alert data.">click row for examples ⓘ</span>
       <span class="panel-meta" id="mitre-meta"></span>
     </div>
     <div class="mitre-grid" id="mitre-grid"></div>
@@ -603,6 +655,20 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
 
 
 <!-- Botnet Analysis Modal -->
+<!-- Spike Detail Modal -->
+<div id="spike-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;max-width:680px;width:92%;max-height:82vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div id="spike-title" style="font-size:15px;font-weight:600;color:var(--text)"></div>
+        <div id="spike-subtitle" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+      </div>
+      <button onclick="closeSpikeModal()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted)">✕</button>
+    </div>
+    <div id="spike-body" style="font-size:13px"></div>
+  </div>
+</div>
+
 <div id="botnet-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--purple);border-radius:10px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;position:relative">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -615,8 +681,21 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   </div>
 </div>
 
-<footer>wazuh-soc-pipeline · Project 4 · CMU MSISPM Portfolio · Tyce Erickson · Cowrie SSH Honeypot (DigitalOcean NYC1) · AI: llama3.1:8b on RTX 4070</footer>
+<div id="status-bar" style="position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(232,225,218,0.97);backdrop-filter:blur(8px);border-top:1px solid var(--border);padding:5px 20px;display:flex;align-items:center;gap:14px;font-family:monospace;font-size:10px;color:var(--text3)">
+  <span style="display:flex;align-items:center;gap:5px"><span id="sb-os-dot" style="width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block;transition:background .3s"></span>OpenSearch: <span id="sb-os-status">checking...</span></span>
+  <span style="color:var(--border)">│</span><span>GeoIP: <span id="sb-geoip">—</span> IPs cached</span>
+  <span style="color:var(--border)">│</span><span>Last refresh: <span id="sb-refresh">—</span></span>
+  <span style="color:var(--border)">│</span><span>Alerts in window: <span id="sb-alerts">—</span></span>
+  <span id="sb-error" style="color:#8a3030;display:none;margin-left:6px"></span>
+  <span style="margin-left:auto;opacity:.4">wazuh-soc-pipeline · CMU MSISPM Portfolio · Tyce Erickson · DigitalOcean NYC1 · llama3.1:8b on RTX 4070</span>
+</div>
+<div style="height:26px"></div>
 
+<script>
+// ===== Global error handler — shows errors visibly on screen =====
+window.onerror=function(msg,src,line){var d=document.createElement('div');d.style.cssText='background:#8a3030;color:#fff;padding:6px 14px;font-family:monospace;font-size:11px;position:fixed;top:44px;left:0;right:0;z-index:9999;word-break:break-all';d.textContent='JS ERROR: '+msg+' (line '+line+')';document.body.prepend(d);return false;};
+window.addEventListener('unhandledrejection',function(e){var d=document.createElement('div');d.style.cssText='background:#7a3050;color:#fff;padding:6px 14px;font-family:monospace;font-size:11px;position:fixed;top:44px;left:0;right:0;z-index:9999';d.textContent='Promise Error: '+(e.reason&&e.reason.message?e.reason.message:String(e.reason));document.body.prepend(d);});
+</script>
 <script>
 // ===== State =====
 let currentWindow = 60;
@@ -625,10 +704,40 @@ let activeSevSeries = new Set(['total']);
 let activeTactics = new Set(), allTactics = [], tacticCounts = {};
 let sortDirs = {}, barSortAsc = {}, pollTimer = null;
 
+
+// Official MITRE ATT&CK tactic definitions
+const MITRE_DEFS = {
+  'Discovery':            'The adversary is trying to figure out your environment. Discovery consists of techniques that allow the adversary to gain knowledge about the system and internal network.',
+  'Credential Access':    'The adversary is trying to steal account names and passwords. Credential Access consists of techniques for stealing credentials like account names and passwords.',
+  'Persistence':          'The adversary is trying to maintain their foothold. Persistence consists of techniques that adversaries use to keep access across restarts, changed credentials, and other interruptions.',
+  'Execution':            'The adversary is trying to run malicious code. Execution consists of techniques that result in adversary-controlled code running on a local or remote system.',
+  'Defense Evasion':      'The adversary is trying to avoid being detected. Defense Evasion consists of techniques that adversaries use to avoid detection throughout their compromise.',
+  'Initial Access':       'The adversary is trying to get into your network. Initial Access consists of techniques that use various entry vectors to gain their initial foothold within a network.',
+  'Privilege Escalation': 'The adversary is trying to gain higher-level permissions. Privilege Escalation consists of techniques that adversaries use to gain higher-level permissions on a system or network.',
+  'Lateral Movement':     'The adversary is trying to move through your environment. Lateral Movement consists of techniques that adversaries use to enter and control remote systems on a network.',
+  'Collection':           'The adversary is trying to gather data of interest to their goal. Collection consists of techniques adversaries may use to gather information and the sources information is collected from.',
+  'Exfiltration':         'The adversary is trying to steal data. Exfiltration consists of techniques that adversaries may use to steal data from your network.',
+  'Command and Control':  'The adversary is trying to communicate with compromised systems to control them. Command and Control consists of techniques that adversaries may use to communicate with systems under their control.',
+  'Impact':               'The adversary is trying to manipulate, interrupt, or destroy your systems and data. Impact consists of techniques that adversaries use to disrupt availability or compromise integrity.',
+  'Resource Development': 'The adversary is trying to establish resources they can use to support operations. Resource Development consists of techniques that involve adversaries creating, purchasing, or compromising resources.',
+  'Reconnaissance':       'The adversary is trying to gather information they can use to plan future operations. Reconnaissance consists of techniques that involve adversaries actively or passively gathering information.',
+};
+
 const TACTIC_COLORS = {
-  'Discovery':'#7ba8c4','Credential Access':'#8B5E3C','Persistence':'#4a7c59',
-  'Execution':'#6b8fa8','Defense Evasion':'#8b6f9e','Initial Access':'#b8d4e8',
-  'Privilege Escalation':'#c85a3a',
+  'Discovery':            '#7ba8c4',
+  'Credential Access':    '#8B5E3C',
+  'Persistence':          '#4a7c59',
+  'Execution':            '#6b8fa8',
+  'Defense Evasion':      '#8b6f9e',
+  'Initial Access':       '#b8d4e8',
+  'Privilege Escalation': '#c85a3a',
+  'Lateral Movement':     '#a07040',
+  'Collection':           '#5a8a70',
+  'Exfiltration':         '#8a5060',
+  'Command and Control':  '#507090',
+  'Impact':               '#904040',
+  'Resource Development': '#706080',
+  'Reconnaissance':       '#5a7a8a',
 };
 const TACTIC_COLORS_DEFAULT = '#8b949e';
 const SEV_COLORS = {total:'#7ba8c4',high:'#8B5E3C',medium:'#4a7c59',low:'#6b8fa8'};
@@ -653,9 +762,69 @@ const WINDOW_CONFIG = {
 const LABEL_TARGETS = {60:21,360:7,1440:24,10080:14,43200:21,129600:21};
 
 // ===== Stats =====
+// ===== Health check + status bar =====
+let _lastRefreshTs = null;
+
+/** Poll /api/health and update status bar indicators. */
+async function checkHealth(){
+  try{
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    const dot = document.getElementById('sb-os-dot');
+    const txt = document.getElementById('sb-os-status');
+    const geoEl = document.getElementById('sb-geoip');
+    if(d.opensearch === 'green'){
+      dot.style.background='var(--forest,#4a7c59)'; txt.textContent='Connected';
+    } else if(d.opensearch === 'yellow'){
+      dot.style.background='var(--yellow,#b89050)'; txt.textContent='Degraded';
+    } else {
+      dot.style.background='var(--red,#8a3030)'; txt.textContent='Error';
+      const errEl = document.getElementById('sb-error');
+      if(errEl){ errEl.textContent = d.opensearch_error||'OpenSearch unreachable'; errEl.style.display='inline'; }
+    }
+    if(geoEl && d.geoip_cache) geoEl.textContent = d.geoip_cache.toLocaleString();
+  } catch(e) {
+    const dot = document.getElementById('sb-os-dot');
+    if(dot) dot.style.background='var(--red,#8a3030)';
+  }
+}
+
+function updateRefreshTime(){
+  const el = document.getElementById('sb-refresh');
+  if(!el || !_lastRefreshTs) return;
+  const secs = Math.round((Date.now() - _lastRefreshTs)/1000);
+  el.textContent = secs < 60 ? `${secs}s ago` : `${Math.round(secs/60)}m ago`;
+}
+
+/**
+ * Fetch with automatic retry on network failures.
+ * @param {string} url  - API endpoint
+ * @param {Object} opts - fetch() options
+ * @param {number} retries - Number of retries (default 2)
+ * @returns {Promise<Response>}
+ */
+async function apiFetch(url, opts = {}, retries = 2) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const r = await fetch(url, opts);
+      if (!r.ok && r.status >= 500 && attempt < retries) {
+        await new Promise(res => setTimeout(res, 500 * (attempt + 1)));
+        continue;
+      }
+      return r;
+    } catch (e) {
+      if (attempt < retries) {
+        await new Promise(res => setTimeout(res, 500 * (attempt + 1)));
+      } else {
+        throw e;
+      }
+    }
+  }
+}
+
 async function loadStats(){
   try{
-    const r = await fetch(`/api/stats?minutes=${currentWindow}`);
+    const r = await apiFetch(`/api/stats?minutes=${currentWindow}`);
     const d = await r.json();
     if(d.error){console.error(d.error);return;}
     renderStats(d);
@@ -666,14 +835,15 @@ async function loadStats(){
 async function loadIntelPanels(){
   const m = currentWindow;
   // Load all intel panels in parallel
-  const [chain, vel, heat, sess, bots, credIntel] = await Promise.all([
-    fetch(`/api/attack_chain?minutes=${m}`).then(r=>r.json()).catch(()=>({})),
-    fetch('/api/velocity').then(r=>r.json()).catch(()=>({})),
-    fetch('/api/heatmap').then(r=>r.json()).catch(()=>({})),
-    fetch(`/api/sessions?minutes=${m}`).then(r=>r.json()).catch(()=>({})),
-    fetch(`/api/botnets?minutes=${m}`).then(r=>r.json()).catch(()=>({})),
-    fetch(`/api/cred_intel?minutes=${m}`).then(r=>r.json()).catch(()=>({})),
+  const [intel, vel, heat] = await Promise.all([
+    apiFetch(`/api/intel?minutes=${m}`).then(r=>r.json()).catch(()=>({})),
+    apiFetch('/api/velocity').then(r=>r.json()).catch(()=>({})),
+    apiFetch('/api/heatmap').then(r=>r.json()).catch(()=>({}))
   ]);
+  const chain    = intel.attack_chain||{};
+  const sess     = intel.sessions||{};
+  const bots     = intel.botnets||{};
+  const credIntel= intel.cred_intel||{};
   renderAttackChain(chain);
   renderVelocity(vel);
   renderHeatmap(heat);
@@ -682,6 +852,7 @@ async function loadIntelPanels(){
   renderCredIntel(credIntel);
 }
 
+/** @param {Object} d - Stats API response with severity counts, timeline, IPs */
 function renderStats(d){
   const sev=d.severity||{};
   document.getElementById('s-total').textContent=fmt(d.total);
@@ -708,6 +879,7 @@ function renderStats(d){
 }
 
 // ===== Attack Chain Funnel =====
+/** @param {Object} d - Attack chain with funnel stages and counts */
 function renderAttackChain(d){
   const stages = d.stages||[];
   if(!stages.length){document.getElementById('funnel-wrap').innerHTML='<div style="color:var(--muted);font-size:12px">No data</div>';return;}
@@ -742,14 +914,17 @@ function renderVelocity(d){
   document.getElementById('vel-24h').textContent  = d.daily_avg  != null ? d.daily_avg  : '—';
   document.getElementById('vel-5m').textContent   = fmt(d.last_5m||0);
   const mini = document.getElementById('vel-mini');
-  const buckets = (d.per_minute||[]).slice(-30); // last 30 minutes only
+  const buckets = (d.per_minute||[]).slice(-60); // last 60 minutes
   if(!buckets.length){mini.innerHTML='<div style="color:var(--muted);font-size:11px;padding:12px">No data</div>';return;}
   const maxB = Math.max(...buckets.map(b=>b.count),1);
   mini.innerHTML = buckets.map(b=>{
     const h = Math.max(Math.round(b.count/maxB*38),2);
     const avg = d.hourly_avg||0;
     const c = b.count > avg*2 ? '#c85a3a' : b.count > avg ? '#8B5E3C' : '#4a7c59';
-    return `<div class="vel-bar" style="height:${h}px;background:${c}" title="${b.count} attacks at ${new Date(b.ts).toLocaleTimeString()}"></div>`;
+    const timeLabel = b.ts ? new Date(b.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+    return `<div class="vel-bar" style="height:${h}px;background:${c};cursor:crosshair"
+      onmouseover="const t=document.getElementById('vel-tip');if(t){t.textContent='${b.count} attacks · ${timeLabel}';t.style.display='block';t.style.left=this.offsetLeft+'px'}"
+      onmouseleave="const t=document.getElementById('vel-tip');if(t)t.style.display='none'"></div>`;
   }).join('');
 }
 
@@ -767,6 +942,7 @@ function showHeatmapDetail(day, hour, count){
 }
 
 // ===== Heatmap =====
+/** @param {Object} d - Heatmap API response with 14-day hourly counts */
 function renderHeatmap(d){
   const grid = d.grid||[];
   if(!grid.length) return;
@@ -826,6 +1002,7 @@ const GEO_COORDS = {
 // Global for map tooltips
 let _mapEntries = [];
 
+/** @param {Array} ips - Top IP list with lat/lng from GeoIP */
 function renderGeoMap(ips){
   const el = document.getElementById('geo-map');
   if(!el) return;
@@ -1016,51 +1193,311 @@ const EVENT_ICONS = {
   'cowrie.login.success':'✓','cowrie.command.input':'⌨','cowrie.session.file_download':'↓',
   'cowrie.session.file_upload':'↑','cowrie.session.closed':'✂',
 };
+/** @param {Object} d - Sessions API response (used to build attacker intelligence) */
 function renderSessions(d){
+  // Build attacker intelligence from session data
+  renderAttackerIntel(d);
+}
+
+/** Build the Attacker Intelligence panel from session data.
+ *  Groups events by IP and computes threat scores.
+ */
+function renderAttackerIntel(d){
   const sessions = d.sessions||[];
-  // Deduplicate: max 2 sessions per IP so one IP doesn't flood the view
-  const _ipSeen = {};
-  const deduped = sessions
-    .sort((a,b) => b.max_level - a.max_level || b.events.length - a.events.length)
-    .filter(s => { const ip = s.src_ip||'?'; _ipSeen[ip] = (_ipSeen[ip]||0)+1; return _ipSeen[ip] <= 2; })
-    .slice(0, 15);
-  document.getElementById('session-meta').textContent = `${deduped.length} sessions`;
-  document.getElementById('session-list').innerHTML = deduped.map((s,i)=>{
-    const lvl = s.max_level;
-    const cls = lvl>=12?'lvl-high':lvl>=7?'lvl-med':'lvl-low';
-    const lbl = lvl>=12?'HIGH':lvl>=7?'MED':'LOW';
-    const eventCount = s.events.length;
-    const tactics = [...new Set(s.events.flatMap(e=>e.mitre||[]))].slice(0,3).join(', ');
-    const events = s.events.map(e=>{
-      const icon = EVENT_ICONS[e.eventid]||'•';
-      const time = e.ts ? new Date(e.ts).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
-      let detail = '';
-      if(e.username&&e.password) detail = `${e.username}/${e.password}`;
-      else if(e.command) detail = e.command.slice(0,80);
-      else if(e.desc) detail = e.desc.slice(0,60);
-      return `<div class="event-row">
-        <div class="event-icon">${icon}</div>
-        <div class="event-time">${time}</div>
-        <div class="event-type">${e.eventid.replace('cowrie.','')}</div>
-        <div class="event-detail">${detail}</div>
-      </div>`;
-    }).join('');
-    return `<div class="session-card" id="sess-${i}">
-      <div class="session-hdr" onclick="document.getElementById('sess-${i}').classList.toggle('open')">
-        <div class="session-ip">${s.src_ip}</div>
-        <div class="session-meta">${s.country||'Unknown'} · ${s.org||''} · ${eventCount} events${tactics?' · '+tactics:''}</div>
-        <span class="session-badge lvl ${cls}">${lbl}</span>
-        <span class="session-chev">▶</span>
+  const listEl = document.getElementById('attacker-list');
+  const metaEl = document.getElementById('attacker-meta');
+  if(!listEl) return;
+
+  // Group sessions by IP and compute threat score
+  const byIP = {};
+  sessions.forEach(s=>{
+    const ip = s.src_ip||s.session||'unknown';
+    if(!byIP[ip]) byIP[ip]={
+      ip, country:s.country||'', org:s.org||'',
+      sessions:0, maxLevel:0, tactics:new Set(),
+      hasKeyImplant:false, hasDownload:false, hasBrute:false,
+      loginCred:'', downloadCmd:'', keyCmd:'',
+      creds:new Set(), allCmds:[], tacticEvidence:{}
+    };
+    const a = byIP[ip];
+    a.sessions++;
+    a.maxLevel = Math.max(a.maxLevel, s.max_level||0);
+    (s.events||[]).forEach(ev=>{
+      (ev.mitre||[]).forEach(t=>a.tactics.add(t));
+      if(ev.eventid==='cowrie.login.success'){
+        a.hasBrute=true;
+        if(ev.username&&ev.password) a.loginCred=`${ev.username}/${ev.password}`;
+      }
+      if(ev.eventid==='cowrie.session.file_download'){
+        a.hasDownload=true;
+        if(!a.downloadCmd) a.downloadCmd=ev.command||ev.url||'(binary payload)';
+      }
+      if(ev.command&&ev.command.includes('ssh-rsa')){
+        a.hasKeyImplant=true;
+        if(!a.keyCmd) a.keyCmd=ev.command.slice(0,120);
+      }
+      if(ev.password&&ev.username) a.creds.add(`${ev.username}/${ev.password}`);
+      // Map commands to the MITRE tactics they triggered
+      if(ev.command&&ev.command.length>2){
+        (ev.mitre||[]).forEach(t=>{
+          if(!a.tacticEvidence[t]) a.tacticEvidence[t]=[];
+          if(a.tacticEvidence[t].length<2) a.tacticEvidence[t].push(ev.command.slice(0,80));
+        });
+        // Also store general commands for fallback
+        if(a.allCmds.length<20) a.allCmds.push(ev.command.slice(0,80));
+      }
+    });
+  });
+
+  const attackers = Object.values(byIP).sort((a,b)=>b.maxLevel-a.maxLevel||b.sessions-a.sessions);
+  if(metaEl) metaEl.textContent = `${attackers.length} unique attackers`;
+
+  const LEVEL_COLOR = l=> l>=12?'#c85a3a':l>=10?'#8B5E3C':l>=8?'#b89050':'var(--text3)';
+  const LEVEL_LABEL = l=> l>=12?'CRITICAL':l>=10?'HIGH':l>=8?'MEDIUM':'LOW';
+
+  listEl.innerHTML = attackers.slice(0,200).map((a,i)=>{
+    const badges = [
+      a.hasKeyImplant ? '<span style="background:rgba(200,90,58,.12);color:#c85a3a;border:1px solid rgba(200,90,58,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">SSH KEY</span>' : '',
+      a.hasDownload   ? '<span style="background:rgba(139,94,60,.12);color:#8B5E3C;border:1px solid rgba(139,94,60,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">DOWNLOAD</span>' : '',
+      a.hasBrute      ? '<span style="background:rgba(74,124,89,.1);color:var(--forest);border:1px solid rgba(74,124,89,.2);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">LOGIN</span>' : '',
+    ].filter(Boolean).join(' ');
+    const tactics = [...a.tactics].slice(0,3).join(', ');
+    const topCmd = (a.allCmds&&a.allCmds[0])||'';
+    const credCount = a.creds.size;
+
+    return `<div class="attacker-row" style="padding:10px 12px;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;background:var(--bg2)">
+      <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="toggleAttacker(this)">
+        <div style="font-family:monospace;font-size:12px;font-weight:600;color:var(--forest);min-width:130px">${a.ip}</div>
+        <div style="flex:1;font-size:11px;color:var(--text3)">${a.country}${a.org?' · '+a.org:''}</div>
+        <div style="display:flex;gap:4px;align-items:center">${badges}</div>
+        <div style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:4px;background:${LEVEL_COLOR(a.maxLevel)}22;color:${LEVEL_COLOR(a.maxLevel)};border:1px solid ${LEVEL_COLOR(a.maxLevel)}44;white-space:nowrap">${LEVEL_LABEL(a.maxLevel)}</div>
+        <div style="font-size:16px;color:var(--text3);margin-left:4px">▶</div>
       </div>
-      <div class="session-events">${events}</div>
+      <div class="attacker-detail" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:11px">
+          <div>
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">MITRE Tactics with Evidence (${Object.keys(a.tacticEvidence||{}).length})</div>
+            <div>${Object.keys(a.tacticEvidence||{}).length===0
+              ? '<span style="color:var(--muted);font-size:10px">No command evidence captured for tactics</span>'
+              : Object.entries(a.tacticEvidence||{}).map(([t,cmds])=>`<span style="display:inline-block;margin:2px;padding:2px 7px;border-radius:4px;background:${(TACTIC_COLORS&&TACTIC_COLORS[t])||'var(--bg3)'};color:${(TACTIC_COLORS&&TACTIC_COLORS[t])?'#fff':'var(--text2)'};opacity:.85;font-size:10px" title="${cmds[0]||''}">${t}</span>`).join('')
+            }</div>
+          </div>
+          <div>
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Credentials Tried (${credCount})</div>
+            <div style="font-family:monospace;font-size:10px;line-height:1.8">${[...a.creds].slice(0,8).map(c=>`<div style="padding:1px 0;border-bottom:1px solid var(--border)">${c}</div>`).join('')||'<span style="color:var(--muted)">None captured</span>'}${a.creds.size>8?`<div style="color:var(--muted);margin-top:4px">…and ${a.creds.size-8} more</div>`:''}</div>
+          </div>
+          <div>
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Command Evidence</div>
+            <div style="font-size:11px;line-height:1.7">
+              ${Object.entries(a.tacticEvidence||{}).slice(0,4).map(([tactic,cmds])=>`
+                <div style="margin-bottom:8px">
+                  <div style="font-size:9px;color:${(TACTIC_COLORS&&TACTIC_COLORS[tactic])||'var(--text3)'};font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">▸ ${tactic}</div>
+                  ${cmds.slice(0,2).map(c=>`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid ${(TACTIC_COLORS&&TACTIC_COLORS[tactic])||'var(--border)'};margin-bottom:2px;word-break:break-all;color:var(--text2)">${c}</div>`).join('')}
+                </div>`).join('')}
+              ${Object.keys(a.tacticEvidence||{}).length===0 ? '<span style="color:var(--muted);font-size:10px">No command evidence captured</span>' : ''}
+            </div>
+          </div>
+          <div>
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Threat Indicators + Evidence</div>
+            <div style="font-size:11px;line-height:1.6">
+              ${a.hasKeyImplant?`<div style="margin-bottom:8px">
+                <div>🔑 <b>SSH Key Backdoor</b> — implanted authorized_keys</div>
+                ${a.keyCmd?`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid #c85a3a;margin-top:3px;word-break:break-all;color:var(--text2)">${a.keyCmd.slice(0,100)}${a.keyCmd.length>100?'…':''}</div>`:''}
+              </div>`:''}
+              ${a.hasDownload?`<div style="margin-bottom:8px">
+                <div>⬇ <b>Malware Download</b> — fetched remote payload</div>
+                ${a.downloadCmd?`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid #8B5E3C;margin-top:3px;word-break:break-all;color:var(--text2)">${a.downloadCmd.slice(0,100)}</div>`:''}
+              </div>`:''}
+              ${a.hasBrute?`<div style="margin-bottom:4px">
+                <div>🔓 <b>Successful Login</b> — gained access with: <span style="font-family:monospace;color:var(--bark)">${a.loginCred||'unknown credential'}</span></div>
+              </div>`:''}
+              ${!a.hasKeyImplant&&!a.hasDownload&&!a.hasBrute?'<div style="color:var(--muted)">Reconnaissance only — no successful access</div>':''}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
 
+function toggleAttacker(hdr){
+  const detail = hdr.parentElement.querySelector('.attacker-detail');
+  const arrow  = hdr.querySelector('div:last-child');
+  if(detail.style.display==='none'){detail.style.display='block';if(arrow)arrow.textContent='▼';}
+  else{detail.style.display='none';if(arrow)arrow.textContent='▶';}
+}
+
+
 // ===== Botnets =====
+let _botnetLimit = 12;
+let _botnetData  = [];
+
+function setBotnetLimit(n){
+  _botnetLimit = n;
+  document.querySelectorAll('.bl-btn').forEach(b=>b.classList.remove('bl-active'));
+  const active = document.getElementById('bl-'+n);
+  if(active) active.classList.add('bl-active');
+  renderBotnets({botnets: _botnetData});
+}
+
+/** Filter a botnet card's spark to All / 7d / 24h time ranges */
+function setBotnetView(idx, range, btn){
+  const b = _botnetData[idx];
+  if(!b) return;
+  // Update button styles
+  const card = document.getElementById('bcard-'+idx);
+  if(card) card.querySelectorAll('.bt-btn').forEach(el=>el.classList.remove('active'));
+  btn.classList.add('active');
+
+  let tl = b.timeline||[];
+  const now = Date.now();
+  if(range==='7d'){
+    const cut = now - 7*24*3600000;
+    tl = tl.filter(t=>t.ts >= cut);
+  } else if(range==='24h'){
+    const cut = now - 24*3600000;
+    tl = tl.filter(t=>t.ts >= cut);
+  }
+
+  // Re-render just this card's mini chart
+  const BOTNET_PALETTE = ['#4a7c59','#7ba8c4','#8B5E3C','#6b8fa8','#8b6f9e','#c85a3a'];
+  const barColor = BOTNET_PALETTE[idx % BOTNET_PALETTE.length];
+  const display = tl.length > 0 ? (tl.length > 48 ? tl.slice(-48) : tl) : [];
+  const maxT = Math.max(...display.map(t=>t.count),1);
+  const miniEl = document.getElementById('bmini-'+idx);
+  const dateEl = document.getElementById('bdate-'+idx);
+
+  if(miniEl){
+    miniEl.innerHTML = display.map(t=>{
+      const h = Math.max(Math.round(t.count/maxT*28),2);
+      const op = t.count>0?'dd':'33';
+      const dt = t.ts ? new Date(t.ts) : null;
+      const tip = dt ? `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:00 — ${t.count.toLocaleString()} events` : `${t.count} events`;
+      return `<div class="botnet-bar" style="height:${h}px;background:${barColor}${op}" title="${tip}"></div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:10px;padding:4px">No data in range</div>';
+  }
+  if(dateEl && display.length > 0){
+    const first = display[0]?.ts ? new Date(display[0].ts) : null;
+    const last  = display[display.length-1]?.ts ? new Date(display[display.length-1].ts) : null;
+    const fmtD = d => d ? `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:00` : '';
+    dateEl.innerHTML = first&&last&&fmtD(first)!==fmtD(last)
+      ? `<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);font-family:monospace;margin-top:3px;opacity:.8"><span>◀ ${fmtD(first)}</span><span>${fmtD(last)} ▶</span></div>`
+      : `<div style="font-size:9px;color:var(--text3);font-family:monospace;margin-top:3px">◈ ${fmtD(first)}</div>`;
+  }
+}
+
+// ===== Spike Detail Modal =====
+function closeSpikeModal(){ document.getElementById('spike-modal').style.display='none'; }
+
+async function showSpikeDetail(ts, count, interval){
+  const modal = document.getElementById('spike-modal');
+  const title = document.getElementById('spike-title');
+  const sub   = document.getElementById('spike-subtitle');
+  const body  = document.getElementById('spike-body');
+  modal.style.display='flex';
+  const dt = new Date(ts);
+  const label = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  title.textContent = `Spike: ${label} UTC — ${count.toLocaleString()} alerts`;
+  sub.textContent = `Querying OpenSearch...`;
+  body.innerHTML    = '<div style="color:var(--text3);font-family:monospace">Fetching breakdown...</div>';
+
+  // The API only supports ?minutes=N (N minutes back from NOW).
+  // ts = epoch ms of the bucket START.
+  // We need: how many minutes ago was the END of this bucket?
+  // That gives us the most focused query.
+  const bucketMs = interval==='1h'?3600000:interval==='2h'?7200000:
+                   interval==='6h'?21600000:interval==='12h'?43200000:
+                   interval==='3h'?10800000:interval==='30m'?1800000:300000;
+  const now = Date.now();
+  // Minutes from now back to the START of this bucket (furthest edge)
+  const minsToStart = Math.max(5, Math.ceil((now - ts) / 60000));
+  // Minutes from now back to the END of this bucket (closest edge)
+  const minsToEnd   = Math.max(1, Math.floor((now - ts - bucketMs) / 60000));
+  // Query: from bucket start to bucket end = minsToStart back, limit minsToStart-minsToEnd wide
+  // Since API only does "last N minutes", use minsToStart and filter visually
+  const fromMins = minsToStart;
+  // For display: actual bucket time range
+  const bucketStart = new Date(ts);
+  const bucketEnd   = new Date(ts + bucketMs);
+
+  try {
+    const [stats, intel] = await Promise.all([
+      apiFetch(`/api/stats?minutes=${fromMins}`).then(r=>r.json()).catch(()=>({})),
+      apiFetch(`/api/intel?minutes=${fromMins}`).then(r=>r.json()).catch(()=>({botnets:{botnets:[]},attack_chain:{}})),
+    ]);
+
+    const tactics = stats.mitre_tactics||{};
+    const topTactics = Object.entries(tactics).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const topIPs = (stats.top_ips||[]).slice(0,5);
+    const topCountries = Object.entries(stats.countries||{}).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const topBots = (intel.botnets?.botnets||[]).slice(0,4);
+    const chain = intel.attack_chain?.stages||[];
+
+    const fmtT = d => `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} UTC`;
+    sub.textContent = `${fmtT(bucketStart)} → ${fmtT(bucketEnd)} · ${(stats.total||0).toLocaleString()} alerts in window`;
+
+    body.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">MITRE Tactics Active</div>
+          ${topTactics.length ? topTactics.map(([t,n])=>`
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:${TACTIC_COLORS[t]||'var(--text2)'}">${t}</span>
+              <span style="font-family:monospace;color:var(--text3)">${n.toLocaleString()}</span>
+            </div>`).join('') : '<div style="color:var(--muted);font-size:11px">No tactic data</div>'}
+        </div>
+
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Top Source Countries</div>
+          ${topCountries.length ? topCountries.map(([c,n])=>`
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span>${c}</span>
+              <span style="font-family:monospace;color:var(--text3)">${n.toLocaleString()}</span>
+            </div>`).join('') : '<div style="color:var(--muted);font-size:11px">No country data</div>'}
+        </div>
+
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Active Campaigns</div>
+          ${topBots.length ? topBots.map(b=>`
+            <div style="padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="color:var(--forest)">${b.name}</span>
+              <span style="float:right;font-family:monospace;color:var(--text3)">${b.unique_ips} IPs</span>
+            </div>`).join('') : '<div style="color:var(--muted);font-size:11px">No campaign data</div>'}
+        </div>
+
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Top Attacker IPs</div>
+          ${topIPs.length ? topIPs.map(ip=>`
+            <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="font-family:monospace;color:var(--bark)">${ip.ip}</span>
+              <span style="color:var(--text3)">${ip.country||'?'}</span>
+            </div>`).join('') : '<div style="color:var(--muted);font-size:11px">No IP data</div>'}
+        </div>
+      </div>
+
+      ${chain.length ? `
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Kill Chain Progression</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${chain.map(s=>`<div style="font-size:11px;padding:4px 10px;border-radius:5px;background:var(--bg3);border:1px solid var(--border)">
+              <span style="font-weight:600">${s.name}</span> <span style="color:var(--text3);font-family:monospace">${s.count.toLocaleString()}</span>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}
+    `;
+  } catch(err) {
+    body.innerHTML = `<div style="color:var(--muted)">Could not load spike detail: ${err.message}</div>`;
+  }
+}
+
+/** @param {Object} d - Botnets API response with auto-detected campaigns */
 function renderBotnets(d){
-  const bots = d.botnets||[];
-  document.getElementById('botnet-meta').textContent = `${bots.length} detected`;
+  // Store full list for limit switching
+  if(d.botnets) _botnetData = d.botnets;
+  const allBots = _botnetData||[];
+  const bots = _botnetLimit > 0 ? allBots.slice(0, _botnetLimit) : allBots;
+  document.getElementById('botnet-meta').textContent = `${bots.length} of ${allBots.length} shown`;
   const BOTNET_PALETTE = ['#4a7c59','#7ba8c4','#8B5E3C','#6b8fa8','#8b6f9e','#c85a3a'];
   document.getElementById('botnet-list').innerHTML = bots.map((b,idx)=>{
     const assignedColor = BOTNET_PALETTE[idx % BOTNET_PALETTE.length];
@@ -1071,25 +1508,56 @@ function renderBotnets(d){
     const visible = firstNZ>=0 ? allBuckets.slice(firstNZ) : allBuckets.slice(-20);
     const display = visible.slice(-24); // last 24 non-empty buckets
     const maxT = Math.max(...display.map(t=>t.count),1);
-    const bars = display.map(t=>{
+    // Build bars with date tooltips for each 2h bucket
+    const bars = display.map((t,bi)=>{
       const h = Math.max(Math.round(t.count/maxT*28),2);
       const op = t.count>0?'dd':'33';
-      return `<div class="botnet-bar" style="height:${h}px;background:${barColor}${op}" title="${t.count}"></div>`;
+      const dt = t.ts ? new Date(t.ts) : null;
+      const label = dt ? `${(dt.getMonth()+1)}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:00` : '';
+      const tip = dt ? `${label} — ${t.count.toLocaleString()} events` : `${t.count.toLocaleString()} events`;
+      return `<div class="botnet-bar" style="height:${h}px;background:${barColor}${op}" title="${tip}"></div>`;
     }).join('');
-    return `<div class="botnet-row" style="cursor:pointer" onclick="analyzeBotnet('${b.name}',${b.count},${b.unique_ips})">
+    // Date label for first and last visible bucket
+    const firstDt = display[0]?.ts ? new Date(display[0].ts) : null;
+    const lastDt  = display[display.length-1]?.ts ? new Date(display[display.length-1].ts) : null;
+    const fmtDt = d => d ? `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:00` : '';
+    const fmtDtFull = d => d ? `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:00` : '';
+    const dateRange = (firstDt && lastDt && fmtDt(firstDt)!==fmtDt(lastDt))
+      ? `<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);font-family:monospace;margin-top:3px;padding:0 1px;opacity:.8">
+           <span title="First activity: ${fmtDtFull(firstDt)}">◀ ${fmtDt(firstDt)}</span>
+           <span title="Most recent: ${fmtDtFull(lastDt)}">${fmtDt(lastDt)} ▶</span>
+         </div>`
+      : firstDt ? `<div style="font-size:9px;color:var(--text3);font-family:monospace;margin-top:3px;opacity:.8">◈ ${fmtDtFull(firstDt)}</div>` : '';
+    const safeN = encodeURIComponent(b.name);
+    return `<div class="botnet-row" id="bcard-${idx}" style="cursor:pointer" onclick="analyzeBotnet('${b.name}',${b.count},${b.unique_ips})">
       <div class="botnet-hdr">
         <div class="botnet-dot" style="background:${assignedColor}"></div>
         <div class="botnet-name" style="color:${assignedColor}">${b.name}</div>
         <div class="botnet-count">${b.count >= 10000 ? fmt(b.count)+'+' : fmt(b.count)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-left:8px">🔍 AI Analysis</div>
+        <div style="font-size:10px;color:var(--muted);margin-left:8px;cursor:pointer" onclick="event.stopPropagation();analyzeBotnet('${b.name}',${b.count},${b.unique_ips})">🔍 AI Analysis</div>
+        <div class="bt-sel" onclick="event.stopPropagation()">
+          <button class="bt-btn active" onclick="setBotnetView(${idx},'all',this)">All</button>
+          <button class="bt-btn" onclick="setBotnetView(${idx},'7d',this)">7d</button>
+          <button class="bt-btn" onclick="setBotnetView(${idx},'24h',this)">24h</button>
+        </div>
       </div>
-      <div class="botnet-mini">${bars}</div>
-      <div class="botnet-stats"><span>${b.unique_ips} unique IPs</span></div>
+      <div class="botnet-mini" id="bmini-${idx}">${bars}</div>
+      <div id="bdate-${idx}">${dateRange}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">
+        ${b.unique_ips} unique IPs${b.confidence ? ` · <span style="font-family:monospace;font-size:9px;padding:1px 4px;border-radius:3px;background:${b.confidence==='HIGH'?'rgba(90,48,32,.1)':'rgba(196,137,154,.1)'};color:${b.confidence==='HIGH'?'var(--bark,#5c3020)':'var(--blossom,#c4899a)'}">${b.confidence}</span>` : ''}
+      </div>
     </div>`;
   }).join('');
 }
 
 // ===== Credential Intelligence =====
+let cred_success_map = {};
+function showCopied(row){
+  const orig = row.style.background;
+  row.style.background = 'rgba(74,124,89,0.15)';
+  setTimeout(()=>row.style.background=orig, 600);
+}
+/** @param {Object} d - Credential intelligence with success rates and coordination flags */
 function renderCredIntel(d){
   const creds = d.top_creds||[];
   document.getElementById('cred-intel-meta').textContent = `${fmt(d.unique_creds||0)} unique`;
@@ -1170,6 +1638,7 @@ function buildTimePoints(rawData,seriesKeys){
   return pts;
 }
 
+/** Draw the alert timeline on #tl-canvas. Uses global tlData + activeSevSeries. */
 function drawTimeline(){
   const canvas=document.getElementById('tl-canvas');
   const ctx=canvas.getContext('2d');
@@ -1215,6 +1684,23 @@ function drawTimeline(){
   tacticSeries.forEach(({key,color})=>{
     drawSeries(ctx,tacticPts.map((pt,i)=>({x:pad.left+i*step,y:pad.top+ch*(1-(pt[key]||0)/maxVal)})),color,pad,H,false);
   });
+
+  // ── Click spike to see breakdown ─────────────────────────
+  canvas.onclick = function(e){
+    if(!tlData||!tlData.length) return;
+    const rect = canvas.getBoundingClientRect();
+    // Scale mouse X to canvas pixel coordinates
+    const scaleX = canvas.width / rect.width;
+    const mx = (e.clientX - rect.left) * scaleX;
+    // Re-read actual canvas width to match what was drawn
+    const canvasW = canvas.width;
+    const cw2 = canvasW - pad.left - pad.right;
+    const step = cw2 / tlData.length;
+    const bi = Math.max(0, Math.min(tlData.length - 1, Math.floor((mx - pad.left) / step)));
+    const bucket = tlData[bi];
+    if(bucket && bucket.ts) showSpikeDetail(bucket.ts, bucket.count||0, tlInterval||'2h');
+  };
+  canvas.style.cursor = 'crosshair';
 }
 
 function drawSeries(ctx,pts,color,pad,H,filled){
@@ -1286,6 +1772,11 @@ function renderIPTable(ips){
 }
 
 // ===== Table sort =====
+/** Sort a data table by clicking a column header.
+ * @param {string} tbId - Table body element ID
+ * @param {string} col - Data attribute key to sort on
+ * @param {boolean} numDesc - If true, sort numerically descending
+ */
 function sortTbl(tbId,col,numDesc){
   const tb=document.getElementById(tbId);if(!tb)return;
   const rows=Array.from(tb.rows);
@@ -1301,8 +1792,10 @@ function sortTbl(tbId,col,numDesc){
 // ===== Credentials =====
 function renderCredsTable(creds){
   const items=Array.isArray(creds)?creds:Object.entries(creds).map(([k,v])=>({cred:k,count:v})).sort((a,b)=>b.count-a.count);
-  document.getElementById('creds-tb').innerHTML=items.slice(0,100).map(({cred,count})=>
-    `<tr data-cred="${cred}" data-count="${count}"><td style="font-family:monospace;font-size:11px;color:var(--text2)">${cred}</td><td class="num">${count.toLocaleString()}x</td></tr>`).join('');
+  document.getElementById('creds-tb').innerHTML=items.slice(0,100).map(({cred,count})=>{
+  const compromised = cred_success_map&&cred_success_map[cred]>=100;
+  const badge = compromised?` <span style="font-size:9px;padding:1px 4px;border-radius:3px;background:rgba(138,48,48,.1);color:#8a3030;border:1px solid rgba(138,48,48,.2)">COMPROMISED</span>`:'';
+  return `<tr data-cred="${cred}" data-count="${count}"><td><span style="font-family:monospace;font-size:11px;color:var(--text2)" title="${cred}">${cred}${badge}</span></td><td class="num">${count.toLocaleString()}x</td></tr>`; }).join('');
 }
 
 // ===== Commands =====
@@ -1319,6 +1812,7 @@ function renderCmds(cmds){
 function lvlClass(l){return l>=15?'lvl-crit':l>=12?'lvl-high':l>=7?'lvl-med':'lvl-low';}
 function lvlLabel(l){return l>=15?'CRIT':l>=12?'HIGH':l>=7?'MED':'LOW';}
 
+/** @param {string} panel - Container element ID, @param {Array} tactics - Tactic objects */
 function renderMITRE(panel,tactics){
   const total=Object.values(tactics).reduce((a,b)=>a+b,0);
   document.getElementById('mitre-meta').textContent=`${panel.length} tactics · ${fmt(total)} events`;
@@ -1338,10 +1832,11 @@ function renderMITRE(panel,tactics){
         <div class="ex-fields">${fields.join('')}</div>
       </div>`;
     }).join('');
+    const def = (typeof MITRE_DEFS!=='undefined'&&MITRE_DEFS[t.tactic])||'';
     return `<div class="mitre-row" id="mitre-${i}">
       <div class="mitre-hdr" onclick="document.getElementById('mitre-${i}').classList.toggle('open')">
-        <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></div>
-        <div class="mitre-tactic-txt" style="color:${color}">${t.tactic}</div>
+        <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:4px;background:${color}22;color:${color};border:1px solid ${color}55;font-size:11px;font-weight:600;letter-spacing:.02em;cursor:pointer"
+          title="${def}">${t.tactic}</span>
         <div class="mitre-ids">${idTags}</div>
         <div class="mitre-cnt">${fmt(t.count)} events · ${pct}%</div>
         <div class="mitre-chev">▶</div>
@@ -1352,6 +1847,7 @@ function renderMITRE(panel,tactics){
 }
 
 // ===== Manual Refresh =====
+/** Trigger a full data refresh and update the refresh button state. */
 async function manualRefresh(){
   const btn=document.getElementById('refresh-btn');
   const banner=document.getElementById('refresh-banner');
@@ -1435,55 +1931,35 @@ function renderTriage(d){
 
 // ===== Botnet AI Analysis =====
 const botnetAnalysisCache = {};
+const _bCache={};let _bCtrl=null;
+function cancelBotnetAnalysis(){if(_bCtrl){_bCtrl.abort();_bCtrl=null;}document.getElementById('botnet-modal').style.display='none';}
+function renderBotnetResult(body,d,count,ips){
+  if(d.error){body.innerHTML=`<div style="color:#8a3030;font-family:monospace">${d.error}</div>`;return;}
+  body.innerHTML=`<div class='modal-section'><div class='modal-section-title'>What is this campaign?</div><p>${d.description||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>How it operates</div><p>${d.methodology||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>How it was detected</div><p>${d.detection||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>Threat assessment</div><p>${d.threat_level||'—'}</p></div><div style='font-family:monospace;font-size:10px;color:var(--text3);margin-top:12px;padding-top:10px;border-top:1px solid var(--border)'>${fmt(count)} events · ${ips} IPs · llama3.1:8b · <span style='color:var(--forest,#4a7c59)'>cached 5min</span></div>`;
+}
 async function analyzeBotnet(name, count, uniqueIps){
-  const modal = document.getElementById('botnet-modal');
-  const title = document.getElementById('modal-title');
-  const body  = document.getElementById('modal-body');
-  modal.style.display = 'flex';
-  title.textContent = `◈ ${name} — AI Analysis`;
-
-  // Return cached result if available
-  if(botnetAnalysisCache[name]){
-    body.innerHTML = botnetAnalysisCache[name];
-    return;
-  }
-
-  body.innerHTML = '<div style="color:var(--muted)">◈ Analyzing with llama3.1:8b on RTX 4070...</div>';
-
+  const modal=document.getElementById('botnet-modal');
+  const title=document.getElementById('modal-title');
+  const body=document.getElementById('modal-body');
+  modal.style.display='flex';
+  title.textContent=`◈ ${name} — AI Analysis`;
+  const ck=`${name}|${currentWindow}`;
+  if(_bCache[ck]&&Date.now()-_bCache[ck].ts<300000){renderBotnetResult(body,_bCache[ck].d,count,uniqueIps);return;}
+  body.innerHTML=`<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><div style="width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--forest,#4a7c59);border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0"></div><span>Fetching events &amp; analyzing with llama3.1:8b…</span></div><div style="margin-top:10px"><button onclick="cancelBotnetAnalysis()" style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 12px;font-size:11px;color:var(--text3);cursor:pointer">✕ Cancel</button></div>`;
+  _bCtrl=new AbortController();
   try{
     const r = await fetch('/api/botnet_analysis', {
       method: 'POST',
+      signal: _bCtrl.signal,
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({name, count, unique_ips: uniqueIps})
     });
     const d = await r.json();
-    if(d.error){body.innerHTML=`<div style="color:var(--red)">${d.error}</div>`;return;}
-
-    const html = `
-      <div style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">What is this botnet?</div>
-        <p>${d.description||'—'}</p>
-      </div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">How it operates</div>
-        <p>${d.methodology||'—'}</p>
-      </div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">How it was detected</div>
-        <p>${d.detection||'—'}</p>
-      </div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Threat assessment</div>
-        <p>${d.threat_level||'—'}</p>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-        ${fmt(count)} total events · ${uniqueIps} unique IPs · Generated by llama3.1:8b
-      </div>`;
-
-    botnetAnalysisCache[name] = html;
-    body.innerHTML = html;
+    _bCache[ck]={d,ts:Date.now()};
+    renderBotnetResult(body,d,count,uniqueIps);
   }catch(e){
-    body.innerHTML = `<div style="color:var(--red)">Error: ${e.message}</div>`;
+    if(e.name==='AbortError')return;
+    body.innerHTML=`<div style="color:#8a3030">Error: ${e.message}</div>`;
   }
 }
 
@@ -1561,16 +2037,50 @@ function hideSevTooltip(){
   document.getElementById('sev-tooltip').style.display = 'none';
 }
 
+// ===== Botnet limit =====
+
+
 // ===== Window =====
-function setWindow(v){currentWindow=parseInt(v);loadStats();loadIntelPanels();}
+/**
+ * Change the active time window, persist to localStorage + URL params.
+ * @param {string|number} v - Minutes to look back (e.g. 1440 = 24h)
+ */
+function setWindow(v){
+  currentWindow = parseInt(v);
+  document.getElementById('win-sel').value = v;
+  // Persist to localStorage
+  try { localStorage.setItem('soc_window', v); } catch(e) {}
+  // Persist to URL so bookmarks/links preserve the window
+  try {
+    const url = new URL(window.location);
+    url.searchParams.set('window', v);
+    window.history.replaceState({}, '', url);
+  } catch(e) {}
+  loadStats();
+  loadIntelPanels();
+}
 
 // ===== Init =====
 window.addEventListener('load',()=>{
+  // Restore time window from URL param first, then localStorage
+  try {
+    const urlW = new URLSearchParams(window.location.search).get('window');
+    const lsW  = localStorage.getItem('soc_window');
+    const saved = urlW || lsW;
+    if (saved && !isNaN(parseInt(saved))) {
+      currentWindow = parseInt(saved);
+      const sel = document.getElementById('win-sel');
+      if (sel) sel.value = saved;
+    }
+  } catch(e) {}
   loadStats();loadTriage();loadIntelPanels();
-  setInterval(loadStats,60000);
-  setInterval(loadIntelPanels,300000); // refresh intel every 5 min
-  setInterval(()=>fetch('/api/velocity').then(r=>r.json()).then(renderVelocity),30000); // velocity every 30s
-  window.addEventListener('resize',drawTimeline);
+  checkHealth();
+  setInterval(loadStats, 60000);
+  setInterval(loadIntelPanels, 300000);
+  setInterval(checkHealth, 30000);
+  setInterval(updateRefreshTime, 10000);
+  setInterval(()=>apiFetch('/api/velocity').then(r=>r.json()).then(renderVelocity), 30000);
+  window.addEventListener('resize', drawTimeline);
 });
 </script>
 </body>

@@ -1,12 +1,31 @@
 #!/usr/bin/env python3
 """
-app.py — AI-Powered SOC Dashboard (v3)
-Flask web application serving the SOC dashboard.
-Runs on: Ubuntu Server (192.168.10.4)
-Access via Tailscale: http://100.82.166.75:5000
+app.py — AI-Powered SOC Dashboard (v6)
+
+Flask backend for the Wazuh/Cowrie SOC dashboard.
+Serves 10 API endpoints backed by OpenSearch and an Ollama LLM.
+
+Environment variables (all optional — fall back to dev defaults):
+    OPENSEARCH_URL   https://localhost:9200
+    OPENSEARCH_USER  admin
+    OPENSEARCH_PASS  <password>
+    OLLAMA_URL       http://100.72.171.104:11434/api/generate
+    GEOIP_CACHE_PATH /opt/cowrie-logs/geoip_cache.json
+
+Usage:
+    python3 app.py                  # development
+    gunicorn -w 2 app:app           # production
+
+Author: Tyce Erickson · CMU MSISPM Portfolio · Project 4
 """
 
 import json
+import os
+import re
+import time
+import glob
+import fcntl
+import logging
 import subprocess
 import threading
 import ssl
@@ -16,27 +35,80 @@ import urllib.error
 import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from collections import Counter
+from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import wraps
+from typing import Any, Dict, List, Optional, Tuple
 from flask import Flask, jsonify, render_template, request
 
+# ── .env file support (optional) ─────────────────────────────
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # pip install python-dotenv to enable .env support
+
+# ── Logging setup ────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+log = logging.getLogger("soc-dashboard")
+
 app = Flask(__name__)
+try:
+    from flask_cors import CORS
+    CORS(app)
+except ImportError:
+    pass  # pip install flask-cors
+
+# ── Startup validation ────────────────────────────────────────
+if not os.environ.get("OPENSEARCH_PASS"):
+    log.warning("OPENSEARCH_PASS not set via env — using hardcoded default (dev mode only)")
+
+# ── Request timing middleware ─────────────────────────────────
+@app.before_request
+def _before():
+    request._start_time = time.time()
+
+@app.after_request
+def _after(response):
+    dur = (time.time() - getattr(request, "_start_time", time.time())) * 1000
+    log.info("%s %s → %d (%.0fms)", request.method, request.path, response.status_code, dur)
+    return response
 
 # ============================================================
 # Configuration
 # ============================================================
-OPENSEARCH_URL = "https://localhost:9200"
-OS_USER        = "admin"
-OS_PASS        = "BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj"
-ALERT_INDEX    = "wazuh-alerts-4.x-*"
-GEOIP_SOURCE   = "/opt/cowrie-logs/cowrie_enriched.json"
-TRIAGE_REPORT  = "/opt/wazuh-soc/data/triage_report.json"
-ALERTS_RAW     = "/opt/wazuh-soc/data/alerts_raw.json"
-PYTHON         = "/usr/bin/python3"
-ENRICH_SCRIPT  = "/opt/cowrie-tools/pipeline/enrich_logs.py"
-EXPORT_SCRIPT  = "/opt/cowrie-tools/pipeline/export_to_wazuh.py"
-POLLER_SCRIPT  = "/opt/wazuh-soc/triage/alert_poller.py"
-TRIAGE_SCRIPT  = "/opt/wazuh-soc/triage/ai_triage.py"
-LOG_DIR        = "/opt/wazuh-soc/logs"
+# ── OpenSearch connection ─────────────────────────────────────
+OPENSEARCH_URL = os.environ.get("OPENSEARCH_URL",  "https://localhost:9200")
+OS_USER        = os.environ.get("OPENSEARCH_USER", "admin")
+OS_PASS        = os.environ.get("OPENSEARCH_PASS", "BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj")
+ALERT_INDEX    = os.environ.get("ALERT_INDEX",     "wazuh-alerts-4.x-*")
+
+# ── File paths (all overridable via env) ──────────────────────
+GEOIP_CACHE    = os.environ.get("GEOIP_CACHE_PATH",  "/opt/cowrie-logs/geoip_cache.json")
+GEOIP_SOURCE   = os.environ.get("GEOIP_SOURCE",      "/opt/cowrie-logs/cowrie_enriched.json")
+TRIAGE_REPORT  = os.environ.get("TRIAGE_REPORT",     "/opt/wazuh-soc/data/triage_report.json")
+ALERTS_RAW     = os.environ.get("ALERTS_RAW",        "/opt/wazuh-soc/data/alerts_raw.json")
+PYTHON         = os.environ.get("PYTHON_BIN",        "/usr/bin/python3")
+ENRICH_SCRIPT  = os.environ.get("ENRICH_SCRIPT",     "/opt/cowrie-tools/pipeline/enrich_logs.py")
+EXPORT_SCRIPT  = os.environ.get("EXPORT_SCRIPT",     "/opt/cowrie-tools/pipeline/export_to_wazuh.py")
+POLLER_SCRIPT  = os.environ.get("POLLER_SCRIPT",     "/opt/wazuh-soc/triage/alert_poller.py")
+TRIAGE_SCRIPT  = os.environ.get("TRIAGE_SCRIPT",     "/opt/wazuh-soc/triage/ai_triage.py")
+LOG_DIR        = os.environ.get("LOG_DIR",           "/opt/wazuh-soc/logs")
+OLLAMA_URL     = os.environ.get("OLLAMA_URL",        "http://100.72.171.104:11434/api/generate")
+
+# ── Startup config validation ─────────────────────────────────
+for _script in [ENRICH_SCRIPT, TRIAGE_SCRIPT]:
+    if not Path(_script).exists():
+        log.warning("Script not found: %s — some features may be unavailable", _script)
+for _dir in [LOG_DIR, str(Path(TRIAGE_REPORT).parent)]:
+    try:
+        Path(_dir).mkdir(parents=True, exist_ok=True)
+    except Exception as _e:
+        log.warning("Cannot create dir %s: %s", _dir, _e)
 
 SSL_CTX = ssl.create_default_context()
 SSL_CTX.check_hostname = False
@@ -44,6 +116,53 @@ SSL_CTX.verify_mode    = ssl.CERT_NONE
 AUTH_HEADER = "Basic " + base64.b64encode(
     f"{OS_USER}:{OS_PASS}".encode()
 ).decode()
+
+# ── Simple in-process rate limiter ───────────────────────────
+_rate_buckets: Dict[str, Dict] = defaultdict(lambda: {"count": 0, "reset": 0.0})
+_rate_lock = threading.Lock()
+
+def rate_limit(max_per_minute: int = 60):
+    """Decorator: allow at most max_per_minute calls/min per endpoint (global, not per-IP)."""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            key = fn.__name__
+            now = time.time()
+            with _rate_lock:
+                bucket = _rate_buckets[key]
+                if now > bucket["reset"]:
+                    bucket["count"] = 0
+                    bucket["reset"] = now + 60
+                bucket["count"] += 1
+                if bucket["count"] > max_per_minute:
+                    log.warning("Rate limit hit on %s (%d/min)", key, bucket["count"])
+                    return jsonify({"error": "Rate limit exceeded — try again in a moment"}), 429
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+# ── Simple result cache ──────────────────────────────────────
+_result_cache: Dict[str, Dict] = {}
+_cache_lock = threading.Lock()
+
+def cached(ttl_seconds: int = 300):
+    """Decorator: cache function result for ttl_seconds."""
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            key = f"{fn.__name__}:{args}:{sorted(kwargs.items())}"
+            now = time.time()
+            with _cache_lock:
+                entry = _result_cache.get(key)
+                if entry and now < entry["expires"]:
+                    log.debug("Cache hit: %s", fn.__name__)
+                    return entry["value"]
+            result = fn(*args, **kwargs)
+            with _cache_lock:
+                _result_cache[key] = {"value": result, "expires": now + ttl_seconds}
+            return result
+        return wrapper
+    return decorator
 
 analysis_state = {
     "running": False, "progress": "", "step": 0,
@@ -57,30 +176,86 @@ refresh_state = {
 # ============================================================
 # OpenSearch helper
 # ============================================================
-def os_query(path, body=None):
+def os_query(path: str, body: Optional[Dict] = None, retries: int = 2) -> Dict:
+    """Execute an OpenSearch query with retry logic on transient failures.
+
+    Args:
+        path:    URL path, e.g. "/wazuh-alerts-4.x-*/_search"
+        body:    JSON request body (None for GET)
+        retries: Number of retries on connection errors
+
+    Returns:
+        Parsed JSON response dict, or {"error": message} on failure.
+    """
     url     = f"{OPENSEARCH_URL}{path}"
     headers = {"Content-Type": "application/json", "Authorization": AUTH_HEADER}
     data    = json.dumps(body).encode() if body else None
     method  = "POST" if data else "GET"
-    req     = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, context=SSL_CTX, timeout=15) as r:
-            return json.loads(r.read().decode())
-    except Exception as e:
-        return {"error": str(e)}
+
+    for attempt in range(retries + 1):
+        try:
+            req = urllib.request.Request(url, data=data, headers=headers, method=method)
+            with urllib.request.urlopen(req, context=SSL_CTX, timeout=15) as r:
+                result = json.loads(r.read().decode())
+                # Validate OpenSearch response has expected structure
+                if "error" in result and "status" in result:
+                    log.warning("OpenSearch error: %s", result.get("error", {}).get("reason", "unknown"))
+                return result
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                return {"error": "Authentication failed — check OPENSEARCH_PASS"}
+            if e.code == 429:
+                wait = float(e.headers.get("Retry-After", 1))
+                time.sleep(wait)
+                continue
+            return {"error": f"HTTP {e.code}: {e.reason}"}
+        except (urllib.error.URLError, OSError) as e:
+            if attempt < retries:
+                wait = 0.5 * (attempt + 1)
+                log.warning("OpenSearch connection error (attempt %d/%d), retrying in %.1fs: %s",
+                            attempt + 1, retries + 1, wait, e)
+                time.sleep(wait)
+            else:
+                log.error("OpenSearch unreachable after %d attempts: %s", retries + 1, e)
+                return {"error": "OpenSearch unreachable"}
+        except Exception as e:
+            log.error("os_query unexpected error: %s", e)
+            return {"error": "Query failed"}
+    return {"error": "Query failed after retries"}
 
 
 # ============================================================
 # GeoIP lookup
 # ============================================================
-def build_geoip_lookup():
-    cache_path = "/opt/cowrie-logs/geoip_cache.json"
+# Module-level GeoIP cache — reloaded at most once per minute
+_geoip_cache = {}
+_geoip_cache_loaded_at = 0
+
+def build_geoip_lookup() -> Dict[str, Dict]:
+    """Load GeoIP cache from disk, refreshing at most once per minute.
+
+    Returns:
+        Dict mapping IP string to {country, city, org} dicts.
+    """
+    global _geoip_cache, _geoip_cache_loaded_at
+    now = time.time()
+    if now - _geoip_cache_loaded_at < 60 and _geoip_cache:
+        return _geoip_cache
     try:
-        with open(cache_path) as f:
-            return json.load(f)
-    except Exception:
-        pass
-    return {}
+        with open(GEOIP_CACHE) as f:
+            # Use shared file lock so concurrent reads don't race with writes
+            fcntl.flock(f, fcntl.LOCK_SH)
+            try:
+                _geoip_cache = json.load(f)
+                _geoip_cache_loaded_at = now
+                return _geoip_cache
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except FileNotFoundError:
+        log.warning("GeoIP cache not found at %s", GEOIP_CACHE)
+    except Exception as e:
+        log.warning("GeoIP cache load failed: %s", e)
+    return _geoip_cache or {}  # Return stale cache rather than empty dict
 
 
 def resolve_missing_ips_async(ips_list):
@@ -399,16 +574,31 @@ def get_live_stats(minutes=60):
     }
 
 
-def build_mitre_panel(minutes, since_ms, tactics, techniques, ids):
-    tactic_map = {
-        "Discovery":            ["T1046"],
-        "Credential Access":    ["T1110", "T1110.001"],
-        "Persistence":          ["T1098.004", "T1098"],
-        "Execution":            ["T1059"],
-        "Defense Evasion":      ["T1078"],
-        "Initial Access":       ["T1078"],
-        "Privilege Escalation": ["T1078"],
-    }
+@cached(ttl_seconds=300)  # Cache MITRE for 5 minutes
+def build_mitre_panel(minutes: int, since_ms: int, tactics: Dict, techniques: Dict, ids: Dict) -> List:
+    """Build the MITRE ATT&CK panel dynamically from live data.
+
+    Discovers ALL tactics present in the data — not just a hardcoded 7.
+    Queries real examples for each tactic from OpenSearch.
+    """
+    # Build tactic→technique-ids map dynamically from what's actually in the data
+    # This means new tactics appear automatically when Wazuh rules tag them
+    tactic_map: Dict[str, List[str]] = {}
+    for tactic in tactics:
+        # Find technique IDs associated with this tactic from the live index
+        t_body = {
+            "size": 0,
+            "query": {"bool": {"filter": [
+                {"range": {"data.timestamp": {"gte": datetime.fromtimestamp(since_ms/1000, tz=timezone.utc).isoformat()}}},
+                {"exists": {"field": "data.honeypot"}},
+                {"term": {"rule.mitre.tactic": tactic}},
+            ]}},
+            "aggs": {"ids": {"terms": {"field": "rule.mitre.id", "size": 20}}}
+        }
+        t_result = os_query(f"/{ALERT_INDEX}/_search", t_body)
+        found_ids = [b["key"] for b in t_result.get("aggregations", {}).get("ids", {}).get("buckets", [])]
+        tactic_map[tactic] = found_ids if found_ids else []
+
     panel = []
     for tactic, count in sorted(tactics.items(), key=lambda x: x[1], reverse=True):
         body = {
@@ -517,8 +707,14 @@ def resolve_alert_ips():
                 cache[ip] = {"country": "", "city": "", "org": ""}
         city_reader.close()
         asn_reader.close()
-        with open(cache_path, 'w') as f:
-            json.dump(cache, f)
+        # Use exclusive file lock to prevent concurrent write corruption
+        with open(GEOIP_CACHE, 'w') as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                json.dump(cache, f)
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+        log.info("GeoIP cache updated: %d IPs resolved, %d total", resolved, len(cache))
         return len(cache), resolved
     except Exception as e:
         return len(cache), -1
@@ -741,63 +937,319 @@ def get_sessions(minutes):
 # ============================================================
 # NEW API: Botnet fingerprints
 # ============================================================
+def _levenshtein(s1: str, s2: str) -> int:
+    """Compute edit distance between two strings (for credential deduplication).
+
+    Uses Wagner-Fischer DP algorithm, O(m*n) time and O(n) space.
+    """
+    if len(s1) < len(s2):
+        return _levenshtein(s2, s1)
+    if len(s2) == 0:
+        return len(s1)
+    prev = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        curr = [i + 1]
+        for j, c2 in enumerate(s2):
+            curr.append(min(prev[j + 1] + 1, curr[j] + 1, prev[j] + (c1 != c2)))
+        prev = curr
+    return prev[len(s2)]
+
+
 def get_botnets(minutes):
+    """
+    Auto-detect botnet campaigns by clustering credential and command patterns.
+    
+    Algorithm:
+    1. Find top credential pairs used by 3+ unique IPs (coordinated = botnet)
+    2. Find top command signatures used by 3+ unique IPs
+    3. Check for Telnet protocol activity
+    4. Cluster by dominant pattern, name dynamically from the data
+    5. Fetch timeline for each detected campaign
+    """
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    since_iso = since.isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    PALETTE = ["#5c3020","#7a8090","#8a5868","#6a8060","#9888a8","#a07040",
+               "#7a98b0","#c4899a","#8a3030","#6a7858","#a08060","#7a6888"]
 
-    # Known botnet signatures
-    BOTNETS = [
-        {"name": "mdrfckr Botnet",    "color": "#f85149", "sig": "mdrfckr",          "field": "data.input"},
-        {"name": "345gs5662d34",       "color": "#f0883e", "sig": "345gs5662d34",     "field": "data.password"},
-        {"name": "Solana Scanner",     "color": "#d29922", "sig": "solana",           "field": "data.username"},
-        {"name": "Admin Brute Force",  "color": "#a371f7", "sig": "admin",            "field": "data.username"},
-        {"name": "Root Brute Force",   "color": "#ff79c6", "sig": "root",             "field": "data.username"},
-        {"name": "Telnet Scanner",     "color": "#388bfd", "sig": "cowrie.telnet",    "field": "data.protocol"},
-    ]
+    campaigns = []
 
-    results = []
-    for bot in BOTNETS:
-        if bot["field"] == "data.protocol":
-            q = {"term": {"data.protocol": "telnet"}}
-        else:
-            q = {"wildcard": {bot["field"]: f"*{bot['sig']}*"}}
-
-        body = {
-            "size": 0,
-            "query": {"bool": {"filter": [
-                {"range": {"data.timestamp": {"gte": since.isoformat()}}},
-                {"exists": {"field": "data.honeypot"}},
-                q,
-            ]}},
-            "aggs": {
-                "unique_ips": {"cardinality": {"field": "data.src_ip"}},
-                "timeline": {
-                    "date_histogram": {
-                        "field": "data.timestamp",
-                        "fixed_interval": "2h",
-                        "min_doc_count": 0,
-                        "extended_bounds": {
-                            "min": since.isoformat(),
-                            "max": datetime.now(timezone.utc).isoformat()
-                        }
-                    }
+    # ── Step 1: Credential campaigns ─────────────────────────────────────
+    # Find credential pairs used by many unique IPs — coordinated = botnet
+    cred_body = {
+        "size": 0,
+        "query": {"bool": {"filter": [
+            {"range": {"data.timestamp": {"gte": since_iso}}},
+            {"exists": {"field": "data.honeypot"}},
+            {"exists": {"field": "data.username"}},
+            {"exists": {"field": "data.password"}},
+        ]}},
+        "aggs": {
+            "cred_pairs": {
+                "terms": {
+                    "script": {
+                        "lang": "painless",
+                        "source": "doc['data.username'].size()>0 && doc['data.password'].size()>0 ? doc['data.username'].value+':::'+doc['data.password'].value : null"
+                    },
+                    "size": 50,
+                    "min_doc_count": 10,
+                    "order": {"_count": "desc"}
+                },
+                "aggs": {
+                    "unique_ips": {"cardinality": {"field": "data.src_ip"}}
                 }
             }
         }
-        result = os_query(f"/{ALERT_INDEX}/_search", body)
-        count = result.get("hits", {}).get("total", {}).get("value", 0)
-        unique_ips = result.get("aggregations", {}).get("unique_ips", {}).get("value", 0)
-        tl = [{"ts": b["key"], "count": b["doc_count"]}
-              for b in result.get("aggregations", {}).get("timeline", {}).get("buckets", [])]
-        if count > 0:
-            results.append({
-                "name":       bot["name"],
-                "color":      bot["color"],
+    }
+    cred_result = os_query(f"/{ALERT_INDEX}/_search", cred_body)
+    for b in cred_result.get("aggregations", {}).get("cred_pairs", {}).get("buckets", []):
+        cred   = b["key"]
+        count  = b["doc_count"]
+        n_ips  = b.get("unique_ips", {}).get("value", 0)
+        if n_ips < 3 or ":::" not in cred:
+            continue
+        user, pwd = cred.split(":::", 1)
+        # Name the campaign from the credential
+        if len(pwd) > 4 and (pwd == user or any(c.isdigit() for c in pwd)):
+            name = f"{pwd[:20]} Campaign"
+        elif len(user) > 3 and user not in ("root","admin","user","test"):
+            name = f"{user[:20]} Scanner"
+        else:
+            name = f"{user}/{pwd[:12]} Brute Force"
+        # Filter protocol noise and junk credentials
+        JUNK_CRED_PATTERNS = [
+            'HTTP/', 'GET ', 'POST ', 'Host:', 'Mozilla', 'Content-',
+            'User-Agent', 'EHLO', 'HELO', 'AUTH', 'SMTP', 'IMAP',
+        ]
+        # Also filter credentials that are clearly protocol tokens
+        if pwd.startswith('*') or pwd.startswith('$') or '\\x' in pwd:
+            continue
+        if not any(c.isalnum() for c in pwd):
+            continue
+        if any(p in pwd or p in user for p in JUNK_CRED_PATTERNS):
+            continue
+        if len(pwd) > 60 or len(user) > 40:
+            continue
+        # Deduplicate using Levenshtein distance for similar credentials
+        # This catches variants like "345gs5662d34" vs "3245gs5662d34" (edit distance = 1)
+        is_dupe = False
+        for existing in campaigns:
+            ev = existing.get("_sig_val", "")
+            eu = existing.get("_sig_user", "")
+            if not ev:
+                continue
+            # Fast path: direct substring containment
+            shorter = min(pwd, ev, key=len)
+            longer  = max(pwd, ev, key=len)
+            if len(shorter) > 5 and shorter in longer:
+                is_dupe = True
+            # Levenshtein distance <= 2 for passwords longer than 6 chars
+            elif len(pwd) > 6 and len(ev) > 6:
+                dist = _levenshtein(pwd, ev)
+                if dist <= 2:
+                    is_dupe = True
+            # Same username, similar password length (same family)
+            elif eu and eu == user and abs(len(pwd) - len(ev)) < 3:
+                is_dupe = True
+            if is_dupe:
+                if count > existing["count"]:
+                    existing["count"] = count
+                    existing["unique_ips"] = max(existing["unique_ips"], n_ips)
+                break
+        if is_dupe:
+            continue
+        # Confidence: HIGH = 5+ IPs, MEDIUM = 3-4 IPs, LOW = 1-2 IPs
+        confidence = "HIGH" if n_ips >= 5 else "MEDIUM" if n_ips >= 3 else "LOW"
+        campaigns.append({
+            "_sig_field": "data.password",
+            "_sig_val":   pwd,
+            "_sig_user":  user,
+            "name":       name,
+            "count":      count,
+            "unique_ips": n_ips,
+            "confidence": confidence,
+            "auto":       True,
+        })
+
+    # ── Step 2: Command signature campaigns ──────────────────────────────
+    cmd_body = {
+        "size": 0,
+        "query": {"bool": {"filter": [
+            {"range": {"data.timestamp": {"gte": since_iso}}},
+            {"exists": {"field": "data.honeypot"}},
+            {"term": {"data.eventid": "cowrie.command.input"}},
+        ]}},
+        "aggs": {
+            "top_cmds": {
+                "terms": {
+                    "field": "data.input",
+                    "size":  30,
+                    "min_doc_count": 5,
+                    "order": {"_count": "desc"}
+                },
+                "aggs": {
+                    "unique_ips": {"cardinality": {"field": "data.src_ip"}}
+                }
+            }
+        }
+    }
+    cmd_result = os_query(f"/{ALERT_INDEX}/_search", cmd_body)
+    seen_cmd_sigs = set()
+    for b in cmd_result.get("aggregations", {}).get("top_cmds", {}).get("buckets", []):
+        cmd   = b["key"]
+        count = b["doc_count"]
+        n_ips = b.get("unique_ips", {}).get("value", 0)
+        if n_ips < 3 or len(cmd) < 5:
+            continue
+        # Extract a short signature from the command
+        words = cmd.split()
+        sig = words[0] if words else cmd[:20]
+        if sig in seen_cmd_sigs:
+            continue
+        seen_cmd_sigs.add(sig)
+        # Name by what the command does
+        if "ssh-rsa" in cmd or "authorized_keys" in cmd:
+            name = "SSH Key Implant"
+        elif "chattr" in cmd:
+            name = "Anti-Forensic (chattr)"
+        elif "wget" in cmd or "curl" in cmd:
+            name = "Downloader Campaign"
+        elif "uname" in cmd or "cat /proc" in cmd or "lscpu" in cmd:
+            name = "System Recon Campaign"
+        elif "busybox" in cmd:
+            name = "BusyBox IoT Scanner"
+        elif "chmod" in cmd and "setup" in cmd:
+            name = "Dropper Campaign"
+        else:
+            name = f"{sig[:20]} Campaign"
+        # Filter out generic Linux commands that aren't campaign signatures
+        GENERIC_CMDS = {
+            'echo','cat','ls','rm','df','free','ps','id','pwd','env','top',
+            'who','w','last','uptime','date','hostname','uname','whoami',
+            'ifconfig','ip','netstat','ss','lscpu','lsblk','mount','find',
+            'grep','awk','sed','head','tail','wc','sort','uniq','cut','tr',
+            'crontab','which','whereis','history','export','set','alias',
+            'cd','mkdir','touch','cp','mv','chmod','chown','ln','stat',
+        }
+        # Only skip if it's a generic command AND not a named campaign type
+        is_named = name not in [f"{sig[:20]} Campaign"]
+        if sig.lower() in GENERIC_CMDS and not is_named:
+            continue
+        # Filter out HTTP/protocol noise
+        if any(x in sig for x in ['Host:', 'GET ', 'POST ', 'HTTP/', 'User-Agent',
+                                    'Content-', 'Accept', 'Mozilla', '174.138']):
+            continue
+        # Avoid duplicating credential campaigns that already cover this
+        if not any(c["name"] == name for c in campaigns):
+            confidence = "HIGH" if n_ips >= 5 else "MEDIUM" if n_ips >= 3 else "LOW"
+            campaigns.append({
+                "_sig_field": "data.input",
+                "_sig_val":   sig,
+                "name":       name,
                 "count":      count,
-                "unique_ips": unique_ips,
-                "timeline":   tl,
+                "unique_ips": n_ips,
+                "confidence": confidence,
+                "auto":       True,
             })
 
-    return {"botnets": sorted(results, key=lambda x: x["count"], reverse=True)}
+    # ── Step 3: Telnet scanner ────────────────────────────────────────────
+    telnet_body = {
+        "size": 0,
+        "query": {"bool": {"filter": [
+            {"range": {"data.timestamp": {"gte": since_iso}}},
+            {"exists": {"field": "data.honeypot"}},
+            {"term": {"data.protocol": "telnet"}},
+        ]}},
+        "aggs": {"unique_ips": {"cardinality": {"field": "data.src_ip"}}}
+    }
+    tel_r  = os_query(f"/{ALERT_INDEX}/_search", telnet_body)
+    tel_ct = tel_r.get("hits", {}).get("total", {}).get("value", 0)
+    tel_ip = tel_r.get("aggregations", {}).get("unique_ips", {}).get("value", 0)
+    if tel_ct > 0:
+        campaigns.append({
+            "_sig_field": "data.protocol",
+            "_sig_val":   "telnet",
+            "name":       "Telnet Scanner",
+            "count":      tel_ct,
+            "unique_ips": tel_ip,
+            "auto":       True,
+        })
+
+    # ── Step 4: Deduplicate and limit to top 12 ───────────────────────────
+    # Sort by count desc, deduplicate by name
+    seen_names = set()
+    deduped = []
+    for c in sorted(campaigns, key=lambda x: x["count"], reverse=True):
+        if c["name"] not in seen_names:
+            seen_names.add(c["name"])
+            deduped.append(c)
+        if len(deduped) >= 50:
+            break
+
+    # ── Step 5: Fetch timelines IN PARALLEL ──────────────────────────────
+    def fetch_timeline(args):
+        i, camp = args
+        field = camp["_sig_field"]
+        sig   = camp["_sig_val"]
+        if field == "data.protocol":
+            q = {"term": {"data.protocol": sig}}
+        elif field == "data.input":
+            q = {"wildcard": {"data.input": f"*{sig}*"}}
+        else:
+            q = {"term": {field: sig}}
+            if camp.get("_sig_user") and camp["_sig_user"] not in ("root","admin","user"):
+                q = {"bool": {"must": [
+                    {"term": {"data.password": sig}},
+                    {"term": {"data.username": camp.get("_sig_user","")}},
+                ]}}
+        tl_body = {
+            "size": 0,
+            "query": {"bool": {"filter": [
+                {"range": {"data.timestamp": {"gte": since_iso}}},
+                {"exists": {"field": "data.honeypot"}},
+                q,
+            ]}},
+            "aggs": {"timeline": {"date_histogram": {
+                "field": "data.timestamp",
+                "fixed_interval": "2h",
+                "min_doc_count": 0,
+                "extended_bounds": {"min": since_iso, "max": now_iso}
+            }}}
+        }
+        tl_r = os_query(f"/{ALERT_INDEX}/_search", tl_body)
+        tl   = [{"ts": b["key"], "count": b["doc_count"]}
+                for b in tl_r.get("aggregations", {}).get("timeline", {}).get("buckets", [])]
+        return i, camp, tl
+
+    results_map = {}
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        # Submit all, preserving order via index
+        future_list = [(i, ex.submit(fetch_timeline, (i, camp))) for i, camp in enumerate(deduped)]
+        for i, fut in future_list:
+            try:
+                idx, camp, tl = fut.result(timeout=10)
+                results_map[idx] = (camp, tl)
+            except Exception:
+                # On failure, use empty timeline
+                results_map[i] = (deduped[i], [])
+
+    results = []
+    for i, camp in enumerate(deduped):
+        field = camp["_sig_field"]
+        sig   = camp["_sig_val"]
+        # Timeline already fetched in parallel above
+        _, tl = results_map.get(i, (camp, []))
+
+        results.append({
+            "name":       camp["name"],
+            "color":      PALETTE[i % len(PALETTE)],
+            "count":      camp["count"],
+            "unique_ips": camp["unique_ips"],
+            "timeline":   tl,
+            "auto":       True,
+        })
+
+    return {"botnets": results}
 
 
 # ============================================================
@@ -972,19 +1424,38 @@ def run_analysis_thread(mode, minutes, limit):
 def analyze_botnet_with_ai(name, count, unique_ips):
     """Use Ollama to generate a botnet analysis summary."""
     import ssl as _ssl
-    OLLAMA_URL = "http://100.72.171.104:11434/api/generate"
+    OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://100.72.171.104:11434/api/generate")
 
     # Get sample events for this botnet to give AI real context
-    BOTNET_QUERIES = {
-        "mdrfckr Botnet":   {"term": {"data.input": "mdrfckr"}},
-        "345gs5662d34":     {"term": {"data.password": "3245gs5662d34"}},
-        "Solana Scanner":   {"term": {"data.username": "solana"}},
-        "Admin Brute Force":{"term": {"data.username": "admin"}},
-        "Root Brute Force": {"term": {"data.username": "root"}},
-        "Telnet Scanner":   {"term": {"data.protocol": "telnet"}},
-    }
-
-    query = BOTNET_QUERIES.get(name, {"term": {"data.honeypot": "cowrie-raw"}})
+    # Build query dynamically from botnet name — works with auto-detected campaigns
+    if name == "Telnet Scanner":
+        query = {"term": {"data.protocol": "telnet"}}
+    elif "SSH Key Implant" in name:
+        query = {"wildcard": {"data.input": "*ssh-rsa*"}}
+    elif "chattr" in name.lower() or "Anti-Forensic" in name:
+        query = {"wildcard": {"data.input": "*chattr*"}}
+    elif "Downloader" in name:
+        query = {"bool": {"should": [
+            {"wildcard": {"data.input": "*wget*"}},
+            {"wildcard": {"data.input": "*curl*"}},
+        ], "minimum_should_match": 1}}
+    elif "Recon" in name:
+        query = {"term": {"data.input": "uname -s -v -n -r -m"}}
+    elif "BusyBox" in name:
+        query = {"wildcard": {"data.input": "*busybox*"}}
+    elif "Campaign" in name or "Scanner" in name or "Brute Force" in name:
+        # Extract the key term from the name and search credentials/commands
+        key = name.replace(" Campaign","").replace(" Scanner","").replace(" Brute Force","").strip()
+        query = {"bool": {"should": [
+            {"wildcard": {"data.password": f"*{key}*"}},
+            {"wildcard": {"data.username": f"*{key}*"}},
+            {"wildcard": {"data.input":    f"*{key}*"}},
+        ], "minimum_should_match": 1}}
+    else:
+        query = {"bool": {"should": [
+            {"wildcard": {"data.password": f"*{name.split()[0]}*"}},
+            {"wildcard": {"data.input":    f"*{name.split()[0]}*"}},
+        ], "minimum_should_match": 1}}
     sample_body = {
         "size": 25,
         "query": {"bool": {"filter": [
@@ -1024,31 +1495,58 @@ Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid J
   "threat_level": "Threat assessment — sophistication level, risk, what damage it could do on a real system"
 }}"""
 
-    try:
-        ctx = _ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = _ssl.CERT_NONE
-        body = json.dumps({
-            "model": "llama3.1:8b",
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0.3, "num_predict": 2048},
-        }).encode()
-        req = urllib.request.Request(
-            OLLAMA_URL, data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=120) as r:
-            result = json.loads(r.read().decode())
-        raw = result.get("response", "")
-        # Clean JSON
-        if "```" in raw:
-            raw = raw.split("```")[1]
-            if raw.startswith("json"): raw = raw[4:]
-        return json.loads(raw.strip())
-    except Exception as e:
-        return {"error": str(e)}
+    # Ollama call with retry logic and fallback template
+    _OLLAMA_FALLBACK = {
+        "description": "AI analysis unavailable — Ollama may be offline or busy.",
+        "methodology": "Unable to generate analysis at this time.",
+        "detection": "Campaign was detected via credential/command clustering.",
+        "threat_level": "Manual review recommended.",
+    }
+    for _attempt in range(2):
+        try:
+            import ssl as _ssl
+            ctx = _ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = _ssl.CERT_NONE
+            body = json.dumps({
+                "model": "llama3.1:8b",
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.3, "num_predict": 2048},
+            }).encode()
+            req = urllib.request.Request(
+                OLLAMA_URL, data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=120) as r:
+                result = json.loads(r.read().decode())
+            raw = result.get("response", "")
+            if not raw:
+                raise ValueError("Empty response from Ollama")
+            # Strip markdown code fences if present
+            if "```" in raw:
+                raw = raw.split("```")[1]
+                if raw.startswith("json"): raw = raw[4:]
+            # Validate JSON before returning
+            parsed = json.loads(raw.strip())
+            if not isinstance(parsed, dict):
+                raise ValueError(f"Unexpected response type: {type(parsed)}")
+            return parsed
+        except urllib.error.URLError:
+            if _attempt == 0:
+                log.warning("Ollama unreachable, retrying in 2s...")
+                time.sleep(2)
+            else:
+                log.error("Ollama unreachable after 2 attempts — returning fallback")
+                return _OLLAMA_FALLBACK
+        except json.JSONDecodeError as e:
+            log.warning("Ollama returned invalid JSON: %s", e)
+            return _OLLAMA_FALLBACK
+        except Exception as e:
+            log.error("Ollama error: %s", e)
+            return {"error": str(e)}
+    return _OLLAMA_FALLBACK
 
 
 # ============================================================
@@ -1058,7 +1556,44 @@ Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid J
 def index():
     return render_template("index.html")
 
+
+@app.route("/api/health")
+def api_health():
+    """Health check — verifies OpenSearch connectivity and GeoIP cache."""
+    status = {"opensearch": "unknown", "geoip_cache": 0, "timestamp": datetime.now(timezone.utc).isoformat()}
+    try:
+        req = urllib.request.Request(
+            f"{OPENSEARCH_URL}/_cluster/health",
+            headers={"Authorization": AUTH_HEADER, "Content-Type": "application/json"},
+            method="GET")
+        with urllib.request.urlopen(req, context=SSL_CTX, timeout=5) as r:
+            health = json.loads(r.read().decode())
+            status["opensearch"] = health.get("status", "unknown")
+            status["active_shards"] = health.get("active_shards", 0)
+    except Exception as e:
+        status["opensearch"] = "error"
+        # Sanitize error — don't expose Python internals
+        err = str(e)
+        if "refused" in err.lower() or "connect" in err.lower():
+            status["opensearch_error"] = "Connection refused"
+        elif "timeout" in err.lower():
+            status["opensearch_error"] = "Connection timeout"
+        elif "401" in err or "403" in err or "credential" in err.lower():
+            status["opensearch_error"] = "Authentication failed"
+        elif "ssl" in err.lower() or "certificate" in err.lower():
+            status["opensearch_error"] = "SSL error"
+        else:
+            status["opensearch_error"] = "Unreachable"
+    try:
+        with open("/opt/cowrie-logs/geoip_cache.json") as f:
+            cache = json.load(f)
+            status["geoip_cache"] = len(cache)
+    except Exception:
+        status["geoip_cache"] = 0
+    return jsonify(status)
+
 @app.route("/api/stats")
+@rate_limit(max_per_minute=30)
 def api_stats():
     minutes = int(request.args.get("minutes", 60))
     return jsonify(get_live_stats(minutes))
@@ -1067,6 +1602,31 @@ def api_stats():
 def api_attack_chain():
     minutes = int(request.args.get("minutes", 1440))
     return jsonify(get_attack_chain(minutes))
+
+@app.route("/api/intel")
+def api_intel():
+    """Runs attack_chain, sessions, botnets, cred_intel IN PARALLEL — faster than 6 separate calls."""
+    try:
+        minutes = int(request.args.get("minutes", 1440))
+        minutes = max(1, min(minutes, 129600))
+    except (ValueError, TypeError):
+        minutes = 1440
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        f_chain = ex.submit(get_attack_chain, minutes)
+        f_sess  = ex.submit(get_sessions,     minutes)
+        f_bots  = ex.submit(get_botnets,      minutes)
+        f_cred  = ex.submit(get_credential_intel, minutes)
+        chain = f_chain.result()
+        sess  = f_sess.result()
+        bots  = f_bots.result()
+        cred  = f_cred.result()
+    return jsonify({
+        "attack_chain": chain,
+        "sessions":     sess,
+        "botnets":      bots,
+        "cred_intel":   cred,
+    })
+
 
 @app.route("/api/velocity")
 def api_velocity():
@@ -1082,16 +1642,23 @@ def api_sessions():
     return jsonify(get_sessions(minutes))
 
 @app.route("/api/botnets")
+@rate_limit(max_per_minute=10)  # Expensive parallel queries
 def api_botnets():
     minutes = int(request.args.get("minutes", 10080))
     return jsonify(get_botnets(minutes))
 
 @app.route("/api/botnet_analysis", methods=["POST"])
 def api_botnet_analysis():
-    data       = request.get_json() or {}
-    name       = data.get("name", "Unknown")
-    count      = int(data.get("count", 0))
-    unique_ips = int(data.get("unique_ips", 0))
+    """Fetch AI analysis for a detected campaign. POST: {name, count, unique_ips}"""
+    data = request.get_json(force=True, silent=True) or {}
+    name = re.sub(r'[^ -~]', '', str(data.get("name", "")).strip())[:100]
+    if not name:
+        return jsonify({"error": "Campaign name is required"}), 400
+    try:
+        count      = max(0, int(data.get("count", 0)))
+        unique_ips = max(0, int(data.get("unique_ips", 0)))
+    except (ValueError, TypeError):
+        count = 0; unique_ips = 0
     result     = analyze_botnet_with_ai(name, count, unique_ips)
     return jsonify(result)
 
@@ -1119,14 +1686,19 @@ def api_refresh_status():
 
 @app.route("/api/analysis/run", methods=["POST"])
 def api_run_analysis():
+    """Start an AI triage analysis run. POST: {mode, minutes, limit}"""
     global analysis_state
     if analysis_state["running"]:
-        return jsonify({"error": "Analysis already running"}), 409
-    data    = request.get_json() or {}
-    mode    = data.get("mode", "summary")
-    minutes = max(1,  min(int(data.get("minutes", 60)),  129600))
-    limit   = max(10, min(int(data.get("limit",   100)), 500))
+        return jsonify({"error": "Analysis already running — wait for current run to complete"}), 409
+    data = request.get_json(force=True, silent=True) or {}
+    mode = str(data.get("mode", "summary")).strip().lower()
     if mode not in ("summary", "full", "executive"):
+        return jsonify({"error": "mode must be: summary, full, or executive"}), 400
+    try:
+        minutes = max(1,  min(int(data.get("minutes", 1440)), 129600))
+        limit   = max(10, min(int(data.get("limit",   100)),  500))
+    except (ValueError, TypeError):
+        return jsonify({"error": "minutes and limit must be integers"}), 400
         return jsonify({"error": "Invalid mode"}), 400
     threading.Thread(target=run_analysis_thread, args=(mode, minutes, limit), daemon=True).start()
     return jsonify({"status": "started", "mode": mode, "minutes": minutes, "limit": limit})
@@ -1139,6 +1711,13 @@ def api_analysis_status():
 # ============================================================
 # CLI
 # ============================================================
+# Optional compression — safe to skip if not installed
+try:
+    from flask_compress import Compress
+    Compress(app)
+except Exception:
+    pass
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host",  default="0.0.0.0")
