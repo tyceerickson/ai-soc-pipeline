@@ -1,14 +1,29 @@
 <!-- ============================================================
-     Custom Wazuh Rules for Cowrie Honeypot
-     File: /var/ossec/etc/rules/cowrie-rules.xml
-     On Wazuh Manager — copy this file there during Project 4
+     Custom Wazuh Rules — Cowrie SSH/Telnet Honeypot
+     File: /var/ossec/etc/rules/wazuh-cowrie-rules.xml
+     Rule IDs: 100100-100130
+     Project 4: AI-Powered SOC Pipeline · CMU MSISPM Portfolio
 
-     Rule IDs: 100100-100120
+     Deploy:
+       sudo cp wazuh-cowrie-rules.xml /var/ossec/etc/rules/
+       sudo systemctl restart wazuh-manager
+
+     Changelog from v1:
+       - Fixed field name: data.command → data.input (Cowrie's actual field)
+       - Added Telnet connection rule (100111)
+       - Added chattr anti-forensics rule (100112) — catches mdrfckr botnet
+       - Added base64 obfuscation rule (100113)
+       - Added file download capture rule (100114)
+       - Added crontab persistence rule (100115)
+       - Added cryptominer execution rule (100116) — wget+chmod+exec pattern
+       - Added slow brute force rule (100117) — 5 attempts in 300s
+       - Added rapid fire brute force rule (100118) — 50 attempts in 60s
+       - Added post-login recon suite rule (100119)
      ============================================================ -->
 
 <group name="cowrie,honeypot,">
 
-  <!-- ── Base rule — all Cowrie events ──────────────────── -->
+  <!-- ── Base rule — all Cowrie events ──────────────────────────── -->
   <rule id="100100" level="3">
     <decoded_as>json</decoded_as>
     <field name="honeypot">cowrie</field>
@@ -16,112 +31,194 @@
     <group>honeypot,</group>
   </rule>
 
-  <!-- ── SSH connection to honeypot ────────────────────── -->
+  <!-- ── SSH connection ─────────────────────────────────────────── -->
   <rule id="100101" level="3">
     <if_sid>100100</if_sid>
     <field name="eventid">cowrie.session.connect</field>
     <description>Honeypot: New SSH connection from $(src_ip)</description>
-    <mitre>
-      <id>T1046</id>
-    </mitre>
+    <mitre><id>T1046</id></mitre>
     <group>honeypot,connection,</group>
   </rule>
 
-  <!-- ── SSH brute force ───────────────────────────────── -->
+  <!-- ── Telnet connection ───────────────────────────────────────── -->
+  <!-- Telnet = almost always IoT botnet (Mirai variants) -->
+  <rule id="100111" level="5">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.session.connect</field>
+    <field name="protocol">telnet</field>
+    <description>Honeypot: Telnet connection from $(src_ip) — likely IoT botnet</description>
+    <mitre><id>T1046</id></mitre>
+    <group>honeypot,connection,telnet,iot,</group>
+  </rule>
+
+  <!-- ── SSH brute force — single attempt ───────────────────────── -->
   <rule id="100102" level="6">
     <if_sid>100100</if_sid>
     <field name="eventid">cowrie.login.failed</field>
-    <description>Honeypot: Failed SSH login attempt [$(username)/$(password)] from $(src_ip)</description>
-    <mitre>
-      <id>T1110.001</id>
-    </mitre>
+    <description>Honeypot: Failed SSH login [$(username)/$(password)] from $(src_ip)</description>
+    <mitre><id>T1110.001</id></mitre>
     <group>honeypot,authentication_failed,brute_force,</group>
   </rule>
 
-  <!-- ── Successful login ──────────────────────────────── -->
+  <!-- ── Successful login ────────────────────────────────────────── -->
   <rule id="100103" level="10">
     <if_sid>100100</if_sid>
     <field name="eventid">cowrie.login.success</field>
     <description>Honeypot: Successful SSH login [$(username)/$(password)] from $(src_ip)</description>
-    <mitre>
-      <id>T1110</id>
-      <id>T1078</id>
-    </mitre>
+    <mitre><id>T1110</id><id>T1078</id></mitre>
     <group>honeypot,authentication_success,</group>
   </rule>
 
-  <!-- ── Command execution ─────────────────────────────── -->
+  <!-- ── Command execution — generic ────────────────────────────── -->
+  <!-- NOTE: Cowrie stores commands in data.input not data.command -->
   <rule id="100104" level="8">
     <if_sid>100100</if_sid>
     <field name="eventid">cowrie.command.input</field>
-    <description>Honeypot: Command executed: $(command)</description>
-    <mitre>
-      <id>T1059</id>
-    </mitre>
+    <description>Honeypot: Command executed by $(src_ip): $(input)</description>
+    <mitre><id>T1059.004</id></mitre>
     <group>honeypot,command,</group>
   </rule>
 
-  <!-- ── SSH key implant ───────────────────────────────── -->
+  <!-- ── SSH key backdoor implant ───────────────────────────────── -->
+  <!-- Signature of mdrfckr botnet and similar persistent access tools -->
   <rule id="100105" level="12">
     <if_sid>100104</if_sid>
-    <field name="command">authorized_keys</field>
-    <description>Honeypot: SSH key backdoor implant attempt from $(src_ip)</description>
-    <mitre>
-      <id>T1098.004</id>
-    </mitre>
+    <field name="input">authorized_keys</field>
+    <description>Honeypot: SSH key backdoor implant from $(src_ip)</description>
+    <mitre><id>T1098.004</id></mitre>
     <group>honeypot,backdoor,persistence,</group>
   </rule>
 
-  <!-- ── Malware download attempt ─────────────────────── -->
+  <!-- ── Malware download — wget/curl/tftp ──────────────────────── -->
   <rule id="100106" level="10">
     <if_sid>100104</if_sid>
-    <field name="command">\.wget |\.curl |\.tftp </field>
+    <field name="input">wget |curl |tftp |fetch </field>
     <description>Honeypot: Malware download attempt from $(src_ip)</description>
-    <mitre>
-      <id>T1105</id>
-    </mitre>
+    <mitre><id>T1105</id></mitre>
     <group>honeypot,malware,download,</group>
   </rule>
 
-  <!-- ── Password change attempt ──────────────────────── -->
+  <!-- ── Password/account manipulation ──────────────────────────── -->
   <rule id="100107" level="12">
     <if_sid>100104</if_sid>
-    <field name="command">chpasswd|passwd</field>
-    <description>Honeypot: Password change attempt from $(src_ip)</description>
-    <mitre>
-      <id>T1098</id>
-    </mitre>
-    <group>honeypot,credential_access,</group>
+    <field name="input">chpasswd|passwd |useradd|adduser</field>
+    <description>Honeypot: Account manipulation attempt from $(src_ip)</description>
+    <mitre><id>T1098</id></mitre>
+    <group>honeypot,credential_access,account_manipulation,</group>
   </rule>
 
-  <!-- ── Cryptominer recon ─────────────────────────────── -->
+  <!-- ── Cryptominer CPU reconnaissance ─────────────────────────── -->
   <rule id="100108" level="8">
     <if_sid>100104</if_sid>
-    <field name="command">cpuinfo|nproc|lscpu|free -m</field>
-    <description>Honeypot: Cryptominer reconnaissance from $(src_ip)</description>
-    <mitre>
-      <id>T1082</id>
-    </mitre>
+    <field name="input">cpuinfo|nproc|lscpu|free -m|dmidecode</field>
+    <description>Honeypot: Cryptominer CPU recon from $(src_ip)</description>
+    <mitre><id>T1082</id></mitre>
     <group>honeypot,cryptominer,recon,</group>
   </rule>
 
-  <!-- ── HASSH fingerprint logged ─────────────────────── -->
+  <!-- ── HASSH fingerprint ───────────────────────────────────────── -->
   <rule id="100109" level="3">
     <if_sid>100100</if_sid>
     <field name="eventid">cowrie.client.kex</field>
-    <description>Honeypot: SSH client fingerprinted HASSH=$(hassh) from $(src_ip)</description>
+    <description>Honeypot: SSH client fingerprinted from $(src_ip)</description>
     <group>honeypot,fingerprint,</group>
   </rule>
 
-  <!-- ── Brute force frequency alert ──────────────────── -->
+  <!-- ── Brute force burst — 10 attempts / 60s ──────────────────── -->
   <rule id="100110" level="10" frequency="10" timeframe="60">
     <if_matched_sid>100102</if_matched_sid>
     <same_field>src_ip</same_field>
-    <description>Honeypot: SSH brute force attack — 10+ attempts from $(src_ip)</description>
-    <mitre>
-      <id>T1110</id>
-    </mitre>
+    <description>Honeypot: SSH brute force burst — 10+ attempts/60s from $(src_ip)</description>
+    <mitre><id>T1110</id></mitre>
     <group>honeypot,brute_force,</group>
+  </rule>
+
+  <!-- ── Anti-forensics — chattr immutable flag ─────────────────── -->
+  <!-- PRIMARY signature of mdrfckr botnet: chattr -ia ~/.ssh/authorized_keys -->
+  <rule id="100112" level="14">
+    <if_sid>100104</if_sid>
+    <field name="input">chattr</field>
+    <description>Honeypot: Anti-forensic file immutability (chattr) from $(src_ip) — mdrfckr botnet indicator</description>
+    <mitre><id>T1222.002</id></mitre>
+    <group>honeypot,defense_evasion,anti_forensics,</group>
+  </rule>
+
+  <!-- ── Base64 obfuscation ──────────────────────────────────────── -->
+  <!-- Attackers encode payloads to evade simple string detection -->
+  <rule id="100113" level="10">
+    <if_sid>100104</if_sid>
+    <field name="input">base64 |echo.*|.*|bash|eval </field>
+    <description>Honeypot: Obfuscated payload execution from $(src_ip)</description>
+    <mitre><id>T1027</id></mitre>
+    <group>honeypot,defense_evasion,obfuscation,</group>
+  </rule>
+
+  <!-- ── File download captured by Cowrie ───────────────────────── -->
+  <!-- Cowrie saves copies of downloaded malware binaries -->
+  <rule id="100114" level="12">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.session.file_download</field>
+    <description>Honeypot: Malware binary downloaded and captured from $(src_ip)</description>
+    <mitre><id>T1105</id></mitre>
+    <group>honeypot,malware,binary_captured,</group>
+  </rule>
+
+  <!-- ── Crontab persistence ─────────────────────────────────────── -->
+  <rule id="100115" level="12">
+    <if_sid>100104</if_sid>
+    <field name="input">crontab|/etc/cron</field>
+    <description>Honeypot: Crontab persistence attempt from $(src_ip)</description>
+    <mitre><id>T1053.003</id></mitre>
+    <group>honeypot,persistence,cron,</group>
+  </rule>
+
+  <!-- ── Cryptominer execution — full kill chain ────────────────── -->
+  <!-- wget/curl + chmod +x + execution in same session = miner deploy -->
+  <rule id="100116" level="13">
+    <if_sid>100106</if_sid>
+    <field name="input">chmod|\.\/</field>
+    <description>Honeypot: Cryptominer deployment sequence from $(src_ip) — download+execute</description>
+    <mitre><id>T1496</id><id>T1105</id></mitre>
+    <group>honeypot,cryptominer,execution,</group>
+  </rule>
+
+  <!-- ── Slow brute force — 5 attempts / 300s ───────────────────── -->
+  <!-- Catches distributed slow-and-low attacks that evade 100110 -->
+  <rule id="100117" level="8" frequency="5" timeframe="300">
+    <if_matched_sid>100102</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Honeypot: Slow SSH brute force — 5+ attempts/5min from $(src_ip)</description>
+    <mitre><id>T1110</id></mitre>
+    <group>honeypot,brute_force,slow_scan,</group>
+  </rule>
+
+  <!-- ── Rapid brute force — 50 attempts / 60s ─────────────────── -->
+  <!-- High-volume automated credential stuffing campaigns -->
+  <rule id="100118" level="13" frequency="50" timeframe="60">
+    <if_matched_sid>100102</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Honeypot: High-speed credential stuffing — 50+ attempts/60s from $(src_ip)</description>
+    <mitre><id>T1110.004</id></mitre>
+    <group>honeypot,brute_force,credential_stuffing,</group>
+  </rule>
+
+  <!-- ── Post-login system recon suite ──────────────────────────── -->
+  <!-- uname + id + whoami in same session = automated post-login recon -->
+  <rule id="100119" level="9">
+    <if_sid>100104</if_sid>
+    <field name="input">uname |id;|whoami|hostname|cat /etc/passwd</field>
+    <description>Honeypot: Post-login system reconnaissance from $(src_ip)</description>
+    <mitre><id>T1082</id><id>T1033</id></mitre>
+    <group>honeypot,recon,discovery,</group>
+  </rule>
+
+  <!-- ── File permission change ──────────────────────────────────── -->
+  <rule id="100120" level="9">
+    <if_sid>100104</if_sid>
+    <field name="input">chmod 777|chmod \+x|chmod 755</field>
+    <description>Honeypot: File permission modification from $(src_ip)</description>
+    <mitre><id>T1222.002</id></mitre>
+    <group>honeypot,defense_evasion,</group>
   </rule>
 
 </group>

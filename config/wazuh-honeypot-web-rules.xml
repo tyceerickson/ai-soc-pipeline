@@ -1,11 +1,23 @@
 <!-- ============================================================
      Custom Wazuh Rules — Dionaea + nginx Honeypots
      File: /var/ossec/etc/rules/wazuh-honeypot-web-rules.xml
-     Rule IDs: 100200-100320
+     Rule IDs: 100200-100370
      Project 4: AI-Powered SOC Pipeline · CMU MSISPM Portfolio
 
-     Deploy: sudo cp wazuh-honeypot-web-rules.xml /var/ossec/etc/rules/
-             sudo systemctl restart wazuh-manager
+     Deploy:
+       sudo cp wazuh-honeypot-web-rules.xml /var/ossec/etc/rules/
+       sudo systemctl restart wazuh-manager
+
+     Changelog from v1:
+       - Fixed rule 100220: broken regex \.^ → valid pcre2 pattern
+       - Added Dionaea brute force frequency rules (100212, 100213)
+       - Added Dionaea malware binary frequency rule (100231)
+       - Fixed nginx incident regex to use type="pcre2"
+       - Added nginx scanner frequency rule (100330) — automated wordlist scans
+       - Added nginx POST to sensitive path rule (100331)
+       - Added nginx multi-CVE probe rule (100332) — same IP hits 3+ CVE paths
+       - Added nginx Log4Shell POST rule (100317)
+       - Added nginx bad method rule refinement (100322)
      ============================================================ -->
 
 
@@ -27,21 +39,17 @@
   <rule id="100201" level="3">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.connection.ftp</field>
-    <description>Dionaea: FTP connection probe from $(src_ip)</description>
-    <mitre>
-      <id>T1071.002</id>
-    </mitre>
+    <description>Dionaea: FTP probe from $(src_ip)</description>
+    <mitre><id>T1071.002</id></mitre>
     <group>honeypot,connection,ftp,</group>
   </rule>
 
-  <!-- Connection: SMB -->
+  <!-- Connection: SMB — elevated because SMB = lateral movement vector -->
   <rule id="100202" level="5">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.connection.smb</field>
-    <description>Dionaea: SMB connection probe from $(src_ip)</description>
-    <mitre>
-      <id>T1021.002</id>
-    </mitre>
+    <description>Dionaea: SMB probe from $(src_ip) — lateral movement vector</description>
+    <mitre><id>T1021.002</id></mitre>
     <group>honeypot,connection,smb,lateral_movement,</group>
   </rule>
 
@@ -49,10 +57,8 @@
   <rule id="100203" level="5">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.connection.mssql</field>
-    <description>Dionaea: MSSQL connection probe from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <description>Dionaea: MSSQL probe from $(src_ip)</description>
+    <mitre><id>T1190</id></mitre>
     <group>honeypot,connection,mssql,</group>
   </rule>
 
@@ -60,10 +66,8 @@
   <rule id="100204" level="5">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.connection.mysql</field>
-    <description>Dionaea: MySQL connection probe from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <description>Dionaea: MySQL probe from $(src_ip)</description>
+    <mitre><id>T1190</id></mitre>
     <group>honeypot,connection,mysql,</group>
   </rule>
 
@@ -71,10 +75,8 @@
   <rule id="100210" level="7">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.login.smb</field>
-    <description>Dionaea: SMB authentication attempt from $(src_ip)</description>
-    <mitre>
-      <id>T1110.001</id>
-    </mitre>
+    <description>Dionaea: SMB auth attempt from $(src_ip)</description>
+    <mitre><id>T1110.001</id></mitre>
     <group>honeypot,authentication_failed,smb,</group>
   </rule>
 
@@ -82,40 +84,61 @@
   <rule id="100211" level="6">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.login.ftp</field>
-    <description>Dionaea: FTP authentication attempt from $(src_ip)</description>
-    <mitre>
-      <id>T1110.001</id>
-    </mitre>
+    <description>Dionaea: FTP auth attempt from $(src_ip)</description>
+    <mitre><id>T1110.001</id></mitre>
     <group>honeypot,authentication_failed,ftp,</group>
   </rule>
 
-  <!-- Exploit incident -->
+  <!-- SMB brute force frequency — 5 attempts in 60s from same IP -->
+  <rule id="100212" level="10" frequency="5" timeframe="60">
+    <if_matched_sid>100210</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Dionaea: SMB brute force — 5+ auth attempts/60s from $(src_ip)</description>
+    <mitre><id>T1110</id></mitre>
+    <group>honeypot,brute_force,smb,</group>
+  </rule>
+
+  <!-- FTP brute force frequency — 5 attempts in 60s from same IP -->
+  <rule id="100213" level="9" frequency="5" timeframe="60">
+    <if_matched_sid>100211</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Dionaea: FTP brute force — 5+ auth attempts/60s from $(src_ip)</description>
+    <mitre><id>T1110</id></mitre>
+    <group>honeypot,brute_force,ftp,</group>
+  </rule>
+
+  <!-- Exploit incident — FIXED: was \.^ which is invalid regex -->
   <rule id="100220" level="10">
     <if_sid>100200</if_sid>
-    <field name="eventid">\.^dionaea\.incident\.</field>
-    <description>Dionaea: Exploit incident detected from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <field name="eventid" type="pcre2">dionaea\.incident\.</field>
+    <description>Dionaea: Exploit incident from $(src_ip) — service $(service)</description>
+    <mitre><id>T1190</id></mitre>
     <group>honeypot,exploit,initial_access,</group>
   </rule>
 
-  <!-- Binary / malware captured — highest severity -->
-  <rule id="100230" level="12">
+  <!-- Binary / malware captured — critical -->
+  <rule id="100230" level="14">
     <if_sid>100200</if_sid>
     <field name="eventid">dionaea.binary.captured</field>
-    <description>Dionaea: Malware binary captured — SHA256=$(sha256)</description>
-    <mitre>
-      <id>T1105</id>
-    </mitre>
+    <description>Dionaea: Malware binary captured from $(src_ip) — SHA512=$(sha512)</description>
+    <mitre><id>T1105</id></mitre>
     <group>honeypot,malware,binary,ingress_tool_transfer,</group>
   </rule>
 
-  <!-- Generic session event -->
+  <!-- Multiple binaries from same IP — active malware spreader -->
+  <rule id="100231" level="15" frequency="3" timeframe="300">
+    <if_matched_sid>100230</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>Dionaea: Multiple malware binaries from $(src_ip) — active malware spreader</description>
+    <mitre><id>T1105</id><id>T1570</id></mitre>
+    <group>honeypot,malware,spreading,critical,</group>
+  </rule>
+
+  <!-- Generic session -->
   <rule id="100240" level="3">
     <if_sid>100200</if_sid>
-    <field name="eventid">dionaea.session</field>
-    <description>Dionaea: Service session event on $(service)</description>
+    <field name="eventid" type="pcre2">dionaea\.session\.</field>
+    <description>Dionaea: Session on $(service) from $(src_ip)</description>
     <group>honeypot,connection,</group>
   </rule>
 
@@ -124,11 +147,11 @@
 
 <!-- ============================================================
      NGINX WEB HONEYPOT
-     Rules 100300-100360
+     Rules 100300-100370
      ============================================================ -->
 <group name="nginx,honeypot,web,">
 
-  <!-- Base: all nginx JSON events -->
+  <!-- Base: all nginx events -->
   <rule id="100300" level="3">
     <decoded_as>json</decoded_as>
     <field name="honeypot">nginx</field>
@@ -141,104 +164,126 @@
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.404</field>
     <description>nginx: Web probe (404) from $(src_ip) — path=$(http_path)</description>
-    <mitre>
-      <id>T1595.003</id>
-    </mitre>
+    <mitre><id>T1595.003</id></mitre>
     <group>honeypot,web,recon,</group>
   </rule>
 
-  <!-- .env file credential theft probe -->
+  <!-- .env credential theft -->
   <rule id="100310" level="8">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.env_file</field>
-    <description>nginx: .env credential file probe from $(src_ip)</description>
-    <mitre>
-      <id>T1552.001</id>
-    </mitre>
+    <description>nginx: .env credential theft probe from $(src_ip)</description>
+    <mitre><id>T1552.001</id></mitre>
     <group>honeypot,web,credential_access,</group>
   </rule>
 
-  <!-- .git exposure probe -->
+  <!-- .git exposure -->
   <rule id="100311" level="8">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.git</field>
     <description>nginx: .git repository exposure probe from $(src_ip)</description>
-    <mitre>
-      <id>T1213</id>
-    </mitre>
+    <mitre><id>T1213</id></mitre>
     <group>honeypot,web,recon,</group>
   </rule>
 
-  <!-- WordPress probe -->
+  <!-- WordPress -->
   <rule id="100312" level="6">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.wordpress</field>
     <description>nginx: WordPress vulnerability probe from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <mitre><id>T1190</id></mitre>
     <group>honeypot,web,initial_access,</group>
   </rule>
 
-  <!-- Tomcat manager probe -->
+  <!-- Tomcat manager -->
   <rule id="100313" level="7">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.tomcat</field>
     <description>nginx: Tomcat manager panel probe from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <mitre><id>T1190</id></mitre>
     <group>honeypot,web,initial_access,</group>
   </rule>
 
-  <!-- Router/firmware probe -->
+  <!-- Router/IoT firmware -->
   <rule id="100314" level="7">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.router</field>
-    <description>nginx: Router/IoT firmware panel probe from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
+    <description>nginx: Router/IoT firmware exploit probe from $(src_ip)</description>
+    <mitre><id>T1190</id></mitre>
     <group>honeypot,web,iot,initial_access,</group>
   </rule>
 
-  <!-- Hikvision CVE probe -->
+  <!-- Hikvision CVE-2021-36260 -->
   <rule id="100315" level="9">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.hikvision</field>
-    <description>nginx: Hikvision RCE CVE probe from $(src_ip) [CVE-2021-36260]</description>
-    <mitre>
-      <id>T1190</id>
-    </mitre>
-    <group>honeypot,web,initial_access,cve,</group>
+    <description>nginx: Hikvision RCE probe (CVE-2021-36260) from $(src_ip)</description>
+    <mitre><id>T1190</id></mitre>
+    <group>honeypot,web,cve,initial_access,</group>
   </rule>
 
-  <!-- Log4Shell probe -->
-  <rule id="100316" level="12">
+  <!-- Log4Shell GET probe -->
+  <rule id="100316" level="13">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.log4shell</field>
-    <description>nginx: Log4Shell (CVE-2021-44228) exploitation attempt from $(src_ip)</description>
-    <mitre>
-      <id>T1190</id>
-      <id>T1059</id>
-    </mitre>
-    <group>honeypot,web,initial_access,cve,log4shell,</group>
+    <description>nginx: Log4Shell (CVE-2021-44228) probe from $(src_ip)</description>
+    <mitre><id>T1190</id><id>T1059</id></mitre>
+    <group>honeypot,web,cve,log4shell,initial_access,</group>
   </rule>
 
-  <!-- Successful GET (actual scanner completing request) -->
+  <!-- Log4Shell POST — more dangerous than GET probe -->
+  <rule id="100317" level="14">
+    <if_sid>100316</if_sid>
+    <field name="http_method">POST</field>
+    <description>nginx: Log4Shell POST exploit attempt from $(src_ip) — active exploitation</description>
+    <mitre><id>T1190</id><id>T1059</id></mitre>
+    <group>honeypot,web,cve,log4shell,active_exploit,</group>
+  </rule>
+
+  <!-- Successful GET (scanner completed request) -->
   <rule id="100320" level="3">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.request.success</field>
-    <description>nginx: Web scanner completed request from $(src_ip) [$(scanner_type)]</description>
+    <description>nginx: Scanner completed request from $(src_ip) [$(scanner_type)]</description>
     <group>honeypot,web,recon,</group>
   </rule>
 
-  <!-- Bad request (often binary protocol scanners) -->
+  <!-- Bad/malformed request — binary protocol scanners -->
   <rule id="100321" level="3">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.request.bad</field>
-    <description>nginx: Bad/malformed request from $(src_ip)</description>
+    <description>nginx: Malformed/binary request from $(src_ip)</description>
     <group>honeypot,web,</group>
+  </rule>
+
+  <!-- POST to sensitive admin path — active exploitation attempt -->
+  <rule id="100331" level="10">
+    <if_sid>100300</if_sid>
+    <field name="http_method">POST</field>
+    <field name="path_category">admin-panel|tomcat-manager|wordpress|cgi</field>
+    <description>nginx: POST to sensitive path from $(src_ip) — active exploit attempt</description>
+    <mitre><id>T1190</id></mitre>
+    <group>honeypot,web,active_exploit,</group>
+  </rule>
+
+  <!-- Automated scanner — 20+ requests in 60s from same IP -->
+  <!-- Signature of directory brute-force tools (gobuster, feroxbuster) -->
+  <rule id="100330" level="9" frequency="20" timeframe="60">
+    <if_matched_sid>100301</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>nginx: Automated web scanner — 20+ probes/60s from $(src_ip)</description>
+    <mitre><id>T1595.003</id></mitre>
+    <group>honeypot,web,scanner,automated,</group>
+  </rule>
+
+  <!-- Multi-CVE scanner — hits 3+ different CVE probe types -->
+  <!-- One IP hitting Hikvision + Log4Shell + .env = targeted threat actor -->
+  <rule id="100332" level="11" frequency="3" timeframe="300">
+    <if_matched_sid>100310,100311,100312,100313,100314,100315,100316</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>nginx: Multi-CVE scanner — $(src_ip) probing multiple vulnerability classes</description>
+    <mitre><id>T1595.003</id></mitre>
+    <group>honeypot,web,scanner,multi_cve,</group>
   </rule>
 
 </group>
