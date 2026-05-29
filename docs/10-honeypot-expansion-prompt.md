@@ -1,4 +1,4 @@
-# 10 — Continuation Prompt: Add Dionaea + nginx Honeypot Panels
+# 10 ??? Continuation Prompt: Add Dionaea + nginx Honeypot Panels
 
 ## Context for new thread
 
@@ -14,9 +14,9 @@ I'm building a CMU MSISPM portfolio SOC dashboard (Project 4: AI-Powered SOC Pip
 
 ## Infrastructure
 
-- **Alienware m16 R2** (primary, Windows 11, Tailscale: 100.72.171.104) — where I run git/scp
-- **Ubuntu Server** (192.168.10.4, Tailscale: 100.82.166.75) — runs the Flask dashboard at port 5000, has Wazuh SIEM
-- **DigitalOcean VPS** (NYC1, Tailscale: 100.89.15.57) — internet-facing honeypot server
+- **Alienware m16 R2** (primary, Windows 11, Tailscale: 100.72.171.104) ??? where I run git/scp
+- **Ubuntu Server** (192.168.10.4, Tailscale: 100.82.166.75) ??? runs the Flask dashboard at port 5000, has Wazuh SIEM
+- **DigitalOcean VPS** (NYC1, Tailscale: 100.89.15.57) ??? internet-facing honeypot server
 - SSH: `ssh -p 2222 root@100.89.15.57` (Tailscale key auth)
 - Ubuntu server SSH: `ssh homeserver` (alias from Alienware)
 
@@ -24,7 +24,7 @@ I'm building a CMU MSISPM portfolio SOC dashboard (Project 4: AI-Powered SOC Pip
 
 The dashboard is fully working at `http://100.82.166.75:5000`. It currently shows:
 - Live Alert Summary (severity cards)
-- Alert Timeline (clickable spikes → event breakdown modal)
+- Alert Timeline (clickable spikes ??? event breakdown modal)
 - Top Attacker Countries + Geographic Map
 - Attack Velocity (60-min spark)
 - Attack Chain Funnel + Attack Heatmap
@@ -45,9 +45,9 @@ Service: `soc-dashboard.service` (systemd, User=terickson)
 ## The Problem
 
 Three Docker services run on the VPS:
-1. **Cowrie** (SSH/Telnet) — already integrated ✅
-2. **Dionaea** (malware/exploit honeypot: FTP, SMB, MSSQL, MySQL, HTTP exploits) — NOT integrated ❌
-3. **nginx** (HTTP web honeypot/decoy) — NOT integrated ❌
+1. **Cowrie** (SSH/Telnet) ??? already integrated ???
+2. **Dionaea** (malware/exploit honeypot: FTP, SMB, MSSQL, MySQL, HTTP exploits) ??? NOT integrated ???
+3. **nginx** (HTTP web honeypot/decoy) ??? NOT integrated ???
 
 The rsync pipeline only ships Cowrie logs. Dionaea and nginx logs exist on the VPS but never reach Wazuh/OpenSearch.
 
@@ -74,11 +74,11 @@ First verify what actually exists, then proceed.
 
 ## What I Need Built
 
-### Phase 1: Data Pipeline (VPS → Ubuntu Server → Wazuh)
+### Phase 1: Data Pipeline (VPS ??? Ubuntu Server ??? Wazuh)
 
-1. **Add Dionaea logs to rsync** — update `/etc/cron.d/cowrie-sync` on the VPS to also sync Dionaea JSON logs to Ubuntu Server at `/opt/cowrie-logs/dionaea/`
+1. **Add Dionaea logs to rsync** ??? update `/etc/cron.d/cowrie-sync` on the VPS to also sync Dionaea JSON logs to Ubuntu Server at `/opt/cowrie-logs/dionaea/`
 
-2. **Add nginx logs to rsync** — sync nginx access.log to `/opt/cowrie-logs/nginx/`
+2. **Add nginx logs to rsync** ??? sync nginx access.log to `/opt/cowrie-logs/nginx/`
 
 3. **Write Wazuh decoders** for both:
    - Dionaea: JSON format, extract `src_host`, `dst_port`, `service`, `sha256` (malware hash)
@@ -88,7 +88,7 @@ First verify what actually exists, then proceed.
 
 5. **Verify alerts appear in OpenSearch** before touching the dashboard
 
-### Phase 2: Dashboard — One New Combined Panel OR Two Separate Panels
+### Phase 2: Dashboard ??? One New Combined Panel OR Two Separate Panels
 
 Add a **"Multi-Honeypot Intelligence"** section to the dashboard with:
 
@@ -111,7 +111,7 @@ Add a **"Multi-Honeypot Intelligence"** section to the dashboard with:
 ### Design Requirements
 - Same winter mountain forest theme (CSS variables: `--bg`, `--bark`, `--forest`, `--text`, etc.)
 - Same panel style (`.panel`, `.panel-hdr`, `.panel-title`)
-- Same ⓘ tooltip pattern for labels
+- Same ??? tooltip pattern for labels
 - Add to existing `app.py` as new API endpoints: `/api/dionaea` and `/api/nginx`
 - Add panels to existing `index.html` after the MITRE section
 - Maintain all existing functionality
@@ -127,7 +127,7 @@ https://raw.githubusercontent.com/tyceerickson/ai-soc-pipeline/main/dashboard/te
 ## Current Alert Index
 
 OpenSearch index: `wazuh-alerts-4.x-*`
-Credentials (Ubuntu Server internal): admin / BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj
+Credentials (Ubuntu Server internal): admin / <REDACTED ? set via env>
 URL: https://localhost:9200
 
 ## Key Patterns Already in app.py to Follow
