@@ -1508,11 +1508,44 @@ def get_dionaea_stats(minutes: int = 10080) -> dict:
             "by_eventid": {
                 "terms": {"field": "data.eventid", "size": 30}
             },
-            # Binaries captured
+            # Binaries captured — pull one representative full doc per hash so we
+            # get sha256, md5, file_size, src_ip, country, service + VirusTotal verdict
             "binaries": {
                 "filter": {"term": {"data.eventid": "dionaea.binary.captured"}},
                 "aggs": {
-                    "hashes": {"terms": {"field": "data.sha256", "size": 20}},
+                    "hashes": {
+                        "terms": {"field": "data.sha256", "size": 50},
+                        "aggs": {
+                            "sources": {"cardinality": {"field": "data.src_ip"}},
+                            # Newest doc overall (for metadata even on non-VT samples)
+                            "doc": {"top_hits": {
+                                "size": 1,
+                                "sort": [{"data.timestamp": "desc"}],
+                                "_source": ["data.sha256", "data.md5", "data.file_size",
+                                            "data.src_ip", "data.service", "data.download_url",
+                                            "data.timestamp", "data.location.country_name",
+                                            "data.vt_malicious", "data.vt_total", "data.vt_label",
+                                            "data.vt_permalink", "data.vt_type"]
+                            }},
+                            # The most-recent event that ACTUALLY HAS a VT verdict —
+                            # found even if it's old/buried, so re-emitted non-VT
+                            # events never hide an existing verdict.
+                            "vt_doc": {
+                                "filter": {"exists": {"field": "data.vt_total"}},
+                                "aggs": {
+                                    "hit": {"top_hits": {
+                                        "size": 1,
+                                        "sort": [{"data.timestamp": "desc"}],
+                                        "_source": ["data.vt_malicious", "data.vt_total",
+                                                    "data.vt_label", "data.vt_permalink",
+                                                    "data.vt_type", "data.md5", "data.file_size",
+                                                    "data.src_ip", "data.service",
+                                                    "data.location.country_name", "data.timestamp"]
+                                    }}
+                                }
+                            },
+                        }
+                    },
                 }
             },
             # Exploit incidents
@@ -1586,14 +1619,60 @@ def get_dionaea_stats(minutes: int = 10080) -> dict:
     if uncached:
         resolve_missing_ips_async(uncached)
 
-    # Malware binaries
+    # Malware binaries — full metadata + VirusTotal verdict per unique hash
+    def _num(v):
+        """Coerce VT counts to int — they may be stored as strings in the index."""
+        if isinstance(v, bool):
+            return None
+        if isinstance(v, (int, float)):
+            return int(v)
+        if isinstance(v, str) and v.strip().lstrip("-").isdigit():
+            return int(v.strip())
+        return None
+
     binaries = []
+    vt_known = 0
     for b in aggs.get("binaries", {}).get("hashes", {}).get("buckets", []):
+        hits_ = b.get("doc", {}).get("hits", {}).get("hits", [])
+        data  = (hits_[0].get("_source", {}).get("data", {}) if hits_ else {})
+        # Overlay VT verdict from the dedicated vt_doc sub-agg (the most recent
+        # event that actually carries VT), so a re-emitted non-VT event never
+        # hides an existing verdict.
+        vt_hits = b.get("vt_doc", {}).get("hit", {}).get("hits", {}).get("hits", [])
+        if vt_hits:
+            vt_data = vt_hits[0].get("_source", {}).get("data", {})
+            for k, v in vt_data.items():
+                if k not in data or not data.get(k):
+                    data[k] = v
+            # VT fields always come from vt_data
+            for k in ("vt_malicious", "vt_total", "vt_label", "vt_permalink", "vt_type"):
+                if k in vt_data:
+                    data[k] = vt_data[k]
+        loc   = data.get("location", {}) if isinstance(data.get("location"), dict) else {}
+        vt_mal = _num(data.get("vt_malicious"))
+        vt_tot = _num(data.get("vt_total"))
+        if vt_tot is not None:
+            vt_known += 1
         binaries.append({
-            "sha256":    b["key"],
-            "count":     b["doc_count"],
+            "sha256":       b["key"],
             "sha256_short": b["key"][:16] + "…",
+            "count":        b["doc_count"],
+            "unique_ips":   b.get("sources", {}).get("value", 0),
+            "md5":          data.get("md5", ""),
+            "file_size":    data.get("file_size", ""),
+            "src_ip":       data.get("src_ip", ""),
+            "country":      loc.get("country_name", "") or data.get("location", {}).get("country_name", "") if isinstance(data.get("location"), dict) else "",
+            "service":      data.get("service", ""),
+            "download_url": data.get("download_url", ""),
+            "first_seen":   data.get("timestamp", ""),
+            "vt_malicious": vt_mal,
+            "vt_total":     vt_tot,
+            "vt_label":     data.get("vt_label", ""),
+            "vt_type":      data.get("vt_type", ""),
+            "vt_permalink": data.get("vt_permalink", ""),
         })
+    # Sort: most-flagged malware first, then by hit count
+    binaries.sort(key=lambda x: (x["vt_malicious"] if isinstance(x["vt_malicious"], int) else -1, x["count"]), reverse=True)
 
     # Exploit incidents
     incident_types = {}
@@ -1635,6 +1714,8 @@ def get_dionaea_stats(minutes: int = 10080) -> dict:
         "top_ips":         top_ips,
         "binaries":        binaries,
         "binary_count":    aggs.get("binaries", {}).get("doc_count", 0),
+        "unique_binaries": len(binaries),
+        "vt_known_count":  vt_known,
         "incident_types":  incident_types,
         "incident_ips":    incident_ips,
         "smb_logins":      smb_count,
@@ -2617,6 +2698,116 @@ def api_search():
 def api_playbooks():
     """Return the hardcoded response playbooks."""
     return jsonify(PLAYBOOKS)
+
+
+def get_threat_actors(minutes: int, limit: int = 15) -> dict:
+    """Cross-honeypot threat-actor correlation.
+
+    For each source IP, aggregate its activity across ALL honeypots (Cowrie SSH,
+    nginx web, Dionaea malware) into one unified profile, then rank by a composite
+    threat score. This links behaviours that are otherwise siloed in separate
+    panels: e.g. an IP that brute-forces SSH, probes web paths, AND delivers
+    malware is one coordinated actor, not three unrelated blips.
+    """
+    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    since_iso = since.isoformat()
+
+    body = {
+        "size": 0,
+        "query": {"bool": {"filter": [
+            {"range": {"data.timestamp": {"gte": since_iso}}},
+            {"exists": {"field": "data.src_ip"}},
+            {"exists": {"field": "data.honeypot"}},
+        ]}},
+        "aggs": {
+            "actors": {
+                # Order by how many DISTINCT honeypots the IP touched, so genuine
+                # cross-vector actors surface ahead of high-volume single-vector
+                # noise (cowrie-raw alone is ~14M events and would otherwise drown
+                # out the handful of IPs that also tripped dionaea's 122 events).
+                "terms": {"field": "data.src_ip", "size": 200, "order": {"hp_card": "desc"}},
+                "aggs": {
+                    "hp_card":    {"cardinality": {"field": "data.honeypot"}},
+                    "max_lvl":    {"max": {"field": "rule.level"}},
+                    "honeypots":  {"terms": {"field": "data.honeypot", "size": 6}},
+                    "eventids":   {"terms": {"field": "data.eventid", "size": 25}},
+                    "first_seen": {"min": {"field": "data.timestamp"}},
+                    "last_seen":  {"max": {"field": "data.timestamp"}},
+                    "mitre":      {"terms": {"field": "rule.mitre.tactic", "size": 12}},
+                    "got_malware": {"filter": {"term": {"data.eventid": "dionaea.binary.captured"}}},
+                    "got_login":   {"filter": {"term": {"data.eventid": "cowrie.login.success"}}},
+                    "got_cmds":    {"filter": {"term": {"data.eventid": "cowrie.command.input"}}},
+                },
+            }
+        },
+    }
+    result = os_query(f"/{ALERT_INDEX}/_search", body)
+    if "error" in result:
+        return {"error": result["error"], "actors": []}
+
+    geo = build_geoip_lookup()
+    actors = []
+    for b in result.get("aggregations", {}).get("actors", {}).get("buckets", []):
+        ip = b["key"]
+        hps = {x["key"]: x["doc_count"] for x in b.get("honeypots", {}).get("buckets", [])}
+        # normalise honeypot names (cowrie / cowrie-raw both = ssh)
+        vectors = set()
+        for h in hps:
+            if "cowrie" in h: vectors.add("ssh")
+            elif "dionaea" in h: vectors.add("malware")
+            elif "nginx" in h: vectors.add("web")
+        n_vectors = len(vectors)
+        total = b["doc_count"]
+        max_lvl = int(b.get("max_lvl", {}).get("value") or 0)
+        malware = b.get("got_malware", {}).get("doc_count", 0)
+        logins  = b.get("got_login", {}).get("doc_count", 0)
+        cmds    = b.get("got_cmds", {}).get("doc_count", 0)
+        mitre = [x["key"] for x in b.get("mitre", {}).get("buckets", [])]
+
+        # Composite threat score: multi-vector actors and those who actually
+        # breached (login/commands) or delivered malware rank highest.
+        score = (n_vectors * 25) + min(max_lvl, 15) * 3 + (40 if malware else 0) \
+                + (20 if logins else 0) + (10 if cmds else 0) + min(total // 100, 20)
+
+        g = geo.get(ip, {}) if isinstance(geo.get(ip, {}), dict) else {}
+        actors.append({
+            "ip": ip,
+            "country": g.get("country", ""),
+            "org": g.get("org", ""),
+            "vectors": sorted(vectors),
+            "n_vectors": n_vectors,
+            "total_events": total,
+            "max_level": max_lvl,
+            "malware_delivered": malware,
+            "ssh_login_success": logins,
+            "commands_run": cmds,
+            "mitre_tactics": mitre,
+            "first_seen": b.get("first_seen", {}).get("value_as_string", ""),
+            "last_seen": b.get("last_seen", {}).get("value_as_string", ""),
+            "score": score,
+            "honeypot_breakdown": hps,
+        })
+
+    # Rank by score; prioritise multi-vector actors for the headline list
+    actors.sort(key=lambda a: (a["n_vectors"], a["score"]), reverse=True)
+    multi = [a for a in actors if a["n_vectors"] >= 2]
+    return {
+        "actors": actors[:limit],
+        "multi_vector_count": len(multi),
+        "total_actors": len(actors),
+        "window_minutes": minutes,
+    }
+
+
+@app.route("/api/threat_actors")
+@rate_limit(max_per_minute=30)
+def api_threat_actors():
+    """Cross-honeypot threat actor correlation — unified per-IP attack profiles."""
+    try:
+        minutes = max(1, min(int(request.args.get("minutes", 10080)), 129600))
+    except (ValueError, TypeError):
+        minutes = 10080
+    return jsonify(get_threat_actors(minutes))
 
 
 # ── Cases CRUD ────────────────────────────────────────────────
