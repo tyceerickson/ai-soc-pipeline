@@ -1,31 +1,48 @@
-<!-- ── Project 3 Honeypot Log Sources ────────────────── -->
-  <!-- Cowrie SSH/Telnet — GeoIP-enriched, Wazuh-normalized -->
-  <localfile>
-    <log_format>json</log_format>
-    <location>/opt/cowrie-logs/wazuh/wazuh-cowrie.json</location>
-    <label key="honeypot">cowrie</label>
-    <label key="sensor">digitalocean-nyc1</label>
-  </localfile>
+<!-- ============================================================
+     Wazuh ossec.conf snippet — Project 4: AI-Powered SOC Pipeline
+     CMU MSISPM Portfolio · Tyce Erickson
 
-  <!-- Cowrie raw (backup source) -->
-  <localfile>
-    <log_format>json</log_format>
-    <location>/opt/cowrie-logs/cowrie.json</location>
-    <label key="honeypot">cowrie-raw</label>
-  </localfile>
+     Add these <localfile> blocks to /var/ossec/etc/ossec.conf
+     inside the <ossec_config> section.
 
-  <!-- nginx web honeypot -->
-  <localfile>
-    <log_format>apache</log_format>
-    <location>/opt/cowrie-logs/nginx/access.log</location>
-    <label key="honeypot">nginx-web</label>
-  </localfile>
+     Deploy:
+       sudo python3 -c "
+         content = open('/var/ossec/etc/ossec.conf').read()
+         snippet = open('wazuh-ossec-snippet.xml').read()
+         # paste entries manually before </ossec_config>
+       "
+     Or append manually before the closing </ossec_config> tag.
+     ============================================================ -->
 
-  <!-- Dionaea malware capture -->
-  <localfile>
-    <log_format>syslog</log_format>
-    <location>/opt/cowrie-logs/dionaea/dionaea.log</location>
-    <label key="honeypot">dionaea</label>
-  </localfile>
+<!-- ── Project 4 Honeypot Log Sources ────────────────────────── -->
 
-</ossec_config>
+<!-- Cowrie SSH/Telnet — GeoIP-enriched, Wazuh-normalized JSON -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/opt/cowrie-logs/wazuh/wazuh-cowrie.json</location>
+  <label key="honeypot">cowrie</label>
+  <label key="sensor">digitalocean-nyc1</label>
+</localfile>
+
+<!-- Cowrie raw (backup source) -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/opt/cowrie-logs/cowrie.json</location>
+  <label key="honeypot">cowrie-raw</label>
+</localfile>
+
+<!-- nginx web honeypot — parsed JSON (via pipeline/parse_nginx.py) -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/opt/cowrie-logs/wazuh/wazuh-nginx.json</location>
+  <label key="honeypot">nginx</label>
+  <label key="sensor">digitalocean-nyc1</label>
+</localfile>
+
+<!-- Dionaea malware capture — parsed JSON (via pipeline/parse_dionaea.py) -->
+<localfile>
+  <log_format>json</log_format>
+  <location>/opt/cowrie-logs/wazuh/wazuh-dionaea.json</location>
+  <label key="honeypot">dionaea</label>
+  <label key="sensor">digitalocean-nyc1</label>
+</localfile>
