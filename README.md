@@ -34,9 +34,9 @@ Internet Attackers
   Cowrie SSH/Telnet Honeypot         Ollama + llama3.1:8b
   nginx Web Honeypot                 RTX 4070 (8GB VRAM)
   Dionaea Malware Capture
-        │                                    │
-        │  rsync / 15min (Tailscale)         │ HTTP API (Tailscale)
-        ▼                                    │
+        │                                   │
+        │  rsync / 15min (Tailscale)        │ HTTP API (Tailscale)
+        ▼                                   │
 [Ubuntu Server — aarch64]                   │
   Wazuh SIEM + OpenSearch                   │
   GeoIP Enrichment Pipeline                 │
