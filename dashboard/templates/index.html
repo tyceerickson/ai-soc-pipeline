@@ -14,7 +14,6 @@
   --bg4:   #d0d5ca;   /* deep snowpack — bars/tracks     */
   --border:#c2c8bb;   /* pine bark edge                  */
   --border2:#a8b09f;  /* darker ridge line               */
-
   /* Text — deep forest, not harsh black */
   --text:  #1e2d1a;   /* old-growth forest canopy        */
   --text2: #3a4f35;   /* mid-forest understory           */
@@ -83,6 +82,61 @@ select:focus{outline:none;border-color:var(--purple)}
 .scard-val.purple{color:var(--text)}.scard-val.red{color:var(--text)}
 .scard-val.pink{color:var(--text)}.scard-val.yellow{color:var(--text)}.scard-val.blue{color:var(--text)}
 .panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;box-shadow:0 1px 4px rgba(100,120,80,.06)}
+<style>
+/* ── Multi-Honeypot Intelligence ─────────────────────── */
+.hp-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px}
+.hp-tab{padding:7px 18px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.hp-tab:hover{color:var(--text2)}
+.hp-tab.active{color:var(--forest);border-bottom-color:var(--forest)}
+.hp-pane{display:none}.hp-pane.active{display:block}
+
+/* Service badge pills */
+.svc-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;border:1px solid;margin:2px}
+.svc-badge.ftp   {background:rgba(123,168,196,.12);color:var(--glacier);border-color:rgba(123,168,196,.3)}
+.svc-badge.smb   {background:rgba(200,90,58,.12);color:var(--red);border-color:rgba(200,90,58,.3)}
+.svc-badge.mssql {background:rgba(139,94,60,.12);color:var(--bark);border-color:rgba(139,94,60,.3)}
+.svc-badge.mysql {background:rgba(74,124,89,.12);color:var(--peak);border-color:rgba(74,124,89,.3)}
+.svc-badge.http  {background:rgba(139,111,158,.12);color:var(--dusk);border-color:rgba(139,111,158,.3)}
+.svc-badge.other {background:rgba(106,124,101,.12);color:var(--text3);border-color:var(--border)}
+
+/* Scanner type badges */
+.scan-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(74,143,168,.12);color:var(--cyan);border:1px solid rgba(74,143,168,.25)}
+.scan-badge.threat{background:rgba(200,90,58,.12);color:var(--red);border-color:rgba(200,90,58,.3)}
+
+/* Hash display */
+.hash-mono{font-family:monospace;font-size:10px;color:var(--text3);cursor:pointer}
+.hash-mono:hover{color:var(--forest)}
+
+/* Cross-honeypot attacker row */
+.cross-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;background:var(--bg3);margin-bottom:4px;font-size:12px}
+.cross-row .cross-ip{font-family:monospace;color:var(--text);font-weight:600;min-width:130px}
+.cross-row .cross-badges{display:flex;gap:4px;flex:1}
+.cross-row .cross-count{font-size:11px;color:var(--muted);min-width:60px;text-align:right}
+
+/* Mini bar for service breakdown */
+.svc-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.svc-bar-label{font-size:11px;color:var(--text2);min-width:56px;text-align:right}
+.svc-bar-track{flex:1;height:12px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.svc-bar-fill{height:100%;border-radius:3px;transition:width .4s ease}
+.svc-bar-count{font-size:11px;color:var(--text3);min-width:48px;text-align:right;font-family:monospace}
+
+/* Path probe table */
+.probe-path{font-family:monospace;font-size:11px;color:var(--text2);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* HP timeline canvas */
+#dio-tl-canvas,#ngx-tl-canvas{width:100%;height:120px;display:block}
+
+/* Binary hash list */
+.binary-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;background:var(--bg3);margin-bottom:3px}
+.binary-sha{font-family:monospace;font-size:10px;color:var(--text3)}
+.binary-count{font-family:monospace;font-size:11px;color:var(--red);font-weight:700;min-width:28px;text-align:right}
+
+/* Stat mini-cards inside panels */
+.hp-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.hp-stat{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;text-align:center}
+.hp-stat-val{font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.hp-stat-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-top:3px}
+
 .panel-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
 .panel-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)}
 .panel-meta{font-size:11px;color:var(--text3)}
@@ -404,7 +458,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <!-- Row 1: Countries + Geographic Map -->
   <div class="g2" style="margin-bottom:12px">
     <div class="panel">
-      <div class="panel-hdr"><span class="panel-title">Top Attacker Countries</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Countries ranked by total Wazuh rule violations. Includes all alert severities. Bar width = relative volume.">by total Wazuh alerts ⓘ</span><span class="panel-meta" style="font-size:10px;color:var(--text3)">by total Wazuh alerts</span><button class="sort-btn" onclick="toggleBarSort('countries')">⇅</button></div>
+      <div class="panel-hdr"><span class="panel-title">Top Attacker Countries</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Countries ranked by total Wazuh rule violations. Includes all alert severities. Bar width = relative volume.">by total Wazuh alerts ⓘ</span><button class="sort-btn" onclick="toggleBarSort('countries')">⇅</button></div>
       <div id="countries-chart" style="height:300px;overflow-y:auto;padding-right:20px;overflow-x:hidden"></div>
     </div>
     <div class="panel">
@@ -583,6 +637,158 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
     <div class="mitre-grid" id="mitre-grid"></div>
   </div>
+  <!-- Row 8: Multi-Honeypot Intelligence (Dionaea + nginx) -->
+  <div class="section-label">Multi-Honeypot Intelligence</div>
+  <div class="panel" style="margin-bottom:12px" id="hp-panel">
+    <div class="panel-hdr" style="flex-wrap:wrap;gap:8px">
+      <span class="panel-title">Dionaea &amp; nginx Honeypot Activity</span>
+      <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Dionaea captures malware/exploits on FTP/SMB/MSSQL/MySQL. nginx captures web scanning campaigns. Combined view shows cross-honeypot attacker overlap.">malware capture + web scanning ⓘ</span>
+      <span class="panel-meta" id="hp-meta"></span>
+      <div style="display:flex;gap:4px;margin-left:auto">
+        <button onclick="setHpWindow(1440)"  id="hpw-1440"  class="tl-btn">24h</button>
+        <button onclick="setHpWindow(10080)" id="hpw-10080" class="tl-btn tl-btn-active">7d</button>
+        <button onclick="setHpWindow(43200)" id="hpw-43200" class="tl-btn">30d</button>
+      </div>
+    </div>
+
+    <!-- Tab switcher -->
+    <div class="hp-tabs">
+      <div class="hp-tab active" id="tab-dionaea"  onclick="switchHpTab('dionaea')">⚠ Dionaea Malware Capture</div>
+      <div class="hp-tab"        id="tab-nginx"    onclick="switchHpTab('nginx')">🌐 nginx Web Honeypot</div>
+      <div class="hp-tab"        id="tab-cross"    onclick="switchHpTab('cross')">◈ Cross-Honeypot Attackers</div>
+    </div>
+
+    <!-- ── DIONAEA PANE ─────────────────────────────── -->
+    <div class="hp-pane active" id="pane-dionaea">
+      <!-- Summary stat cards -->
+      <div class="hp-stat-row">
+        <div class="hp-stat"><div class="hp-stat-val" id="dio-total">—</div><div class="hp-stat-label">Total Events</div></div>
+        <div class="hp-stat"><div class="hp-stat-val" id="dio-ips">—</div><div class="hp-stat-label">Unique IPs</div></div>
+        <div class="hp-stat"><div class="hp-stat-val" id="dio-binaries" style="color:var(--red)">—</div><div class="hp-stat-label">Binaries Captured</div></div>
+      </div>
+
+      <div class="g2">
+        <!-- Left: Service breakdown + login attempts -->
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Service Breakdown</div>
+          <div id="dio-services"></div>
+
+          <div style="margin-top:14px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Login Attempts</div>
+          <div id="dio-logins" style="font-size:12px"></div>
+        </div>
+
+        <!-- Right: Top attacker IPs -->
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Top Attacker IPs</div>
+          <div class="scroll" style="max-height:200px">
+            <table class="dtable">
+              <thead><tr>
+                <th>IP</th>
+                <th>Country</th>
+                <th class="num">Hits ▾</th>
+              </tr></thead>
+              <tbody id="dio-ip-tb"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Binaries captured -->
+      <div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">
+          Malware Binaries Captured
+          <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);margin-left:6px">click SHA256 to copy</span>
+        </div>
+        <div id="dio-binaries-list">
+          <div style="color:var(--muted);font-size:12px;padding:8px 0">No binaries captured in this window</div>
+        </div>
+      </div>
+
+      <!-- Activity timeline -->
+      <div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Activity Timeline</div>
+        <canvas id="dio-tl-canvas"></canvas>
+      </div>
+
+      <!-- AI analysis button -->
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">
+        <button class="icon-btn" onclick="analyzeDionaea()" id="dio-ai-btn">◈ AI Analysis of Malware Activity</button>
+        <span style="font-size:10px;color:var(--muted)">llama3.1:8b · analyzes service patterns, top attackers, and binary captures</span>
+      </div>
+      <div id="dio-ai-out" style="display:none;margin-top:10px;padding:12px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);font-size:12px;line-height:1.7"></div>
+    </div>
+
+    <!-- ── NGINX PANE ────────────────────────────────── -->
+    <div class="hp-pane" id="pane-nginx">
+      <!-- Summary stat cards -->
+      <div class="hp-stat-row">
+        <div class="hp-stat"><div class="hp-stat-val" id="ngx-total">—</div><div class="hp-stat-label">Total Requests</div></div>
+        <div class="hp-stat"><div class="hp-stat-val" id="ngx-ips">—</div><div class="hp-stat-label">Unique IPs</div></div>
+        <div class="hp-stat"><div class="hp-stat-val" id="ngx-paths">—</div><div class="hp-stat-label">Unique Paths</div></div>
+      </div>
+
+      <div class="g2">
+        <!-- Left: Scanner types + HTTP methods -->
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Scanner Types Detected</div>
+          <div id="ngx-scanners"></div>
+
+          <div style="margin-top:14px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">HTTP Methods</div>
+          <div id="ngx-methods"></div>
+        </div>
+
+        <!-- Right: Top probe paths -->
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Top Probe Paths</div>
+          <div class="scroll" style="max-height:220px">
+            <table class="dtable">
+              <thead><tr>
+                <th>Path</th>
+                <th class="num">Count ▾</th>
+              </tr></thead>
+              <tbody id="ngx-paths-tb"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top User Agents -->
+      <div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px">Top User Agents / Scanners</div>
+        <div id="ngx-uas" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+      </div>
+
+      <!-- Activity timeline -->
+      <div style="margin-top:12px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Web Request Timeline</div>
+        <canvas id="ngx-tl-canvas"></canvas>
+        <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#4a7c59;border-radius:2px;display:inline-block"></span>2xx Success</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#8B5E3C;border-radius:2px;display:inline-block"></span>4xx Probe</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#c85a3a;border-radius:2px;display:inline-block"></span>5xx Error</span>
+        </div>
+      </div>
+
+      <!-- AI analysis button -->
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">
+        <button class="icon-btn" onclick="analyzeNginx()" id="ngx-ai-btn">◈ AI Analysis of Web Scanning</button>
+        <span style="font-size:10px;color:var(--muted)">llama3.1:8b · identifies scanning campaigns, CVE probes, and attacker intent</span>
+      </div>
+      <div id="ngx-ai-out" style="display:none;margin-top:10px;padding:12px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);font-size:12px;line-height:1.7"></div>
+    </div>
+
+    <!-- ── CROSS-HONEYPOT PANE ──────────────────────── -->
+    <div class="hp-pane" id="pane-cross">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        IPs seen attacking <strong>multiple honeypots</strong> — these are the most active threat actors targeting your infrastructure.
+      </div>
+      <div id="cross-list">
+        <div style="color:var(--muted);font-size:12px;padding:8px 0">Loading cross-honeypot data...</div>
+      </div>
+    </div>
+
+  </div><!-- end hp-panel -->
+
 
   <!-- Row 8: AI Analysis -->
   <div class="section-label">On-Demand AI Analysis</div>
@@ -871,6 +1077,7 @@ async function loadIntelPanels(){
   renderSessions(sess);
   renderBotnets(bots);
   renderCredIntel(credIntel);
+  loadHoneypotPanels();
 }
 
 /** @param {Object} d - Stats API response with severity counts, timeline, IPs */
@@ -2120,6 +2327,462 @@ window.addEventListener('load',()=>{
   setInterval(()=>apiFetch('/api/velocity').then(r=>r.json()).then(renderVelocity), 30000);
   window.addEventListener('resize', drawTimeline);
 });
+
+
+// ===== Multi-Honeypot Intelligence =====
+let _hpData = {dionaea: null, nginx: null};
+let _hpWindow = 10080;
+let _hpActiveTab = 'dionaea';
+let _dioAiCache = {};
+let _ngxAiCache = {};
+
+// Service color map
+const SVC_COLORS = {
+  ftp:   '#7ba8c4',
+  smb:   '#c85a3a',
+  mssql: '#8B5E3C',
+  mysql: '#4a7c59',
+  http:  '#8b6f9e',
+  https: '#4a8fa8',
+};
+function svcColor(svc) { return SVC_COLORS[svc] || '#6b7c65'; }
+
+function setHpWindow(w) {
+  _hpWindow = w;
+  document.querySelectorAll('[id^="hpw-"]').forEach(b => b.classList.remove('tl-btn-active'));
+  const btn = document.getElementById(`hpw-${w}`);
+  if (btn) btn.classList.add('tl-btn-active');
+  loadHoneypotPanels();
+}
+
+function switchHpTab(tab) {
+  _hpActiveTab = tab;
+  ['dionaea','nginx','cross'].forEach(t => {
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+    document.getElementById(`pane-${t}`).classList.toggle('active', t === tab);
+  });
+}
+
+async function loadHoneypotPanels() {
+  try {
+    const r = await apiFetch(`/api/honeypots?minutes=${_hpWindow}`);
+    const d = await r.json();
+    _hpData = d;
+    renderDionaea(d.dionaea || {});
+    renderNginx(d.nginx || {});
+    renderCross(d.dionaea || {}, d.nginx || {});
+    document.getElementById('hp-meta').textContent =
+      `${_hpWindow === 1440 ? '24h' : _hpWindow === 10080 ? '7d' : '30d'} window`;
+  } catch(e) {
+    console.error('Honeypot panel load failed:', e);
+  }
+}
+
+// ── Render Dionaea ────────────────────────────────────────────────────────
+function renderDionaea(d) {
+  if (d.error) {
+    document.getElementById('pane-dionaea').innerHTML =
+      `<div style="color:var(--muted);padding:20px;text-align:center">${d.error}</div>`;
+    return;
+  }
+  document.getElementById('dio-total').textContent    = fmt(d.total || 0);
+  document.getElementById('dio-ips').textContent      = fmt(d.unique_ips || 0);
+  document.getElementById('dio-binaries').textContent = fmt(d.binary_count || 0);
+
+  // Service bars
+  const svcs = d.services || {};
+  const maxSvc = Math.max(1, ...Object.values(svcs));
+  const svcEl = document.getElementById('dio-services');
+  if (Object.keys(svcs).length === 0) {
+    svcEl.innerHTML = '<div style="color:var(--muted);font-size:12px">No service data yet</div>';
+  } else {
+    svcEl.innerHTML = Object.entries(svcs)
+      .sort((a, b) => b[1] - a[1])
+      .map(([svc, count]) => `
+        <div class="svc-bar-row">
+          <div class="svc-bar-label">${svc.toUpperCase()}</div>
+          <div class="svc-bar-track">
+            <div class="svc-bar-fill" style="width:${(count/maxSvc*100).toFixed(1)}%;background:${svcColor(svc)}"></div>
+          </div>
+          <div class="svc-bar-count">${fmt(count)}</div>
+        </div>`).join('');
+  }
+
+  // Login attempts
+  const loginEl = document.getElementById('dio-logins');
+  const smb = d.smb_logins || 0, ftp = d.ftp_logins || 0;
+  loginEl.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <span class="svc-badge smb">SMB ${fmt(smb)} attempts</span>
+      <span class="svc-badge ftp">FTP ${fmt(ftp)} attempts</span>
+    </div>
+    ${(d.smb_users||[]).length ? `<div style="font-size:10px;color:var(--muted);margin-top:4px">SMB users tried: ${d.smb_users.slice(0,5).join(', ')}</div>` : ''}
+    ${(d.ftp_users||[]).length ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">FTP users tried: ${d.ftp_users.slice(0,5).join(', ')}</div>` : ''}
+  `;
+
+  // Top IPs table
+  const ipTb = document.getElementById('dio-ip-tb');
+  if ((d.top_ips||[]).length === 0) {
+    ipTb.innerHTML = '<tr><td colspan="3" style="color:var(--muted);text-align:center">No data</td></tr>';
+  } else {
+    ipTb.innerHTML = d.top_ips.slice(0, 15).map(ip => `
+      <tr>
+        <td><span class="hash-mono">${ip.ip}</span></td>
+        <td><span style="font-size:11px;color:var(--text3)">${ip.country || '—'}</span></td>
+        <td class="num">${fmt(ip.count)}</td>
+      </tr>`).join('');
+  }
+
+  // Binaries
+  const binEl = document.getElementById('dio-binaries-list');
+  if ((d.binaries||[]).length === 0) {
+    binEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:6px 0">No binaries captured in this window</div>';
+  } else {
+    binEl.innerHTML = d.binaries.map(b => `
+      <div class="binary-row">
+        <span style="font-size:10px;color:var(--text3);padding:2px 6px;background:rgba(200,90,58,.1);border-radius:4px;font-weight:600">BINARY</span>
+        <span class="binary-sha hash-mono" title="Click to copy" onclick="navigator.clipboard.writeText('${b.sha256}');this.style.color='var(--forest)';setTimeout(()=>this.style.color='',1200)">${b.sha256}</span>
+        <span class="binary-count">${b.count}×</span>
+      </div>`).join('');
+  }
+
+  // Timeline
+  drawHpTimeline('dio-tl-canvas', d.timeline || [], d.all_services || [], svcColor);
+}
+
+// ── Render nginx ──────────────────────────────────────────────────────────
+function renderNginx(d) {
+  if (d.error) {
+    document.getElementById('pane-nginx').innerHTML =
+      `<div style="color:var(--muted);padding:20px;text-align:center">${d.error}</div>`;
+    return;
+  }
+  document.getElementById('ngx-total').textContent  = fmt(d.total || 0);
+  document.getElementById('ngx-ips').textContent    = fmt(d.unique_ips || 0);
+  document.getElementById('ngx-paths').textContent  = fmt(d.unique_paths || 0);
+
+  // Scanner types
+  const scanners = d.scanners || {};
+  const maxScan = Math.max(1, ...Object.values(scanners));
+  const scanEl = document.getElementById('ngx-scanners');
+  if (Object.keys(scanners).length === 0) {
+    scanEl.innerHTML = '<div style="color:var(--muted);font-size:12px">No scanner data yet</div>';
+  } else {
+    const SCAN_COLORS = {
+      'Internet Scanner': '#7ba8c4', 'Vuln Scanner': '#c85a3a',
+      'IoT Botnet': '#8B5E3C', 'WordPress Probe': '#8b6f9e',
+      'Env File Probe': '#c85a3a', 'Dir Brute-Force': '#8B5E3C',
+      'Python Scanner': '#4a8fa8', 'Go Scanner': '#4a7c59',
+    };
+    scanEl.innerHTML = Object.entries(scanners)
+      .sort((a, b) => b[1] - a[1]).slice(0, 10)
+      .map(([name, count]) => `
+        <div class="svc-bar-row">
+          <div class="svc-bar-label" style="min-width:100px;font-size:10px">${name.length > 14 ? name.slice(0,13)+'…' : name}</div>
+          <div class="svc-bar-track">
+            <div class="svc-bar-fill" style="width:${(count/maxScan*100).toFixed(1)}%;background:${SCAN_COLORS[name]||'#6b7c65'}"></div>
+          </div>
+          <div class="svc-bar-count">${fmt(count)}</div>
+        </div>`).join('');
+  }
+
+  // HTTP methods
+  const methods = d.methods || {};
+  const METHOD_COLORS = {GET:'#4a7c59',POST:'#8B5E3C',HEAD:'#4a8fa8',PUT:'#8b6f9e',DELETE:'#c85a3a',CONNECT:'#6b7c65'};
+  document.getElementById('ngx-methods').innerHTML = Object.entries(methods)
+    .sort((a,b)=>b[1]-a[1]).slice(0,6)
+    .map(([m,c]) => `<span class="svc-badge" style="background:${METHOD_COLORS[m]||'#6b7c65'}22;color:${METHOD_COLORS[m]||'#6b7c65'};border-color:${METHOD_COLORS[m]||'#6b7c65'}44">${m} ${fmt(c)}</span>`)
+    .join('');
+
+  // Top paths table
+  const pathTb = document.getElementById('ngx-paths-tb');
+  if ((d.top_paths||[]).length === 0) {
+    pathTb.innerHTML = '<tr><td colspan="2" style="color:var(--muted);text-align:center">No data</td></tr>';
+  } else {
+    pathTb.innerHTML = d.top_paths.slice(0, 20).map(p => `
+      <tr>
+        <td><span class="probe-path" title="${escHtml(p.path)}">${escHtml(p.path)}</span></td>
+        <td class="num">${fmt(p.count)}</td>
+      </tr>`).join('');
+  }
+
+  // User agents as badges
+  const uaEl = document.getElementById('ngx-uas');
+  const threatKw = ['Scanner','Botnet','Probe','Brute','Log4Shell','SQLMap'];
+  uaEl.innerHTML = (d.top_uas||[]).slice(0,16).map(u => {
+    const isThreat = threatKw.some(k => (u.ua||'').includes(k));
+    const label = (u.ua||'').slice(0,60) + ((u.ua||'').length > 60 ? '…' : '');
+    return `<span class="scan-badge${isThreat?' threat':''}" title="${escHtml(u.ua)}">${escHtml(label)} ×${u.count}</span>`;
+  }).join('');
+
+  // Timeline
+  drawNgxTimeline('ngx-tl-canvas', d.timeline || []);
+}
+
+// ── Cross-Honeypot attacker correlation ──────────────────────────────────
+function renderCross(dio, ngx) {
+  const dioIps = new Map((dio.top_ips||[]).map(x => [x.ip, {count: x.count, country: x.country, org: x.org}]));
+  const ngxIps = new Map((ngx.top_ips||[]).map(x => [x.ip, {count: x.count, country: x.country, org: x.org}]));
+  const crossEl = document.getElementById('cross-list');
+
+  // Find IPs in BOTH honeypots
+  const overlap = [];
+  for (const [ip, dioInfo] of dioIps) {
+    if (ngxIps.has(ip)) {
+      const ngxInfo = ngxIps.get(ip);
+      overlap.push({
+        ip,
+        country: dioInfo.country || ngxInfo.country,
+        org:     dioInfo.org || ngxInfo.org,
+        dioCount: dioInfo.count,
+        ngxCount: ngxInfo.count,
+        total: dioInfo.count + ngxInfo.count,
+      });
+    }
+  }
+  overlap.sort((a,b) => b.total - a.total);
+
+  if (overlap.length === 0) {
+    crossEl.innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--text3)">
+        <div style="font-size:24px;margin-bottom:8px">◈</div>
+        <div>No IPs found attacking multiple honeypots in this window.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Try expanding the time window.</div>
+      </div>`;
+    return;
+  }
+
+  crossEl.innerHTML = `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${overlap.length} IPs seen attacking <strong>both</strong> Dionaea and nginx:</div>
+    ${overlap.slice(0, 20).map(x => `
+      <div class="cross-row">
+        <span class="cross-ip">${x.ip}</span>
+        <span style="font-size:11px;color:var(--text3);min-width:90px">${x.country || '—'}</span>
+        <div class="cross-badges">
+          <span class="svc-badge smb" style="font-size:10px">Dionaea ×${fmt(x.dioCount)}</span>
+          <span class="svc-badge http" style="font-size:10px">nginx ×${fmt(x.ngxCount)}</span>
+        </div>
+        <span class="cross-count">Total: ${fmt(x.total)}</span>
+      </div>`).join('')}
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+      These IPs are running multi-vector reconnaissance — probing both service exploits and web vulnerabilities simultaneously.
+    </div>`;
+}
+
+// ── Timeline canvas renderers ─────────────────────────────────────────────
+function drawHpTimeline(canvasId, timeline, services, colorFn) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !timeline.length) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  const H = 120;
+  canvas.width = W; canvas.height = H;
+  const pad = {t:8, r:8, b:24, l:40};
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const totals = timeline.map(p => p.total || 0);
+  const maxV = Math.max(1, ...totals);
+  const n = timeline.length;
+  if (!n) return;
+
+  const barW = Math.max(1, cw / n - 1);
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg3').trim() || '#dde1d8';
+
+  // Draw stacked bars by service
+  for (let i = 0; i < n; i++) {
+    const pt = timeline[i];
+    const x = pad.l + i * (cw / n);
+    let yOff = 0;
+    const svcsInPt = services.length ? services : Object.keys(pt).filter(k => !['ts','time','total'].includes(k));
+    for (const svc of svcsInPt) {
+      const v = pt[svc] || 0;
+      if (!v) continue;
+      const barH = (v / maxV) * ch;
+      ctx.fillStyle = colorFn(svc);
+      ctx.fillRect(x, pad.t + ch - yOff - barH, barW, barH);
+      yOff += barH;
+    }
+    // If no service breakdown, just use total
+    if (yOff === 0 && pt.total) {
+      const barH = (pt.total / maxV) * ch;
+      ctx.fillStyle = '#4a7c59';
+      ctx.fillRect(x, pad.t + ch - barH, barW, barH);
+    }
+  }
+
+  // Y axis
+  ctx.fillStyle = '#8a9882';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(fmt(maxV), pad.l - 3, pad.t + 8);
+  ctx.fillText('0', pad.l - 3, pad.t + ch);
+
+  // X axis ticks (first and last)
+  ctx.textAlign = 'left';
+  if (timeline[0]?.time)   ctx.fillText(timeline[0].time.slice(5,16),   pad.l,     H - 4);
+  if (timeline[n-1]?.time) { ctx.textAlign='right'; ctx.fillText(timeline[n-1].time.slice(5,16), W - pad.r, H - 4); }
+}
+
+function drawNgxTimeline(canvasId, timeline) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !timeline.length) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  const H = 120;
+  canvas.width = W; canvas.height = H;
+  const pad = {t:8, r:8, b:24, l:40};
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxV = Math.max(1, ...timeline.map(p => p.total || 0));
+  const n = timeline.length;
+  const barW = Math.max(1, cw / n - 1);
+  const STATUS_COLORS = {'2xx':'#4a7c59','4xx':'#8B5E3C','5xx':'#c85a3a'};
+
+  for (let i = 0; i < n; i++) {
+    const pt = timeline[i];
+    const x = pad.l + i * (cw / n);
+    let yOff = 0;
+    for (const cls of ['5xx','4xx','2xx']) {
+      const v = pt[cls] || 0;
+      if (!v) continue;
+      const barH = (v / maxV) * ch;
+      ctx.fillStyle = STATUS_COLORS[cls];
+      ctx.fillRect(x, pad.t + ch - yOff - barH, barW, barH);
+      yOff += barH;
+    }
+  }
+
+  ctx.fillStyle = '#8a9882';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(fmt(maxV), pad.l - 3, pad.t + 8);
+  ctx.fillText('0', pad.l - 3, pad.t + ch);
+  ctx.textAlign = 'left';
+  if (timeline[0]?.time)   ctx.fillText(timeline[0].time.slice(5,16),   pad.l,     H - 4);
+  if (n > 1 && timeline[n-1]?.time) { ctx.textAlign='right'; ctx.fillText(timeline[n-1].time.slice(5,16), W - pad.r, H - 4); }
+}
+
+// ── AI Analysis (Dionaea) ─────────────────────────────────────────────────
+async function analyzeDionaea() {
+  const d = _hpData.dionaea;
+  if (!d || d.error) return;
+  const ck = `dionaea|${_hpWindow}`;
+  const btn = document.getElementById('dio-ai-btn');
+  const out = document.getElementById('dio-ai-out');
+  if (_dioAiCache[ck] && Date.now() - _dioAiCache[ck].ts < 300000) {
+    out.innerHTML = _dioAiCache[ck].html;
+    out.style.display = 'block';
+    return;
+  }
+  btn.disabled = true; btn.textContent = '⏳ Analyzing...'; btn.classList.add('running');
+  out.style.display = 'none';
+
+  const summary = {
+    total_events: d.total,
+    unique_ips: d.unique_ips,
+    services: d.services,
+    binary_count: d.binary_count,
+    binaries: d.binaries?.slice(0,5),
+    smb_logins: d.smb_logins,
+    ftp_logins: d.ftp_logins,
+    top_ips: d.top_ips?.slice(0,8),
+    incident_types: d.incident_types,
+  };
+
+  try {
+    const r = await apiFetch('/api/botnet_analysis', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name: 'Dionaea Malware Honeypot',
+        count: d.total,
+        unique_ips: d.unique_ips,
+        _context: JSON.stringify(summary),
+      })
+    });
+    const result = await r.json();
+    const html = `
+      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">What is attacking?</span><p style="margin-top:4px">${result.description||'—'}</p></div>
+      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Attack methodology</span><p style="margin-top:4px">${result.methodology||'—'}</p></div>
+      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Detection</span><p style="margin-top:4px">${result.detection||'—'}</p></div>
+      <div><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Threat level</span><p style="margin-top:4px">${result.threat_level||'—'}</p></div>
+      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">Dionaea · ${fmt(d.total)} events · llama3.1:8b</div>`;
+    _dioAiCache[ck] = {html, ts: Date.now()};
+    out.innerHTML = html; out.style.display = 'block';
+  } catch(e) {
+    out.innerHTML = `<div style="color:#8a3030">Error: ${e.message}</div>`;
+    out.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '◈ AI Analysis of Malware Activity'; btn.classList.remove('running');
+  }
+}
+
+// ── AI Analysis (nginx) ───────────────────────────────────────────────────
+async function analyzeNginx() {
+  const d = _hpData.nginx;
+  if (!d || d.error) return;
+  const ck = `nginx|${_hpWindow}`;
+  const btn = document.getElementById('ngx-ai-btn');
+  const out = document.getElementById('ngx-ai-out');
+  if (_ngxAiCache[ck] && Date.now() - _ngxAiCache[ck].ts < 300000) {
+    out.innerHTML = _ngxAiCache[ck].html;
+    out.style.display = 'block';
+    return;
+  }
+  btn.disabled = true; btn.textContent = '⏳ Analyzing...'; btn.classList.add('running');
+  out.style.display = 'none';
+
+  const summary = {
+    total_requests: d.total,
+    unique_ips: d.unique_ips,
+    unique_paths: d.unique_paths,
+    scanners: d.scanners,
+    methods: d.methods,
+    top_paths: d.top_paths?.slice(0,10),
+    top_uas: d.top_uas?.slice(0,5),
+    threat_paths: d.threat_paths?.slice(0,5),
+  };
+
+  try {
+    const r = await apiFetch('/api/botnet_analysis', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        name: 'nginx Web Honeypot Scanning Campaign',
+        count: d.total,
+        unique_ips: d.unique_ips,
+        _context: JSON.stringify(summary),
+      })
+    });
+    const result = await r.json();
+    const html = `
+      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Scanning campaign summary</span><p style="margin-top:4px">${result.description||'—'}</p></div>
+      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Methodology</span><p style="margin-top:4px">${result.methodology||'—'}</p></div>
+      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Detection signals</span><p style="margin-top:4px">${result.detection||'—'}</p></div>
+      <div><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Threat level</span><p style="margin-top:4px">${result.threat_level||'—'}</p></div>
+      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">nginx · ${fmt(d.total)} requests · llama3.1:8b</div>`;
+    _ngxAiCache[ck] = {html, ts: Date.now()};
+    out.innerHTML = html; 
+    out.style.display = 'block';
+  } catch(e) {
+    out.innerHTML = `<div style="color:#8a3030">Error: ${e.message}</div>`;
+    out.style.display = 'block';
+  } finally {
+    btn.disabled = false; 
+    btn.textContent = '◈ AI Analysis of Web Scanning'; 
+    btn.classList.remove('running');
+  }
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 </body>
 </html>

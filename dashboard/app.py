@@ -99,6 +99,8 @@ POLLER_SCRIPT  = os.environ.get("POLLER_SCRIPT",     "/opt/wazuh-soc/triage/aler
 TRIAGE_SCRIPT  = os.environ.get("TRIAGE_SCRIPT",     "/opt/wazuh-soc/triage/ai_triage.py")
 LOG_DIR        = os.environ.get("LOG_DIR",           "/opt/wazuh-soc/logs")
 OLLAMA_URL     = os.environ.get("OLLAMA_URL",        "http://100.72.171.104:11434/api/generate")
+DIONAEA_WAZUH  = os.environ.get("DIONAEA_WAZUH",  "/opt/cowrie-logs/wazuh/wazuh-dionaea.json")
+NGINX_WAZUH    = os.environ.get("NGINX_WAZUH",    "/opt/cowrie-logs/wazuh/wazuh-nginx.json")
 
 # ── Startup config validation ─────────────────────────────────
 for _script in [ENRICH_SCRIPT, TRIAGE_SCRIPT]:
@@ -1326,6 +1328,382 @@ def get_credential_intel(minutes):
         "unique_creds":    aggs.get("unique_creds",    {}).get("value", 0),
     }
 
+def get_dionaea_stats(minutes: int = 10080) -> dict:
+    """Query OpenSearch for Dionaea malware honeypot stats.
+
+    Returns service breakdown, top attacker IPs (with GeoIP),
+    malware binaries captured, exploit incidents, and activity timeline.
+    """
+    since     = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    since_iso = since.isoformat()
+    now_iso   = datetime.now(timezone.utc).isoformat()
+
+    # Interval for timeline
+    if minutes <= 1440:
+        i_type, i_val = "fixed_interval",    "1h"
+    elif minutes <= 10080:
+        i_type, i_val = "fixed_interval",    "6h"
+    else:
+        i_type, i_val = "calendar_interval", "day"
+
+    body = {
+        "size": 0,
+        "track_total_hits": True,
+        "query": {
+            "bool": {"filter": [
+                {"range":  {"@timestamp": {"gte": since_iso}}},
+                {"term":   {"data.honeypot":   "dionaea"}},
+            ]}
+        },
+        "aggs": {
+            # Total unique IPs
+            "unique_ips": {"cardinality": {"field": "data.src_ip"}},
+            # Service breakdown
+            "by_service": {
+                "terms": {"field": "data.service", "size": 20, "missing": "unknown"}
+            },
+            # Top attacker IPs
+            "top_src_ips": {
+                "terms": {"field": "data.src_ip", "size": 50}
+            },
+            # Event type breakdown
+            "by_eventid": {
+                "terms": {"field": "data.eventid", "size": 30}
+            },
+            # Binaries captured
+            "binaries": {
+                "filter": {"term": {"data.eventid": "dionaea.binary.captured"}},
+                "aggs": {
+                    "hashes": {"terms": {"field": "data.sha256", "size": 20}},
+                }
+            },
+            # Exploit incidents
+            "incidents": {
+                "filter": {"prefix": {"data.eventid": "dionaea.incident."}},
+                "aggs": {
+                    "by_type": {"terms": {"field": "data.incident_type", "size": 20}},
+                    "by_ip":   {"terms": {"field": "data.src_ip", "size": 10}},
+                }
+            },
+            # SMB auth attempts
+            "smb_logins": {
+                "filter": {"term": {"data.eventid": "dionaea.login.smb"}},
+                "aggs": {
+                    "by_ip": {"terms": {"field": "data.src_ip", "size": 10}},
+                    "by_user": {"terms": {"field": "data.username", "size": 10}},
+                }
+            },
+            # FTP auth attempts
+            "ftp_logins": {
+                "filter": {"term": {"data.eventid": "dionaea.login.ftp"}},
+                "aggs": {
+                    "by_ip": {"terms": {"field": "data.src_ip", "size": 10}},
+                    "by_user": {"terms": {"field": "data.username", "size": 10}},
+                }
+            },
+            # Activity timeline
+            "timeline": {
+                "date_histogram": dict(
+                    [("field", "@timestamp"),
+                     (i_type, i_val),
+                     ("min_doc_count", 0),
+                     ("extended_bounds", {"min": since_iso, "max": now_iso})]
+                ),
+                "aggs": {
+                    "by_service": {"terms": {"field": "data.service", "size": 6}}
+                }
+            },
+        }
+    }
+
+    result = os_query(f"/{ALERT_INDEX}/_search", body)
+    if "error" in result:
+        return {"error": result["error"]}
+
+    hits = result.get("hits", {})
+    aggs = result.get("aggregations", {})
+    total = hits.get("total", {}).get("value", 0)
+
+    geo_lookup = build_geoip_lookup()
+
+    # Service breakdown
+    services = {}
+    for b in aggs.get("by_service", {}).get("buckets", []):
+        services[b["key"]] = b["doc_count"]
+
+    # Top IPs with GeoIP
+    top_ips = []
+    for b in aggs.get("top_src_ips", {}).get("buckets", []):
+        ip  = b["key"]
+        geo = geo_lookup.get(ip, {})
+        top_ips.append({
+            "ip":      ip,
+            "count":   b["doc_count"],
+            "country": geo.get("country", "") if isinstance(geo, dict) else "",
+            "org":     geo.get("org", "") if isinstance(geo, dict) else "",
+        })
+
+    # Resolve any uncached IPs async
+    uncached = [x["ip"] for x in top_ips if not x.get("country")]
+    if uncached:
+        resolve_missing_ips_async(uncached)
+
+    # Malware binaries
+    binaries = []
+    for b in aggs.get("binaries", {}).get("hashes", {}).get("buckets", []):
+        binaries.append({
+            "sha256":    b["key"],
+            "count":     b["doc_count"],
+            "sha256_short": b["key"][:16] + "…",
+        })
+
+    # Exploit incidents
+    incident_types = {}
+    for b in aggs.get("incidents", {}).get("by_type", {}).get("buckets", []):
+        incident_types[b["key"]] = b["doc_count"]
+    incident_ips = []
+    for b in aggs.get("incidents", {}).get("by_ip", {}).get("buckets", []):
+        ip  = b["key"]
+        geo = geo_lookup.get(ip, {})
+        incident_ips.append({
+            "ip":      ip,
+            "count":   b["doc_count"],
+            "country": geo.get("country", "") if isinstance(geo, dict) else "",
+        })
+
+    # Login intelligence
+    smb_users = [b["key"] for b in aggs.get("smb_logins", {}).get("by_user", {}).get("buckets", [])]
+    ftp_users = [b["key"] for b in aggs.get("ftp_logins", {}).get("by_user", {}).get("buckets", [])]
+    smb_count = aggs.get("smb_logins", {}).get("doc_count", 0)
+    ftp_count = aggs.get("ftp_logins", {}).get("doc_count", 0)
+
+    # Timeline — service-broken
+    timeline = []
+    all_services = set()
+    for b in aggs.get("timeline", {}).get("buckets", []):
+        pt = {"ts": b["key"], "time": b.get("key_as_string", ""), "total": b["doc_count"]}
+        for sb in b.get("by_service", {}).get("buckets", []):
+            pt[sb["key"]] = sb["doc_count"]
+            all_services.add(sb["key"])
+        timeline.append(pt)
+    for pt in timeline:
+        for svc in all_services:
+            pt.setdefault(svc, 0)
+
+    return {
+        "total":           total,
+        "unique_ips":      aggs.get("unique_ips", {}).get("value", 0),
+        "services":        services,
+        "top_ips":         top_ips,
+        "binaries":        binaries,
+        "binary_count":    aggs.get("binaries", {}).get("doc_count", 0),
+        "incident_types":  incident_types,
+        "incident_ips":    incident_ips,
+        "smb_logins":      smb_count,
+        "ftp_logins":      ftp_count,
+        "smb_users":       smb_users[:10],
+        "ftp_users":       ftp_users[:10],
+        "timeline":        timeline,
+        "all_services":    sorted(list(all_services)),
+        "window_minutes":  minutes,
+        "as_of":           datetime.now(timezone.utc).isoformat(),
+    }
+
+def get_nginx_stats(minutes: int = 10080) -> dict:
+    """Query OpenSearch for nginx web honeypot stats.
+
+    Returns top paths, HTTP methods, response codes, scanner types,
+    user agent fingerprints, and request timeline.
+    """
+    since     = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    since_iso = since.isoformat()
+    now_iso   = datetime.now(timezone.utc).isoformat()
+
+    if minutes <= 1440:
+        i_type, i_val = "fixed_interval",    "1h"
+    elif minutes <= 10080:
+        i_type, i_val = "fixed_interval",    "6h"
+    else:
+        i_type, i_val = "calendar_interval", "day"
+
+    body = {
+        "size": 0,
+        "track_total_hits": True,
+        "query": {
+            # Use @timestamp (Wazuh's indexed date field) — data.timestamp is stored
+            # as a keyword string so range queries on it fail silently
+            "bool": {"filter": [
+                {"range": {"@timestamp": {"gte": since_iso}}},
+                {"term":  {"data.honeypot": "nginx"}},
+            ]}
+        },
+        "aggs": {
+            "unique_ips":    {"cardinality": {"field": "data.src_ip"}},
+            "unique_paths":  {"cardinality": {"field": "data.http_path"}},
+            # HTTP method breakdown — stored as keyword, terms agg works fine
+            "by_method": {
+                "terms": {"field": "data.http_method", "size": 10, "missing": "UNKNOWN"}
+            },
+            # Response code — stored as keyword string ("404"), use terms not range
+            "by_status": {
+                "terms": {"field": "data.http_status", "size": 15}
+            },
+            # Top requested paths
+            "top_paths": {
+                "terms": {"field": "data.http_path", "size": 30}
+            },
+            # Path category breakdown
+            "by_path_cat": {
+                "terms": {"field": "data.path_category", "size": 20}
+            },
+            # Scanner type breakdown
+            "by_scanner": {
+                "terms": {"field": "data.scanner_type", "size": 20}
+            },
+            # Top source IPs
+            "top_src_ips": {
+                "terms": {"field": "data.src_ip", "size": 50}
+            },
+            # Top user agents
+            "top_ua": {
+                "terms": {"field": "data.user_agent", "size": 20}
+            },
+            # High-severity probes — rule.level IS numeric, range works
+            "high_severity_probes": {
+                "filter": {"range": {"rule.level": {"gte": 7}}},
+                "aggs": {
+                    "by_ip":   {"terms": {"field": "data.src_ip",   "size": 10}},
+                    "by_path": {"terms": {"field": "data.http_path", "size": 10}},
+                }
+            },
+            # Timeline — use @timestamp for date_histogram, NOT data.timestamp
+            "timeline": {
+                "date_histogram": dict(
+                    [("field", "@timestamp"),
+                     (i_type, i_val),
+                     ("min_doc_count", 0),
+                     ("extended_bounds", {"min": since_iso, "max": now_iso})]
+                ),
+                # Status class via terms on string field — map in Python after
+                "aggs": {
+                    "by_eventid": {
+                        "terms": {"field": "data.eventid", "size": 10}
+                    }
+                }
+            },
+        }
+    }
+
+    result = os_query(f"/{ALERT_INDEX}/_search", body)
+    if "error" in result:
+        return {"error": result["error"]}
+
+    hits = result.get("hits", {})
+    aggs = result.get("aggregations", {})
+    total = hits.get("total", {}).get("value", 0)
+
+    geo_lookup = build_geoip_lookup()
+
+    # HTTP methods
+    methods = {}
+    for b in aggs.get("by_method", {}).get("buckets", []):
+        k = b["key"]
+        # Filter out binary/protocol noise — only standard HTTP methods
+        if re.match(r'^[A-Z]{2,8}$', k):
+            methods[k] = b["doc_count"]
+
+    # Response codes
+    status_codes = {}
+    for b in aggs.get("by_status", {}).get("buckets", []):
+        status_codes[str(b["key"])] = b["doc_count"]
+
+    # Top paths — clean up binary garbage
+    top_paths = []
+    for b in aggs.get("top_paths", {}).get("buckets", []):
+        path = b["key"]
+        # Skip binary/non-printable paths
+        if not all(32 <= ord(c) <= 126 for c in path[:50]):
+            continue
+        top_paths.append({"path": path[:200], "count": b["doc_count"]})
+
+    # Path categories
+    path_cats = {b["key"]: b["doc_count"] for b in aggs.get("by_path_cat", {}).get("buckets", [])}
+
+    # Scanner types
+    scanners = {}
+    for b in aggs.get("by_scanner", {}).get("buckets", []):
+        scanners[b["key"]] = b["doc_count"]
+
+    # Top IPs with GeoIP
+    top_ips = []
+    for b in aggs.get("top_src_ips", {}).get("buckets", []):
+        ip  = b["key"]
+        geo = geo_lookup.get(ip, {})
+        top_ips.append({
+            "ip":      ip,
+            "count":   b["doc_count"],
+            "country": geo.get("country", "") if isinstance(geo, dict) else "",
+            "org":     geo.get("org", "") if isinstance(geo, dict) else "",
+        })
+
+    uncached = [x["ip"] for x in top_ips if not x.get("country")]
+    if uncached:
+        resolve_missing_ips_async(uncached)
+
+    # User agents — clean printable ones only
+    top_uas = []
+    for b in aggs.get("top_ua", {}).get("buckets", []):
+        ua = b["key"]
+        if len(ua) > 10 and all(32 <= ord(c) <= 126 for c in ua[:80]):
+            top_uas.append({"ua": ua[:200], "count": b["doc_count"]})
+
+    # High-severity probe IPs
+    hs_probes = aggs.get("high_severity_probes", {})
+    threat_ips = []
+    for b in hs_probes.get("by_ip", {}).get("buckets", []):
+        ip  = b["key"]
+        geo = geo_lookup.get(ip, {})
+        threat_ips.append({
+            "ip":      ip,
+            "count":   b["doc_count"],
+            "country": geo.get("country", "") if isinstance(geo, dict) else "",
+        })
+    threat_paths = [b["key"] for b in hs_probes.get("by_path", {}).get("buckets", [])]
+
+    # Timeline — map eventid buckets to 2xx/4xx/5xx display categories
+    # (http_status stored as keyword string so numeric range agg fails)
+    PROBE_EIDS = {"nginx.probe.env_file","nginx.probe.git","nginx.probe.wordpress",
+        "nginx.probe.tomcat","nginx.probe.router","nginx.probe.hikvision",
+        "nginx.probe.log4shell","nginx.probe.404","nginx.request.bad"}
+    timeline = []
+    for b in aggs.get("timeline", {}).get("buckets", []):
+        pt = {"ts": b["key"], "time": b.get("key_as_string", ""), "total": b["doc_count"],
+              "2xx": 0, "4xx": 0, "5xx": 0}
+        for eb in b.get("by_eventid", {}).get("buckets", []):
+            eid = eb.get("key", ""); cnt = eb.get("doc_count", 0)
+            if eid in PROBE_EIDS:         pt["4xx"] += cnt
+            elif eid == "nginx.request.success": pt["2xx"] += cnt
+            else:                          pt["5xx"] += cnt
+        timeline.append(pt)
+
+    return {
+        "total":          total,
+        "unique_ips":     aggs.get("unique_ips",   {}).get("value", 0),
+        "unique_paths":   aggs.get("unique_paths", {}).get("value", 0),
+        "methods":        methods,
+        "status_codes":   status_codes,
+        "top_paths":      top_paths,
+        "path_categories": path_cats,
+        "scanners":       scanners,
+        "top_ips":        top_ips,
+        "top_uas":        top_uas,
+        "threat_ips":     threat_ips,
+        "threat_paths":   threat_paths,
+        "timeline":       timeline,
+        "window_minutes": minutes,
+        "as_of":          datetime.now(timezone.utc).isoformat(),
+    }
+
 
 # ============================================================
 # Triage report
@@ -1672,6 +2050,51 @@ def api_cred_intel():
     minutes = int(request.args.get("minutes", 10080))
     return jsonify(get_credential_intel(minutes))
 
+@app.route("/api/dionaea")
+@rate_limit(max_per_minute=10)
+def api_dionaea():
+    """Dionaea malware honeypot stats — service breakdown, binaries, top IPs."""
+    try:
+        minutes = int(request.args.get("minutes", 10080))
+        minutes = max(1, min(minutes, 129600))
+    except (ValueError, TypeError):
+        minutes = 10080
+    return jsonify(get_dionaea_stats(minutes))
+
+
+@app.route("/api/nginx")
+@rate_limit(max_per_minute=10)
+def api_nginx():
+    """nginx web honeypot stats — paths, scanners, user agents, timeline."""
+    try:
+        minutes = int(request.args.get("minutes", 10080))
+        minutes = max(1, min(minutes, 129600))
+    except (ValueError, TypeError):
+        minutes = 10080
+    return jsonify(get_nginx_stats(minutes))
+
+
+@app.route("/api/honeypots")
+@rate_limit(max_per_minute=10)
+def api_honeypots():
+    """Combined Dionaea + nginx stats in one parallel call.
+
+    Returns:
+        {"dionaea": {...}, "nginx": {...}}
+    """
+    try:
+        minutes = int(request.args.get("minutes", 10080))
+        minutes = max(1, min(minutes, 129600))
+    except (ValueError, TypeError):
+        minutes = 10080
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_dio  = ex.submit(get_dionaea_stats, minutes)
+        f_nginx = ex.submit(get_nginx_stats,   minutes)
+        dio   = f_dio.result()
+        nginx = f_nginx.result()
+    return jsonify({"dionaea": dio, "nginx": nginx})
+
+
 @app.route("/api/triage")
 def api_triage():
     return jsonify(get_triage_report())
@@ -1703,7 +2126,7 @@ def api_run_analysis():
         limit   = max(10, min(int(data.get("limit",   100)),  500))
     except (ValueError, TypeError):
         return jsonify({"error": "minutes and limit must be integers"}), 400
-        return jsonify({"error": "Invalid mode"}), 400
+
     threading.Thread(target=run_analysis_thread, args=(mode, minutes, limit), daemon=True).start()
     return jsonify({"status": "started", "mode": mode, "minutes": minutes, "limit": limit})
 
