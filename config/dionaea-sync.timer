@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Dionaea sync + parse every 15 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=dionaea-sync.service
+
+[Install]
+WantedBy=timers.target

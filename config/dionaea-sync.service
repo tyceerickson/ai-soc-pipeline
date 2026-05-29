@@ -1,0 +1,12 @@
+[Unit]
+Description=Dionaea sync + parse (VPS -> Wazuh feed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=YOUR_USER
+# Set via: systemctl edit dionaea-sync.service  (do NOT commit the real key)
+#Environment=VT_API_KEY=your_virustotal_api_key
+ExecStart=/opt/cowrie-tools/pipeline/sync_dionaea.sh
+TimeoutStartSec=300

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 """
 alert_poller.py — Wazuh Alert Poller (OpenSearch backend)
 =========================================================
@@ -33,7 +34,7 @@ from collections import Counter
 # ============================================================
 OPENSEARCH_URL  = "https://localhost:9200"
 OS_USER         = "admin"
-OS_PASS         = "BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj"
+OS_PASS         = os.environ.get("OPENSEARCH_PASS", "")
 ALERT_INDEX     = "wazuh-alerts-4.x-*"
 
 # GeoIP enrichment source — built from cowrie_enriched.json

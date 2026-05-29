@@ -25,6 +25,7 @@ import re
 import time
 import glob
 import fcntl
+import sqlite3
 import logging
 import subprocess
 import threading
@@ -39,7 +40,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, Response
 
 # ── .env file support (optional) ─────────────────────────────
 try:
@@ -84,7 +85,7 @@ def _after(response):
 # ── OpenSearch connection ─────────────────────────────────────
 OPENSEARCH_URL = os.environ.get("OPENSEARCH_URL",  "https://localhost:9200")
 OS_USER        = os.environ.get("OPENSEARCH_USER", "admin")
-OS_PASS        = os.environ.get("OPENSEARCH_PASS", "BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj")
+OS_PASS        = os.environ.get("OPENSEARCH_PASS", "")
 ALERT_INDEX    = os.environ.get("ALERT_INDEX",     "wazuh-alerts-4.x-*")
 
 # ── File paths (all overridable via env) ──────────────────────
@@ -102,15 +103,120 @@ OLLAMA_URL     = os.environ.get("OLLAMA_URL",        "http://100.72.171.104:1143
 DIONAEA_WAZUH  = os.environ.get("DIONAEA_WAZUH",  "/opt/cowrie-logs/wazuh/wazuh-dionaea.json")
 NGINX_WAZUH    = os.environ.get("NGINX_WAZUH",    "/opt/cowrie-logs/wazuh/wazuh-nginx.json")
 
+# ── Incident-management persistence (SQLite) ──────────────────
+CASES_DB     = os.environ.get("CASES_DB",     "/opt/wazuh-soc/data/cases.db")
+SCHEMA_FILE  = os.environ.get("SCHEMA_FILE",  os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema.sql"))
+
 # ── Startup config validation ─────────────────────────────────
 for _script in [ENRICH_SCRIPT, TRIAGE_SCRIPT]:
     if not Path(_script).exists():
         log.warning("Script not found: %s — some features may be unavailable", _script)
-for _dir in [LOG_DIR, str(Path(TRIAGE_REPORT).parent)]:
+for _dir in [LOG_DIR, str(Path(TRIAGE_REPORT).parent), str(Path(CASES_DB).parent)]:
     try:
         Path(_dir).mkdir(parents=True, exist_ok=True)
     except Exception as _e:
         log.warning("Cannot create dir %s: %s", _dir, _e)
+
+# ── Cases DB init ─────────────────────────────────────────────
+_db_lock = threading.Lock()
+
+def get_db() -> sqlite3.Connection:
+    """Open a SQLite connection with row access by name and FK enforcement."""
+    conn = sqlite3.connect(CASES_DB, timeout=10)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+def init_db() -> None:
+    """Apply schema.sql (idempotent). Logs a warning if the file is missing."""
+    try:
+        with open(SCHEMA_FILE, encoding="utf-8") as f:
+            ddl = f.read()
+        conn = get_db()
+        try:
+            conn.executescript(ddl)
+            conn.commit()
+        finally:
+            conn.close()
+        log.info("Cases DB ready at %s", CASES_DB)
+    except FileNotFoundError:
+        log.warning("schema.sql not found at %s — cases features disabled", SCHEMA_FILE)
+    except Exception as e:
+        log.warning("Cases DB init failed: %s", e)
+
+def audit(conn: sqlite3.Connection, case_id, action: str, detail: str = "", actor: str = "analyst") -> None:
+    """Append a row to the audit_log. Caller is responsible for commit."""
+    conn.execute(
+        "INSERT INTO audit_log (case_id, action, detail, actor) VALUES (?,?,?,?)",
+        (case_id, action, detail, actor),
+    )
+
+init_db()
+
+# ── Response playbooks (hardcoded reference checklists) ────────
+PLAYBOOKS = {
+    "ssh_brute_force": {
+        "name": "SSH Brute Force",
+        "trigger": "Repeated failed SSH logins / credential stuffing from one IP",
+        "steps": [
+            "Confirm the source IP and count failed vs. successful logins",
+            "Check whether any login succeeded (possible compromise)",
+            "Block the source IP at the firewall / OPNsense",
+            "Review commands run in any successful session",
+            "Rotate credentials for any targeted accounts",
+            "Document indicators (IP, creds tried) in case notes",
+        ],
+    },
+    "malware_download": {
+        "name": "Malware / Payload Download",
+        "trigger": "file_download event or Dionaea binary capture",
+        "steps": [
+            "Identify the downloaded file hash and source URL",
+            "Submit hash to VirusTotal / threat intel",
+            "Determine the delivery vector (which honeypot/service)",
+            "Check for secondary download or C2 callbacks",
+            "Preserve the sample for analysis",
+            "Add IOCs (hash, URL, IP) to case notes",
+        ],
+    },
+    "web_scanning": {
+        "name": "Web Scanning / Exploitation",
+        "trigger": "nginx honeypot path probing, exploit signatures",
+        "steps": [
+            "Identify scanned paths and any exploit attempts",
+            "Determine the scanner fingerprint / user-agent",
+            "Check for successful exploitation indicators",
+            "Correlate IP across other honeypots (cross-honeypot view)",
+            "Block scanner IP/range if persistent",
+            "Note targeted CVEs / paths in case notes",
+        ],
+    },
+    "credential_compromise": {
+        "name": "Credential Compromise",
+        "trigger": "Successful login with known/leaked credentials",
+        "steps": [
+            "Identify which credential pair succeeded",
+            "Trace all sessions using that credential",
+            "Inventory actions taken post-login",
+            "Force password reset on affected accounts",
+            "Check for persistence mechanisms / new accounts",
+            "Record timeline in case notes",
+        ],
+    },
+    "botnet_activity": {
+        "name": "Botnet / Coordinated Campaign",
+        "trigger": "Many IPs sharing identical TTPs / command patterns",
+        "steps": [
+            "Confirm the shared fingerprint across source IPs",
+            "Enumerate participating IPs and geographies",
+            "Identify the command/payload pattern",
+            "Check for a common C2 endpoint",
+            "Block the IP set; consider range-level blocks",
+            "Summarize the campaign in case notes",
+        ],
+    },
+}
+
 
 SSL_CTX = ssl.create_default_context()
 SSL_CTX.check_hostname = False
@@ -867,38 +973,59 @@ def get_heatmap():
 # ============================================================
 def get_sessions(minutes):
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
-    # Find sessions with login.success OR command.input OR file_download (interesting sessions)
-    body = {
+    since_iso = since.isoformat()
+
+    # ── Step 1: rank ATTACKER IPs (not raw sessions) by interesting activity ──
+    # Ranking sessions directly by _count lets a single hyperactive attacker (one
+    # IP running thousands of commands) monopolize every slot, collapsing the
+    # panel to "1 attacker". Instead we first find the top distinct source IPs
+    # that produced interesting events, then pull representative sessions per IP.
+    interesting = {"bool": {"should": [
+        {"term": {"data.eventid": "cowrie.login.success"}},
+        {"term": {"data.eventid": "cowrie.command.input"}},
+        {"term": {"data.eventid": "cowrie.session.file_download"}},
+    ], "minimum_should_match": 1}}
+
+    ip_body = {
         "size": 0,
         "query": {"bool": {"filter": [
-            {"range": {"data.timestamp": {"gte": since.isoformat()}}},
+            {"range": {"data.timestamp": {"gte": since_iso}}},
             {"exists": {"field": "data.honeypot"}},
             {"exists": {"field": "data.session"}},
-            {"bool": {"should": [
-                {"term": {"data.eventid": "cowrie.login.success"}},
-                {"term": {"data.eventid": "cowrie.command.input"}},
-                {"term": {"data.eventid": "cowrie.session.file_download"}},
-            ], "minimum_should_match": 1}},
+            {"exists": {"field": "data.src_ip"}},
+            interesting,
         ]}},
         "aggs": {
-            "top_sessions": {
-                "terms": {"field": "data.session", "size": 30, "order": {"_count": "desc"}}
+            "top_ips": {
+                "terms": {"field": "data.src_ip", "size": 60, "order": {"max_lvl": "desc"}},
+                "aggs": {
+                    "max_lvl":  {"max": {"field": "rule.level"}},
+                    # a couple of representative sessions per IP (most active)
+                    "sessions": {"terms": {"field": "data.session", "size": 3, "order": {"_count": "desc"}}},
+                },
             }
-        }
+        },
     }
-    result = os_query(f"/{ALERT_INDEX}/_search", body)
-    top_session_ids = [b["key"] for b in result.get("aggregations", {}).get("top_sessions", {}).get("buckets", [])]
+    ip_result = os_query(f"/{ALERT_INDEX}/_search", ip_body)
+    ip_buckets = ip_result.get("aggregations", {}).get("top_ips", {}).get("buckets", [])
 
-    if not top_session_ids:
+    # Collect session IDs across the top IPs (cap so the follow-up query stays light)
+    session_ids = []
+    for b in ip_buckets:
+        for sb in b.get("sessions", {}).get("buckets", []):
+            session_ids.append(sb["key"])
+    session_ids = session_ids[:120]
+
+    if not session_ids:
         return {"sessions": []}
 
-    # Fetch events for top sessions
+    # ── Step 2: fetch events for those sessions ──────────────────────────────
     body2 = {
-        "size": 1000,
+        "size": 3000,
         "query": {"bool": {"filter": [
-            {"range": {"data.timestamp": {"gte": since.isoformat()}}},
+            {"range": {"data.timestamp": {"gte": since_iso}}},
             {"exists": {"field": "data.honeypot"}},
-            {"terms": {"data.session": top_session_ids[:20]}},
+            {"terms": {"data.session": session_ids}},
         ]}},
         "sort": [{"data.timestamp": "asc"}],
         "_source": ["data.session", "data.eventid", "data.src_ip", "data.timestamp",
@@ -997,8 +1124,8 @@ def get_botnets(minutes):
                         "lang": "painless",
                         "source": "doc['data.username'].size()>0 && doc['data.password'].size()>0 ? doc['data.username'].value+':::'+doc['data.password'].value : null"
                     },
-                    "size": 50,
-                    "min_doc_count": 10,
+                    "size": 100,
+                    "min_doc_count": 5,
                     "order": {"_count": "desc"}
                 },
                 "aggs": {
@@ -1015,10 +1142,16 @@ def get_botnets(minutes):
         if n_ips < 3 or ":::" not in cred:
             continue
         user, pwd = cred.split(":::", 1)
-        # Name the campaign from the credential
-        if len(pwd) > 4 and (pwd == user or any(c.isdigit() for c in pwd)):
+        # Name the campaign from the credential. Prefer a distinctive, non-generic
+        # username (e.g. the infamous "mdrfckr" Diicot/Mexals signature) so the
+        # campaign keeps its recognisable identity instead of being named after a
+        # generic numeric password.
+        GENERIC_USERS = {"root", "admin", "user", "test", "guest", "ubuntu", "oracle", "pi"}
+        if len(user) >= 4 and user.lower() not in GENERIC_USERS and not user.isdigit():
+            name = f"{user[:20]} Campaign"
+        elif len(pwd) > 4 and (pwd == user or any(c.isdigit() for c in pwd)):
             name = f"{pwd[:20]} Campaign"
-        elif len(user) > 3 and user not in ("root","admin","user","test"):
+        elif len(user) > 3 and user not in ("root", "admin", "user", "test"):
             name = f"{user[:20]} Scanner"
         else:
             name = f"{user}/{pwd[:12]} Brute Force"
@@ -1036,32 +1169,34 @@ def get_botnets(minutes):
             continue
         if len(pwd) > 60 or len(user) > 40:
             continue
-        # Deduplicate using Levenshtein distance for similar credentials
-        # This catches variants like "345gs5662d34" vs "3245gs5662d34" (edit distance = 1)
+        # Deduplicate near-identical credential variants (e.g. "345gs5662d34"
+        # vs "3245gs5662d34", edit distance 1). Kept deliberately CONSERVATIVE so
+        # genuinely distinct campaigns (e.g. a "mdrfkr"-style password) are NOT
+        # absorbed into an unrelated cluster. Set BOTNET_DEDUP=0 to disable entirely.
         is_dupe = False
-        for existing in campaigns:
-            ev = existing.get("_sig_val", "")
-            eu = existing.get("_sig_user", "")
-            if not ev:
-                continue
-            # Fast path: direct substring containment
-            shorter = min(pwd, ev, key=len)
-            longer  = max(pwd, ev, key=len)
-            if len(shorter) > 5 and shorter in longer:
-                is_dupe = True
-            # Levenshtein distance <= 2 for passwords longer than 6 chars
-            elif len(pwd) > 6 and len(ev) > 6:
-                dist = _levenshtein(pwd, ev)
-                if dist <= 2:
+        if os.environ.get("BOTNET_DEDUP", "1") != "0":
+            for existing in campaigns:
+                ev = existing.get("_sig_val", "")
+                eu = existing.get("_sig_user", "")
+                if not ev:
+                    continue
+                # Only merge when the SAME username is involved — different users
+                # are different campaigns even if passwords look alike.
+                if eu != user:
+                    continue
+                shorter = min(pwd, ev, key=len)
+                longer  = max(pwd, ev, key=len)
+                # Long shared prefix/containment (one is a typo-extension of the other)
+                if len(shorter) >= 8 and shorter in longer:
                     is_dupe = True
-            # Same username, similar password length (same family)
-            elif eu and eu == user and abs(len(pwd) - len(ev)) < 3:
-                is_dupe = True
-            if is_dupe:
-                if count > existing["count"]:
-                    existing["count"] = count
-                    existing["unique_ips"] = max(existing["unique_ips"], n_ips)
-                break
+                # Very small edit distance on longish passwords only
+                elif len(pwd) >= 8 and len(ev) >= 8 and _levenshtein(pwd, ev) <= 1:
+                    is_dupe = True
+                if is_dupe:
+                    if count > existing["count"]:
+                        existing["count"] = count
+                        existing["unique_ips"] = max(existing["unique_ips"], n_ips)
+                    break
         if is_dupe:
             continue
         # Confidence: HIGH = 5+ IPs, MEDIUM = 3-4 IPs, LOW = 1-2 IPs
@@ -1100,35 +1235,38 @@ def get_botnets(minutes):
         }
     }
     cmd_result = os_query(f"/{ALERT_INDEX}/_search", cmd_body)
-    seen_cmd_sigs = set()
+    seen_cmd_names = set()
     for b in cmd_result.get("aggregations", {}).get("top_cmds", {}).get("buckets", []):
         cmd   = b["key"]
         count = b["doc_count"]
         n_ips = b.get("unique_ips", {}).get("value", 0)
         if n_ips < 3 or len(cmd) < 5:
             continue
-        # Extract a short signature from the command
         words = cmd.split()
         sig = words[0] if words else cmd[:20]
-        if sig in seen_cmd_sigs:
-            continue
-        seen_cmd_sigs.add(sig)
-        # Name by what the command does
+        # Name by what the command DOES (signature of the campaign), checked in
+        # priority order so a multi-stage command (e.g. the mdrfckr SSH-key implant
+        # that starts with `cd` but contains ssh-rsa/authorized_keys) is classified
+        # by its payload, not its first word.
         if "ssh-rsa" in cmd or "authorized_keys" in cmd:
             name = "SSH Key Implant"
-        elif "chattr" in cmd:
-            name = "Anti-Forensic (chattr)"
-        elif "wget" in cmd or "curl" in cmd:
+        elif "chattr" in cmd or "lockr" in cmd:
+            name = "Anti-Forensic (chattr/lockr)"
+        elif "wget" in cmd or "curl" in cmd or "tftp" in cmd:
             name = "Downloader Campaign"
-        elif "uname" in cmd or "cat /proc" in cmd or "lscpu" in cmd:
-            name = "System Recon Campaign"
         elif "busybox" in cmd:
             name = "BusyBox IoT Scanner"
-        elif "chmod" in cmd and "setup" in cmd:
+        elif "chmod" in cmd and ("setup" in cmd or "+x" in cmd):
             name = "Dropper Campaign"
+        elif "uname" in cmd or "cat /proc" in cmd or "lscpu" in cmd:
+            name = "System Recon Campaign"
         else:
             name = f"{sig[:20]} Campaign"
-        # Filter out generic Linux commands that aren't campaign signatures
+        # Dedup on the CAMPAIGN NAME (not the first word) so distinct payloads that
+        # happen to share a leading token (cd, sh, ...) don't shadow each other.
+        if name in seen_cmd_names:
+            continue
+        # Filter out generic Linux commands that aren't a recognised campaign type
         GENERIC_CMDS = {
             'echo','cat','ls','rm','df','free','ps','id','pwd','env','top',
             'who','w','last','uptime','date','hostname','uname','whoami',
@@ -1137,14 +1275,14 @@ def get_botnets(minutes):
             'crontab','which','whereis','history','export','set','alias',
             'cd','mkdir','touch','cp','mv','chmod','chown','ln','stat',
         }
-        # Only skip if it's a generic command AND not a named campaign type
-        is_named = name not in [f"{sig[:20]} Campaign"]
+        is_named = not name.endswith(f"{sig[:20]} Campaign")
         if sig.lower() in GENERIC_CMDS and not is_named:
             continue
         # Filter out HTTP/protocol noise
         if any(x in sig for x in ['Host:', 'GET ', 'POST ', 'HTTP/', 'User-Agent',
                                     'Content-', 'Accept', 'Mozilla', '174.138']):
             continue
+        seen_cmd_names.add(name)
         # Avoid duplicating credential campaigns that already cover this
         if not any(c["name"] == name for c in campaigns):
             confidence = "HIGH" if n_ips >= 5 else "MEDIUM" if n_ips >= 3 else "LOW"
@@ -2095,6 +2233,142 @@ def api_honeypots():
     return jsonify({"dionaea": dio, "nginx": nginx})
 
 
+@app.route("/api/honeypot_health")
+@rate_limit(max_per_minute=30)
+def api_honeypot_health():
+    """Per-honeypot health: event count in last hour + last-seen timestamp.
+
+    Returns uptime-style status for each honeypot so the dashboard can show
+    green/red indicators. 'healthy' = at least one event in the last 60 min.
+    """
+    now = datetime.now(timezone.utc)
+    since_1h = (now - timedelta(hours=1)).isoformat()
+
+    def _health(honeypot_name):
+        body = {
+            "size": 1,
+            "track_total_hits": True,
+            "query": {
+                "bool": {"filter": [
+                    {"range": {"@timestamp": {"gte": since_1h}}},
+                    {"term":  {"data.honeypot": honeypot_name}},
+                ]}
+            },
+            "sort": [{"@timestamp": "desc"}],
+            "_source": ["@timestamp"],
+        }
+        result = os_query(f"/{ALERT_INDEX}/_search", body)
+        if "error" in result:
+            return {"status": "error", "events_1h": 0, "last_seen": None}
+        hits  = result.get("hits", {})
+        total = hits.get("total", {}).get("value", 0)
+        last_seen = None
+        hit_list = hits.get("hits", [])
+        if hit_list:
+            last_seen = hit_list[0].get("_source", {}).get("@timestamp")
+        return {
+            "status":    "healthy" if total > 0 else "idle",
+            "events_1h": total,
+            "last_seen": last_seen,
+        }
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        f_cow = ex.submit(_health, "cowrie")
+        f_dio = ex.submit(_health, "dionaea")
+        f_ngx = ex.submit(_health, "nginx")
+        return jsonify({
+            "cowrie":  f_cow.result(),
+            "dionaea": f_dio.result(),
+            "nginx":   f_ngx.result(),
+            "as_of":   now.isoformat(),
+        })
+
+
+@app.route("/api/export")
+@rate_limit(max_per_minute=6)
+def api_export():
+    """Export dashboard findings as JSON or CSV.
+
+    Query params:
+        format = json (default) | csv
+        type   = ips | credentials | botnets | full   (csv requires a type)
+        minutes = time window (default 1440)
+
+    JSON returns the complete combined dashboard state for archival/SOAR.
+    CSV returns a single table suitable for spreadsheet import.
+    """
+    fmt   = request.args.get("format", "json").lower()
+    etype = request.args.get("type", "full").lower()
+    try:
+        minutes = max(1, min(int(request.args.get("minutes", 1440)), 129600))
+    except (ValueError, TypeError):
+        minutes = 1440
+
+    if fmt == "json":
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            f_stats = ex.submit(get_live_stats,        minutes)
+            f_bots  = ex.submit(get_botnets,           minutes)
+            f_cred  = ex.submit(get_credential_intel,  minutes)
+            f_hp    = ex.submit(lambda: {
+                "dionaea": get_dionaea_stats(minutes),
+                "nginx":   get_nginx_stats(minutes),
+            })
+            payload = {
+                "exported_at":    datetime.now(timezone.utc).isoformat(),
+                "window_minutes": minutes,
+                "stats":          f_stats.result(),
+                "botnets":        f_bots.result(),
+                "cred_intel":     f_cred.result(),
+                "honeypots":      f_hp.result(),
+            }
+        resp = Response(json.dumps(payload, indent=2), mimetype="application/json")
+        resp.headers["Content-Disposition"] = (
+            f"attachment; filename=soc-export-{minutes}min.json"
+        )
+        return resp
+
+    # ── CSV export ──────────────────────────────────────────────
+    import csv
+    import io
+    out = io.StringIO()
+    writer = csv.writer(out)
+
+    if etype == "ips":
+        stats = get_live_stats(minutes)
+        writer.writerow(["ip", "country", "org", "alert_count"])
+        for ip in stats.get("top_ips", []):
+            writer.writerow([
+                ip.get("ip", ""), ip.get("country", ""),
+                ip.get("org", ""), ip.get("count", 0),
+            ])
+        fname = f"soc-ips-{minutes}min.csv"
+
+    elif etype == "credentials":
+        stats = get_live_stats(minutes)
+        es = stats.get("enriched_stats", {})
+        writer.writerow(["credential", "attempts"])
+        for c in es.get("top_credentials", []):
+            writer.writerow([c.get("cred", ""), c.get("count", 0)])
+        fname = f"soc-credentials-{minutes}min.csv"
+
+    elif etype == "botnets":
+        bots = get_botnets(minutes)
+        writer.writerow(["campaign", "events", "unique_ips"])
+        for b in bots.get("botnets", []):
+            writer.writerow([
+                b.get("name", ""), b.get("count", 0),
+                b.get("unique_ips", 0),
+            ])
+        fname = f"soc-botnets-{minutes}min.csv"
+
+    else:
+        return jsonify({"error": "csv export requires type=ips|credentials|botnets"}), 400
+
+    resp = Response(out.getvalue(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = f"attachment; filename={fname}"
+    return resp
+
+
 @app.route("/api/triage")
 def api_triage():
     return jsonify(get_triage_report())
@@ -2133,6 +2407,463 @@ def api_run_analysis():
 @app.route("/api/analysis/status")
 def api_analysis_status():
     return jsonify(analysis_state)
+
+
+# ============================================================
+# NEW: Alert detail, search, playbooks, cases (Project 4 sprint)
+# ============================================================
+_IP_RE = re.compile(r"^[0-9a-fA-F:.]{3,45}$")  # permissive IPv4/IPv6 sanity check
+
+def _valid_ip(ip: str) -> bool:
+    return bool(ip) and bool(_IP_RE.match(ip)) and len(ip) <= 45
+
+
+def get_alert_context(ip: str, minutes: int = 10080) -> Dict:
+    """Full context for one source IP: summary, last events, geo timeline, commands.
+
+    Used by the Alert Details drawer. Pulls from the live Wazuh index.
+    """
+    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    geo_lookup = build_geoip_lookup()
+    geo = geo_lookup.get(ip, {}) if isinstance(geo_lookup.get(ip, {}), dict) else {}
+
+    base_filter = [
+        {"range": {"data.timestamp": {"gte": since.isoformat()}}},
+        {"term":  {"data.src_ip": ip}},
+    ]
+
+    # 1) Aggregate summary + last 10 events in one query
+    body = {
+        "size": 10,
+        "track_total_hits": True,
+        "query": {"bool": {"filter": base_filter}},
+        "sort": [{"data.timestamp": "desc"}],
+        "_source": ["@timestamp", "data.timestamp", "data.eventid", "data.honeypot",
+                    "data.username", "data.password", "data.input", "data.command",
+                    "data.session", "data.dst_port", "rule.level", "rule.description",
+                    "rule.mitre", "data.location.country_name"],
+        "aggs": {
+            "max_level":   {"max": {"field": "rule.level"}},
+            "honeypots":   {"terms": {"field": "data.honeypot", "size": 10}},
+            "eventids":    {"terms": {"field": "data.eventid", "size": 20}},
+            "sessions":    {"cardinality": {"field": "data.session"}},
+            "first_seen":  {"min": {"field": "data.timestamp"}},
+            "last_seen":   {"max": {"field": "data.timestamp"}},
+        },
+    }
+    result = os_query(f"/{ALERT_INDEX}/_search", body)
+    if "error" in result:
+        return {"error": result["error"], "ip": ip}
+
+    hits  = result.get("hits", {})
+    aggs  = result.get("aggregations", {})
+    total = hits.get("total", {}).get("value", 0)
+
+    last_events = []
+    full_alert  = None
+    for h in hits.get("hits", []):
+        src  = h.get("_source", {})
+        data = src.get("data", {})
+        rule = src.get("rule", {})
+        ev = {
+            "ts":       data.get("timestamp") or src.get("@timestamp", ""),
+            "eventid":  data.get("eventid", ""),
+            "honeypot": data.get("honeypot", ""),
+            "level":    rule.get("level", 0),
+            "desc":     rule.get("description", ""),
+            "username": data.get("username", ""),
+            "password": data.get("password", ""),
+            "command":  (data.get("input", "") or data.get("command", "") or "")[:200],
+            "session":  data.get("session", ""),
+            "dst_port": data.get("dst_port", ""),
+        }
+        last_events.append(ev)
+        if full_alert is None:
+            full_alert = h.get("_source", {})  # the most recent raw alert (full JSON)
+
+    # 2) Recent commands for this IP
+    body_cmd = {
+        "size": 0,
+        "query": {"bool": {"filter": base_filter + [
+            {"term": {"data.eventid": "cowrie.command.input"}},
+        ]}},
+        "aggs": {"cmds": {"terms": {"field": "data.input", "size": 25, "order": {"_count": "desc"}}}},
+    }
+    cmd_res = os_query(f"/{ALERT_INDEX}/_search", body_cmd)
+    commands = [
+        {"cmd": b["key"], "count": b["doc_count"]}
+        for b in cmd_res.get("aggregations", {}).get("cmds", {}).get("buckets", [])
+    ]
+
+    # 3) Geographic / activity timeline (bucketed)
+    body_tl = {
+        "size": 0,
+        "query": {"bool": {"filter": base_filter}},
+        "aggs": {"tl": {"date_histogram": {
+            "field": "data.timestamp", "fixed_interval": "1h", "min_doc_count": 1,
+        }}},
+    }
+    tl_res = os_query(f"/{ALERT_INDEX}/_search", body_tl)
+    timeline = [
+        {"time": b.get("key_as_string", ""), "ts": b.get("key", 0), "count": b.get("doc_count", 0)}
+        for b in tl_res.get("aggregations", {}).get("tl", {}).get("buckets", [])
+    ]
+
+    return {
+        "ip":          ip,
+        "country":     geo.get("country", "") or "",
+        "city":        geo.get("city", "") or "",
+        "org":         geo.get("org", "") or "",
+        "total_events": total,
+        "max_level":   int(aggs.get("max_level", {}).get("value") or 0),
+        "sessions":    int(aggs.get("sessions", {}).get("value") or 0),
+        "first_seen":  aggs.get("first_seen", {}).get("value_as_string", ""),
+        "last_seen":   aggs.get("last_seen", {}).get("value_as_string", ""),
+        "honeypots":   {b["key"]: b["doc_count"] for b in aggs.get("honeypots", {}).get("buckets", [])},
+        "eventids":    {b["key"]: b["doc_count"] for b in aggs.get("eventids", {}).get("buckets", [])},
+        "last_events": last_events,
+        "commands":    commands,
+        "timeline":    timeline,
+        "full_alert":  full_alert or {},
+        "window_minutes": minutes,
+    }
+
+
+@app.route("/api/alert/<ip>")
+@rate_limit(max_per_minute=60)
+def api_alert(ip):
+    """Full drawer context for a single source IP."""
+    if not _valid_ip(ip):
+        return jsonify({"error": "Invalid IP"}), 400
+    try:
+        minutes = max(1, min(int(request.args.get("minutes", 10080)), 129600))
+    except (ValueError, TypeError):
+        minutes = 10080
+    return jsonify(get_alert_context(ip, minutes))
+
+
+@app.route("/api/search")
+@rate_limit(max_per_minute=60)
+def api_search():
+    """Search by IP, credential, or command. type=ip|cred|cmd.
+
+    Returns matching source IPs + a small set of example hits so the client
+    can highlight related rows across panels.
+    """
+    q     = (request.args.get("q", "") or "").strip()
+    stype = (request.args.get("type", "ip") or "ip").lower()
+    try:
+        minutes = max(1, min(int(request.args.get("minutes", 10080)), 129600))
+    except (ValueError, TypeError):
+        minutes = 10080
+    if not q:
+        return jsonify({"error": "q is required", "results": []}), 400
+    if stype not in ("ip", "cred", "cmd"):
+        return jsonify({"error": "type must be ip|cred|cmd"}), 400
+    if len(q) > 200:
+        return jsonify({"error": "query too long"}), 400
+
+    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    flt = [{"range": {"data.timestamp": {"gte": since.isoformat()}}},
+           {"exists": {"field": "data.honeypot"}}]
+
+    if stype == "ip":
+        flt.append({"wildcard": {"data.src_ip": f"*{q}*"}})
+    elif stype == "cred":
+        # match username or password substring
+        flt.append({"bool": {"should": [
+            {"wildcard": {"data.username": f"*{q}*"}},
+            {"wildcard": {"data.password": f"*{q}*"}},
+        ], "minimum_should_match": 1}})
+    else:  # cmd
+        flt.append({"wildcard": {"data.input": f"*{q}*"}})
+
+    body = {
+        "size": 25,
+        "track_total_hits": True,
+        "query": {"bool": {"filter": flt}},
+        "sort": [{"data.timestamp": "desc"}],
+        "_source": ["data.timestamp", "data.src_ip", "data.eventid", "data.honeypot",
+                    "data.username", "data.password", "data.input", "rule.level", "rule.description"],
+        "aggs": {"by_ip": {"terms": {"field": "data.src_ip", "size": 100}}},
+    }
+    result = os_query(f"/{ALERT_INDEX}/_search", body)
+    if "error" in result:
+        return jsonify({"error": result["error"], "results": []})
+
+    hits = result.get("hits", {})
+    total = hits.get("total", {}).get("value", 0)
+    ips = [{"ip": b["key"], "count": b["doc_count"]}
+           for b in result.get("aggregations", {}).get("by_ip", {}).get("buckets", [])]
+
+    examples = []
+    for h in hits.get("hits", []):
+        s = h.get("_source", {}); d = s.get("data", {}); r = s.get("rule", {})
+        examples.append({
+            "ts": d.get("timestamp", ""), "ip": d.get("src_ip", ""),
+            "eventid": d.get("eventid", ""), "honeypot": d.get("honeypot", ""),
+            "username": d.get("username", ""), "password": d.get("password", ""),
+            "command": (d.get("input", "") or "")[:120],
+            "level": r.get("level", 0), "desc": r.get("description", ""),
+        })
+
+    return jsonify({
+        "query": q, "type": stype, "total": total,
+        "matched_ips": ips, "examples": examples,
+    })
+
+
+@app.route("/api/playbooks")
+def api_playbooks():
+    """Return the hardcoded response playbooks."""
+    return jsonify(PLAYBOOKS)
+
+
+# ── Cases CRUD ────────────────────────────────────────────────
+def _row_to_case(row: sqlite3.Row, include_children=False, conn=None) -> Dict:
+    c = {
+        "id": row["id"], "title": row["title"], "severity": row["severity"],
+        "status": row["status"], "assignee": row["assignee"], "src_ip": row["src_ip"],
+        "playbook": row["playbook"],
+        "playbook_done": json.loads(row["playbook_done"] or "[]"),
+        "notes": row["notes"], "created_at": row["created_at"], "updated_at": row["updated_at"],
+    }
+    if include_children and conn is not None:
+        alerts = conn.execute(
+            "SELECT * FROM case_alerts WHERE case_id=? ORDER BY added_at ASC", (row["id"],)
+        ).fetchall()
+        c["alerts"] = [{
+            "id": a["id"], "src_ip": a["src_ip"], "summary": a["summary"],
+            "detail": json.loads(a["detail_json"] or "{}"), "added_at": a["added_at"],
+        } for a in alerts]
+        audit_rows = conn.execute(
+            "SELECT * FROM audit_log WHERE case_id=? ORDER BY ts ASC", (row["id"],)
+        ).fetchall()
+        c["timeline"] = [{
+            "action": x["action"], "detail": x["detail"], "actor": x["actor"], "ts": x["ts"],
+        } for x in audit_rows]
+    return c
+
+
+@app.route("/api/cases", methods=["GET"])
+@rate_limit(max_per_minute=60)
+def api_cases_list():
+    """List cases. Optional filters: status, severity."""
+    status   = request.args.get("status")
+    severity = request.args.get("severity")
+    where, params = [], []
+    if status in ("open", "investigating", "closed"):
+        where.append("status=?"); params.append(status)
+    if severity in ("low", "medium", "high", "critical"):
+        where.append("severity=?"); params.append(severity)
+    sql = "SELECT * FROM cases"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY CASE status WHEN 'open' THEN 0 WHEN 'investigating' THEN 1 ELSE 2 END, updated_at DESC"
+    try:
+        conn = get_db()
+        try:
+            rows = conn.execute(sql, params).fetchall()
+            cases = [_row_to_case(r) for r in rows]
+            counts = {"open": 0, "investigating": 0, "closed": 0}
+            for r in conn.execute("SELECT status, COUNT(*) c FROM cases GROUP BY status").fetchall():
+                counts[r["status"]] = r["c"]
+        finally:
+            conn.close()
+        return jsonify({"cases": cases, "counts": counts})
+    except Exception as e:
+        log.error("cases list failed: %s", e)
+        return jsonify({"error": "DB error", "cases": []}), 500
+
+
+@app.route("/api/cases/<int:case_id>", methods=["GET"])
+@rate_limit(max_per_minute=60)
+def api_case_get(case_id):
+    """Get one case with its alerts + audit timeline."""
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+            if not row:
+                return jsonify({"error": "Not found"}), 404
+            case = _row_to_case(row, include_children=True, conn=conn)
+        finally:
+            conn.close()
+        return jsonify(case)
+    except Exception as e:
+        log.error("case get failed: %s", e)
+        return jsonify({"error": "DB error"}), 500
+
+
+@app.route("/api/cases", methods=["POST"])
+@rate_limit(max_per_minute=30)
+def api_case_create():
+    """Create a case. Body: {title, severity, assignee, src_ip, playbook, notes, alert?}
+
+    Optional `alert` object (the drawer context) is snapshotted into case_alerts.
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    title = str(data.get("title", "")).strip()[:200]
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    severity = str(data.get("severity", "medium")).lower()
+    if severity not in ("low", "medium", "high", "critical"):
+        severity = "medium"
+    assignee = str(data.get("assignee", "unassigned")).strip()[:80] or "unassigned"
+    src_ip   = str(data.get("src_ip", "") or "").strip()[:45]
+    playbook = str(data.get("playbook", "") or "").strip()[:60] or None
+    if playbook and playbook not in PLAYBOOKS:
+        playbook = None
+    notes = str(data.get("notes", "") or "")[:5000]
+    alert = data.get("alert") if isinstance(data.get("alert"), dict) else None
+
+    try:
+        with _db_lock:
+            conn = get_db()
+            try:
+                cur = conn.execute(
+                    "INSERT INTO cases (title, severity, status, assignee, src_ip, playbook, notes) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (title, severity, "open", assignee, src_ip or None, playbook, notes),
+                )
+                cid = cur.lastrowid
+                audit(conn, cid, "created", f"severity={severity}, assignee={assignee}")
+                if alert and src_ip:
+                    summary = f"{alert.get('total_events','?')} events · max level {alert.get('max_level','?')}"
+                    conn.execute(
+                        "INSERT INTO case_alerts (case_id, src_ip, summary, detail_json) VALUES (?,?,?,?)",
+                        (cid, src_ip, summary, json.dumps(alert)[:200000]),
+                    )
+                    audit(conn, cid, "alert_added", f"ip={src_ip}")
+                conn.commit()
+                row = conn.execute("SELECT * FROM cases WHERE id=?", (cid,)).fetchone()
+                case = _row_to_case(row, include_children=True, conn=conn)
+            finally:
+                conn.close()
+        return jsonify(case), 201
+    except Exception as e:
+        log.error("case create failed: %s", e)
+        return jsonify({"error": "DB error"}), 500
+
+
+@app.route("/api/cases/<int:case_id>", methods=["PATCH"])
+@rate_limit(max_per_minute=60)
+def api_case_update(case_id):
+    """Update a case. Body may include: status, severity, assignee, notes,
+    playbook, playbook_done (list of step indices), append_note (string),
+    add_alert (drawer context dict)."""
+    data = request.get_json(force=True, silent=True) or {}
+    try:
+        with _db_lock:
+            conn = get_db()
+            try:
+                row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+                if not row:
+                    return jsonify({"error": "Not found"}), 404
+
+                sets, params, changes = [], [], []
+
+                if "status" in data and data["status"] in ("open", "investigating", "closed"):
+                    if data["status"] != row["status"]:
+                        sets.append("status=?"); params.append(data["status"])
+                        changes.append(("status_change", f"{row['status']} → {data['status']}"))
+                if "severity" in data and data["severity"] in ("low", "medium", "high", "critical"):
+                    if data["severity"] != row["severity"]:
+                        sets.append("severity=?"); params.append(data["severity"])
+                        changes.append(("updated", f"severity → {data['severity']}"))
+                if "assignee" in data:
+                    a = str(data["assignee"]).strip()[:80] or "unassigned"
+                    if a != row["assignee"]:
+                        sets.append("assignee=?"); params.append(a)
+                        changes.append(("updated", f"assignee → {a}"))
+                if "notes" in data:
+                    sets.append("notes=?"); params.append(str(data["notes"])[:5000])
+                    changes.append(("note", "notes edited"))
+                if "playbook" in data:
+                    pb = str(data["playbook"] or "").strip()[:60] or None
+                    if pb and pb not in PLAYBOOKS:
+                        pb = None
+                    sets.append("playbook=?"); params.append(pb)
+                    changes.append(("updated", f"playbook → {pb or 'none'}"))
+                if "playbook_done" in data and isinstance(data["playbook_done"], list):
+                    done = [int(i) for i in data["playbook_done"] if isinstance(i, (int, float))][:50]
+                    sets.append("playbook_done=?"); params.append(json.dumps(done))
+                    changes.append(("playbook_step", f"{len(done)} steps complete"))
+
+                append_note = str(data.get("append_note", "") or "").strip()
+                if append_note:
+                    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+                    new_notes = (row["notes"] + f"\n[{stamp}] {append_note}").strip()[:5000]
+                    sets.append("notes=?"); params.append(new_notes)
+                    changes.append(("note", append_note[:120]))
+
+                if sets:
+                    sets.append("updated_at=?"); params.append(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+                    params.append(case_id)
+                    conn.execute(f"UPDATE cases SET {', '.join(sets)} WHERE id=?", params)
+
+                add_alert = data.get("add_alert")
+                if isinstance(add_alert, dict) and add_alert.get("ip"):
+                    summary = f"{add_alert.get('total_events','?')} events · max level {add_alert.get('max_level','?')}"
+                    try:
+                        conn.execute(
+                            "INSERT INTO case_alerts (case_id, src_ip, summary, detail_json) VALUES (?,?,?,?)",
+                            (case_id, add_alert["ip"], summary, json.dumps(add_alert)[:200000]),
+                        )
+                        changes.append(("alert_added", f"ip={add_alert['ip']}"))
+                    except sqlite3.IntegrityError:
+                        pass
+
+                for action, detail in changes:
+                    audit(conn, case_id, action, detail)
+                conn.commit()
+                row = conn.execute("SELECT * FROM cases WHERE id=?", (case_id,)).fetchone()
+                case = _row_to_case(row, include_children=True, conn=conn)
+            finally:
+                conn.close()
+        return jsonify(case)
+    except Exception as e:
+        log.error("case update failed: %s", e)
+        return jsonify({"error": "DB error"}), 500
+
+
+@app.route("/api/cases/export")
+@rate_limit(max_per_minute=12)
+def api_cases_export():
+    """Export all cases as CSV for reporting."""
+    import csv, io
+    status = request.args.get("status")
+    sql = "SELECT * FROM cases"
+    params = []
+    if status in ("open", "investigating", "closed"):
+        sql += " WHERE status=?"; params.append(status)
+    sql += " ORDER BY created_at DESC"
+    try:
+        conn = get_db()
+        try:
+            rows = conn.execute(sql, params).fetchall()
+            alert_counts = {}
+            for r in conn.execute("SELECT case_id, COUNT(*) c FROM case_alerts GROUP BY case_id").fetchall():
+                alert_counts[r["case_id"]] = r["c"]
+        finally:
+            conn.close()
+    except Exception as e:
+        log.error("cases export failed: %s", e)
+        return jsonify({"error": "DB error"}), 500
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["id", "title", "severity", "status", "assignee", "src_ip",
+                "playbook", "attached_alerts", "created_at", "updated_at", "notes"])
+    for r in rows:
+        w.writerow([
+            r["id"], r["title"], r["severity"], r["status"], r["assignee"],
+            r["src_ip"] or "", r["playbook"] or "", alert_counts.get(r["id"], 0),
+            r["created_at"], r["updated_at"], (r["notes"] or "").replace("\n", " | "),
+        ])
+    resp = Response(out.getvalue(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = "attachment; filename=soc-cases.csv"
+    return resp
 
 
 # ============================================================

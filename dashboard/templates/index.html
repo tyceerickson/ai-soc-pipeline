@@ -61,6 +61,8 @@ select:focus{outline:none;border-color:var(--purple)}
 .icon-btn{background:var(--bg2);color:var(--text2);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;transition:all .2s}
 .icon-btn:hover{border-color:var(--pine);color:var(--pine)}
 .icon-btn.running{border-color:var(--yellow);color:var(--yellow)}
+.export-item{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 12px;font-size:12px;color:var(--text2);cursor:pointer;border-radius:5px}
+.export-item:hover{background:var(--bg3);color:var(--pine)}
 .main{padding:16px 24px;max-width:1440px;margin:0 auto}
 .section-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin:18px 0 10px;display:flex;align-items:center;gap:8px}
 .section-label::before{content:'';width:14px;height:2px;background:var(--forest);border-radius:1px}
@@ -88,6 +90,8 @@ select:focus{outline:none;border-color:var(--purple)}
 .hp-tab{padding:7px 18px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
 .hp-tab:hover{color:var(--text2)}
 .hp-tab.active{color:var(--forest);border-bottom-color:var(--forest)}
+.hp-tab:focus-visible{outline:2px solid var(--pine);outline-offset:-2px;border-radius:4px}
+.hp-tab-badge{display:inline-block;margin-left:4px;font-size:10px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
 .hp-pane{display:none}.hp-pane.active{display:block}
 
 /* Service badge pills */
@@ -198,6 +202,7 @@ select:focus{outline:none;border-color:var(--purple)}
 .dtable td{padding:6px 4px;border-bottom:1px solid rgba(194,200,187,.6);font-size:12px;vertical-align:middle;color:#CBD5E1}
 .dtable tr:last-child td{border-bottom:none}
 .dtable .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.dtable th.cross-col{text-align:center}
 .mono{font-family:monospace;font-size:11px;color:var(--text2)}
 .dim{font-size:10px;color:var(--text3)}
 .scroll{max-height:260px;overflow-y:auto;padding-right:10px}
@@ -381,6 +386,79 @@ select:focus{outline:none;border-color:var(--purple)}
 @keyframes mapPulse{0%,100%{opacity:.7;r:3}50%{opacity:1;r:5}}
 
 footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);margin-top:8px}
+/* ===== Project 4 sprint: search, drawer, cases ===== */
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.seg-btn{background:var(--bg2);color:var(--text3);border:none;padding:6px 9px;font-size:11px;cursor:pointer;border-right:1px solid var(--border)}
+.seg-btn:last-child{border-right:none}
+.seg-btn.active{background:var(--pine);color:#fff}
+.search-match{outline:2px solid var(--orange);outline-offset:-2px;background:rgba(200,122,58,.10)!important}
+.search-dim{opacity:.32}
+
+/* Right-side drawer (alert details) */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:600;opacity:0;pointer-events:none;transition:opacity .18s}
+.drawer-overlay.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:520px;max-width:94vw;background:var(--bg);border-left:1px solid var(--border2);
+  box-shadow:-12px 0 36px rgba(0,0,0,.25);z-index:601;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column}
+.drawer.open{transform:translateX(0)}
+.drawer-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border);background:var(--snow)}
+.drawer-hdr h2{font-size:16px;font-family:monospace;color:var(--forest);word-break:break-all}
+.drawer-close{background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:0 4px}
+.drawer-body{overflow-y:auto;padding:16px 18px;flex:1}
+.drawer-sec{margin-bottom:18px}
+.drawer-sec h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px}
+.dw-kv{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px}
+.dw-kv div{min-width:120px}
+.dw-kv b{color:var(--text3);font-weight:500;display:block;font-size:10px;text-transform:uppercase}
+.dw-evt{font-size:11px;border-left:3px solid var(--border2);padding:5px 9px;margin-bottom:5px;background:var(--bg3);border-radius:0 4px 4px 0}
+.dw-evt .ev-top{display:flex;justify-content:space-between;gap:8px}
+.dw-evt code{font-family:monospace;color:var(--text2)}
+.dw-lv{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600}
+.dw-cmd{font-family:monospace;font-size:11px;padding:3px 6px;background:var(--bg3);border-radius:4px;margin-bottom:3px;display:flex;justify-content:space-between;gap:8px}
+.dw-json{font-family:monospace;font-size:10px;white-space:pre-wrap;word-break:break-word;background:#1e2d1a;color:#cfe8c4;padding:10px;border-radius:6px;max-height:240px;overflow:auto}
+.dw-tl{display:flex;align-items:flex-end;gap:2px;height:46px}
+.dw-tl-bar{flex:1;min-width:2px;background:var(--glacier);border-radius:1px 1px 0 0}
+.pb-step{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:4px 0;cursor:pointer}
+.pb-step input{margin-top:2px}
+.pb-step.done span{text-decoration:line-through;color:var(--muted)}
+
+/* Cases sidebar */
+.cases-panel{position:fixed;top:0;right:0;height:100vh;width:420px;max-width:92vw;background:var(--bg);border-left:1px solid var(--border2);
+  box-shadow:-12px 0 36px rgba(0,0,0,.22);z-index:580;transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column}
+.cases-panel.open{transform:translateX(0)}
+.cases-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--snow)}
+.cases-hdr h2{font-size:15px}
+.cases-filter{display:flex;gap:6px;padding:10px 16px 4px}
+.cases-list{overflow-y:auto;flex:1;padding:8px 16px 16px}
+.case-card{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;background:var(--bg2);transition:border-color .12s}
+.case-card:hover{border-color:var(--pine)}
+.case-card .cc-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.case-card .cc-title{font-weight:600;font-size:13px}
+.case-pill{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;text-transform:uppercase}
+.pill-open{background:rgba(200,90,58,.12);color:var(--red)}
+.pill-investigating{background:rgba(200,122,58,.14);color:var(--orange)}
+.pill-closed{background:rgba(61,122,53,.12);color:var(--pine)}
+.pill-low{background:rgba(123,168,196,.15);color:var(--slate)}
+.pill-medium{background:rgba(131,212,180,.18);color:var(--peak)}
+.pill-high{background:rgba(200,122,58,.15);color:var(--orange)}
+.pill-critical{background:rgba(200,90,58,.16);color:var(--red)}
+.case-meta{font-size:10px;color:var(--muted);margin-top:4px;display:flex;gap:10px;flex-wrap:wrap}
+.case-detail-back{cursor:pointer;color:var(--pine);font-size:12px}
+.tl-item{font-size:11px;padding:5px 0 5px 14px;border-left:2px solid var(--border2);position:relative;margin-left:4px}
+.tl-item:before{content:'';position:absolute;left:-4px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--pine)}
+.tl-item .tl-when{color:var(--muted);font-size:10px}
+.mini-btn{font-size:11px;padding:4px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg2);color:var(--text);cursor:pointer}
+.mini-btn:hover{border-color:var(--pine)}
+.mini-btn.primary{background:var(--pine);color:#fff;border-color:var(--pine)}
+.field-lbl{font-size:10px;text-transform:uppercase;color:var(--text3);margin:8px 0 3px}
+.field-in{width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px}
+.ip-clickable{cursor:pointer}
+.ip-clickable:hover{background:var(--bg3)}
+/* AI analysis modal sections — readable, spaced, bold titles */
+.modal-section{margin-bottom:20px}
+.modal-section:last-of-type{margin-bottom:0}
+.modal-section-title{font-weight:700;font-size:13px;color:var(--forest);margin-bottom:6px;letter-spacing:.01em}
+.modal-section p{margin:0;font-size:13px;line-height:1.65;color:var(--text2)}
+@media(max-width:560px){.hdr-search input{width:150px!important}.seg{display:none}}
 </style>
 </head>
 <body>
@@ -393,7 +471,23 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
   </div>
   <div class="header-right">
+    <div class="hdr-search" style="position:relative">
+      <input id="global-search" type="text" placeholder="Search IP, credential, command…"
+             autocomplete="off" aria-label="Global search"
+             oninput="onSearchInput()" onkeydown="if(event.key==='Enter')runSearch();if(event.key==='Escape')clearSearch()"
+             style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 28px 6px 10px;font-size:12px;width:230px">
+      <span id="search-clear" onclick="clearSearch()" title="Clear search"
+            style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:14px">×</span>
+    </div>
+    <div class="seg" id="search-seg" role="group" aria-label="Search field">
+      <button class="seg-btn active" data-st="ip"   onclick="setSearchType('ip',this)">IP</button>
+      <button class="seg-btn"        data-st="cred" onclick="setSearchType('cred',this)">Cred</button>
+      <button class="seg-btn"        data-st="cmd"  onclick="setSearchType('cmd',this)">Cmd</button>
+    </div>
     <span id="refresh-time" class="badge badge-g">Loading...</span>
+    <button class="icon-btn" id="cases-btn" onclick="toggleCasesPanel()" title="Incident cases">
+      🗂 Cases <span id="cases-count-badge" class="hp-tab-badge"></span>
+    </button>
     <select id="win-sel" onchange="setWindow(this.value)" aria-label="Time window selector">
       <option value="60">Last hour</option>
       <option value="360">Last 6 hours</option>
@@ -403,8 +497,52 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
       <option value="129600">Last 90 days</option>
     </select>
     <button class="icon-btn" id="refresh-btn" onclick="manualRefresh()">⟳ Refresh Data</button>
+    <div style="position:relative;display:inline-block">
+      <button class="icon-btn" id="export-btn" onclick="toggleExportMenu()" aria-haspopup="true" aria-expanded="false">⬇ Export</button>
+      <div id="export-menu" role="menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);z-index:300;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:180px;padding:4px">
+        <button class="export-item" role="menuitem" onclick="doExport('json','full')">Full findings (JSON)</button>
+        <button class="export-item" role="menuitem" onclick="doExport('csv','ips')">Attacker IPs (CSV)</button>
+        <button class="export-item" role="menuitem" onclick="doExport('csv','credentials')">Credentials (CSV)</button>
+        <button class="export-item" role="menuitem" onclick="doExport('csv','botnets')">Botnets (CSV)</button>
+        <button class="export-item" role="menuitem" onclick="exportCases()">Incident cases (CSV)</button>
+      </div>
+    </div>
   </div>
 </header>
+
+<!-- ===== Alert Details Drawer ===== -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+<aside class="drawer" id="alert-drawer" role="dialog" aria-label="Alert details" aria-modal="true">
+  <div class="drawer-hdr">
+    <div>
+      <h2 id="dw-ip">—</h2>
+      <div id="dw-geo" style="font-size:11px;color:var(--text3);margin-top:2px"></div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">×</button>
+  </div>
+  <div class="drawer-body" id="dw-body">
+    <div style="color:var(--muted);font-size:12px">Loading…</div>
+  </div>
+</aside>
+
+<!-- ===== Cases Sidebar ===== -->
+<aside class="cases-panel" id="cases-panel" role="complementary" aria-label="Incident cases">
+  <div class="cases-hdr">
+    <h2>🗂 Incident Cases</h2>
+    <button class="drawer-close" onclick="toggleCasesPanel(false)" aria-label="Close">×</button>
+  </div>
+  <div class="cases-filter" id="cases-filter">
+    <button class="seg-btn active" data-cf="" onclick="setCaseFilter('',this)">All</button>
+    <button class="seg-btn" data-cf="open" onclick="setCaseFilter('open',this)">Open</button>
+    <button class="seg-btn" data-cf="investigating" onclick="setCaseFilter('investigating',this)">Investigating</button>
+    <button class="seg-btn" data-cf="closed" onclick="setCaseFilter('closed',this)">Closed</button>
+    <button class="mini-btn" style="margin-left:auto" onclick="exportCases()">⬇ CSV</button>
+  </div>
+  <div class="cases-list" id="cases-list">
+    <div style="color:var(--muted);font-size:12px;padding:8px 0">Loading cases…</div>
+  </div>
+</aside>
+
 
 <div class="main" role="main" aria-label="SOC Dashboard">
   <div class="refresh-banner" id="refresh-banner"><span>⟳</span><span id="refresh-msg"></span></div>
@@ -593,7 +731,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
     <div class="panel">
       <div class="panel-hdr">
-        <span class="panel-title">Credential Intelligence</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Success% = logins that resulted in a successful unauthorized login. 100% = confirmed compromise. 0% = all blocked.">success = actual login ⓘ</span>
+        <span class="panel-title">Credential Intelligence</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="The per-credential SUCCESS% column = share of attempts with that exact user/pass pair that resulted in a successful login. 100% = that credential always works (confirmed valid). The header Success rate = overall successful logins ÷ all attempts.">success = actual login ⓘ</span>
         <span class="panel-meta" id="cred-intel-meta"></span>
       </div>
       <div class="cred-intel-stats" id="cred-intel-stats"></div>
@@ -652,10 +790,10 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
 
     <!-- Tab switcher -->
-    <div class="hp-tabs">
-      <div class="hp-tab active" id="tab-dionaea"  onclick="switchHpTab('dionaea')">⚠ Dionaea Malware Capture</div>
-      <div class="hp-tab"        id="tab-nginx"    onclick="switchHpTab('nginx')">🌐 nginx Web Honeypot</div>
-      <div class="hp-tab"        id="tab-cross"    onclick="switchHpTab('cross')">◈ Cross-Honeypot Attackers</div>
+    <div class="hp-tabs" role="tablist" aria-label="Honeypot selection">
+      <div class="hp-tab active" id="tab-dionaea"  role="tab" aria-selected="true"  tabindex="0" onclick="switchHpTab('dionaea')" onkeydown="if(event.key==='Enter'||event.key===' ')switchHpTab('dionaea')">⚠ Dionaea Malware Capture <span id="tab-dionaea-badge" class="hp-tab-badge"></span></div>
+      <div class="hp-tab"        id="tab-nginx"    role="tab" aria-selected="false" tabindex="0" onclick="switchHpTab('nginx')"   onkeydown="if(event.key==='Enter'||event.key===' ')switchHpTab('nginx')">🌐 nginx Web Honeypot <span id="tab-nginx-badge" class="hp-tab-badge"></span></div>
+      <div class="hp-tab"        id="tab-cross"    role="tab" aria-selected="false" tabindex="0" onclick="switchHpTab('cross')"   onkeydown="if(event.key==='Enter'||event.key===' ')switchHpTab('cross')">◈ Cross-Honeypot Attackers</div>
     </div>
 
     <!-- ── DIONAEA PANE ─────────────────────────────── -->
@@ -763,9 +901,9 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
         <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px">Web Request Timeline</div>
         <canvas id="ngx-tl-canvas"></canvas>
         <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
-          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#4a7c59;border-radius:2px;display:inline-block"></span>2xx Success</span>
-          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#8B5E3C;border-radius:2px;display:inline-block"></span>4xx Probe</span>
-          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#c85a3a;border-radius:2px;display:inline-block"></span>5xx Error</span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#4a7c59;border-radius:2px;display:inline-block"></span>2xx Success <strong id="ngx-leg-2xx" style="color:var(--text2)">—</strong></span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#8B5E3C;border-radius:2px;display:inline-block"></span>4xx Probe <strong id="ngx-leg-4xx" style="color:var(--text2)">—</strong></span>
+          <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#c85a3a;border-radius:2px;display:inline-block"></span>5xx Error <strong id="ngx-leg-5xx" style="color:var(--text2)">—</strong></span>
         </div>
       </div>
 
@@ -862,7 +1000,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
 
 <!-- Botnet Analysis Modal -->
 <!-- Spike Detail Modal -->
-<div id="spike-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+<div id="spike-modal" role="dialog" aria-modal="true" aria-label="Alert spike detail" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;max-width:680px;width:92%;max-height:82vh;overflow-y:auto;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.25)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div>
@@ -875,7 +1013,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   </div>
 </div>
 
-<div id="botnet-modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center">
+<div id="botnet-modal" role="dialog" aria-modal="true" aria-label="Botnet campaign analysis" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center">
   <div style="background:var(--bg2);border:1px solid var(--purple);border-radius:10px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;position:relative">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-size:14px;font-weight:600;color:var(--purple)" id="modal-title">Botnet Analysis</div>
@@ -892,6 +1030,11 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <span style="color:var(--border)">│</span><span>GeoIP: <span id="sb-geoip">—</span> IPs cached</span>
   <span style="color:var(--border)">│</span><span>Last refresh: <span id="sb-refresh">—</span></span>
   <span style="color:var(--border)">│</span><span>Alerts in window: <span id="sb-alerts">—</span></span>
+  <span style="color:var(--border)">│</span><span style="display:flex;align-items:center;gap:8px">Honeypots:
+    <span style="display:flex;align-items:center;gap:3px" title="Cowrie SSH/Telnet"><span id="sb-hp-cowrie" style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block"></span>SSH<span id="sb-hp-cowrie-n" style="color:var(--text3)"></span></span>
+    <span style="display:flex;align-items:center;gap:3px" title="Dionaea malware capture"><span id="sb-hp-dionaea" style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block"></span>Dio<span id="sb-hp-dionaea-n" style="color:var(--text3)"></span></span>
+    <span style="display:flex;align-items:center;gap:3px" title="nginx web honeypot"><span id="sb-hp-nginx" style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block"></span>web<span id="sb-hp-nginx-n" style="color:var(--text3)"></span></span>
+  </span>
   <span id="sb-error" style="color:#8a3030;display:none;margin-left:6px"></span>
   <span style="margin-left:auto;opacity:.4">wazuh-soc-pipeline · CMU MSISPM Portfolio · Tyce Erickson · DigitalOcean NYC1 · llama3.1:8b on RTX 4070</span>
 </div>
@@ -1016,6 +1159,32 @@ async function checkHealth(){
   }
 }
 
+/** Poll /api/honeypot_health and update the three honeypot status dots. */
+async function checkHoneypotHealth(){
+  try{
+    const r = await fetch('/api/honeypot_health');
+    const d = await r.json();
+    const setDot = (id, info) => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      // healthy (event in last hour) = green, idle = amber, error = red
+      const status = info && info.status;
+      let color = 'var(--muted)';
+      if(status === 'healthy') color = 'var(--forest,#4a7c59)';
+      else if(status === 'idle') color = 'var(--yellow,#b89050)';
+      else if(status === 'error') color = 'var(--red,#8a3030)';
+      el.style.background = color;
+      const cnt = info && info.events_1h != null ? info.events_1h : 0;
+      el.parentElement.title = `${info && info.status || 'unknown'} · ${cnt} events in last hour`;
+      const nEl = document.getElementById(id + '-n');
+      if(nEl) nEl.textContent = cnt ? ` ${cnt>999?(cnt/1000).toFixed(1)+'k':cnt}` : '';
+    };
+    setDot('sb-hp-cowrie',  d.cowrie);
+    setDot('sb-hp-dionaea', d.dionaea);
+    setDot('sb-hp-nginx',   d.nginx);
+  } catch(e) { /* leave dots grey on failure */ }
+}
+
 function updateRefreshTime(){
   const el = document.getElementById('sb-refresh');
   if(!el || !_lastRefreshTs) return;
@@ -1077,7 +1246,26 @@ async function loadIntelPanels(){
   renderSessions(sess);
   renderBotnets(bots);
   renderCredIntel(credIntel);
-  loadHoneypotPanels();
+  ensureHoneypotsLoaded();
+}
+
+// Lazy-load honeypot panels only when the section first scrolls into view,
+// reducing initial page load. Falls back to immediate load if no observer.
+let _hpLoaded = false;
+function ensureHoneypotsLoaded(){
+  if(_hpLoaded) { loadHoneypotPanels(); return; }  // refresh if already loaded
+  const panel = document.getElementById('hp-panel');
+  if(!panel || !('IntersectionObserver' in window)){
+    _hpLoaded = true; loadHoneypotPanels(); return;
+  }
+  const obs = new IntersectionObserver((entries) => {
+    if(entries.some(e => e.isIntersecting)){
+      _hpLoaded = true;
+      loadHoneypotPanels();
+      obs.disconnect();
+    }
+  }, {rootMargin: '200px'});
+  obs.observe(panel);
 }
 
 /** @param {Object} d - Stats API response with severity counts, timeline, IPs */
@@ -1097,6 +1285,7 @@ function renderStats(d){
 
   renderBars('countries-chart',d.countries||{},'#4a7c59','countries');
   renderBars('events-chart',d.event_types||{},'#7BC9FF','events');
+  window._lastTopIps = d.top_ips||[];
   renderIPTable(d.top_ips||[]);
   renderMITRE(d.mitre_panel||[],d.mitre_tactics||{});
   renderGeoMap(d.top_ips||[]);
@@ -1507,12 +1696,13 @@ function renderAttackerIntel(d){
     const topCmd = (a.allCmds&&a.allCmds[0])||'';
     const credCount = a.creds.size;
 
-    return `<div class="attacker-row" style="padding:10px 12px;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;background:var(--bg2)">
+    return `<div class="attacker-row" data-ip="${a.ip}" style="padding:10px 12px;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;background:var(--bg2)">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="toggleAttacker(this)">
         <div style="font-family:monospace;font-size:12px;font-weight:600;color:var(--forest);min-width:130px">${a.ip}</div>
         <div style="flex:1;font-size:11px;color:var(--text3)">${a.country}${a.org?' · '+a.org:''}</div>
         <div style="display:flex;gap:4px;align-items:center">${badges}</div>
         <div style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:4px;background:${LEVEL_COLOR(a.maxLevel)}22;color:${LEVEL_COLOR(a.maxLevel)};border:1px solid ${LEVEL_COLOR(a.maxLevel)}44;white-space:nowrap">${LEVEL_LABEL(a.maxLevel)}</div>
+        <div class="mini-btn" style="padding:2px 7px;font-size:11px" onclick="event.stopPropagation();openDrawer('${a.ip}')" title="Open full context drawer">🔍</div>
         <div style="font-size:16px;color:var(--text3);margin-left:4px">▶</div>
       </div>
       <div class="attacker-detail" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
@@ -1806,11 +1996,15 @@ function showCopied(row){
 function renderCredIntel(d){
   const creds = d.top_creds||[];
   document.getElementById('cred-intel-meta').textContent = `${fmt(d.unique_creds||0)} unique`;
+  const _failed = d.total_attempts||0;
+  const _success = d.total_successes||0;
+  const _totalTries = _failed + _success;
+  const _rate = _totalTries>0 ? (_success/_totalTries*100).toFixed(1) : 0;
   document.getElementById('cred-intel-stats').innerHTML = `
-    <div class="ci-stat"><div class="ci-stat-val">${fmt(d.total_attempts||0)}</div><div class="ci-stat-lbl">Failed</div></div>
-    <div class="ci-stat"><div class="ci-stat-val" style="color:var(--red)">${fmt(d.total_successes||0)}</div><div class="ci-stat-lbl">Success</div></div>
+    <div class="ci-stat"><div class="ci-stat-val">${fmt(_failed)}</div><div class="ci-stat-lbl">Failed</div></div>
+    <div class="ci-stat"><div class="ci-stat-val" style="color:var(--red)">${fmt(_success)}</div><div class="ci-stat-lbl">Success</div></div>
     <div class="ci-stat"><div class="ci-stat-val">${fmt(d.unique_creds||0)}</div><div class="ci-stat-lbl">Unique</div></div>
-    <div class="ci-stat"><div class="ci-stat-val">${d.total_attempts>0?((d.total_successes/d.total_attempts)*100).toFixed(1):0}%</div><div class="ci-stat-lbl">Rate</div></div>`;
+    <div class="ci-stat" title="Successful logins as a share of all login attempts (success ÷ [success + failed]). Higher = more attempts landed on valid credentials."><div class="ci-stat-val">${_rate}%</div><div class="ci-stat-lbl" style="cursor:help">Success rate ⓘ</div></div>`;
   document.getElementById('cred-intel-tb').innerHTML = creds.slice(0,15).map(c=>`
     <tr>
       <td style="font-family:monospace;font-size:11px;color:var(--text2)">${c.cred}${c.coordinated?'<span class="coord-badge">botnet</span>':''}</td>
@@ -2009,7 +2203,7 @@ function toggleBarSort(key){barSortAsc[key]=!barSortAsc[key];loadStats();}
 function renderIPTable(ips){
   document.getElementById('ips-tb').innerHTML=ips
     .sort((a,b)=>b.count-a.count)
-    .map(ip=>`<tr data-ip="${ip.ip}" data-country="${ip.country||''}" data-count="${ip.count}">
+    .map(ip=>`<tr class="ip-clickable" data-ip="${ip.ip}" data-country="${ip.country||''}" data-count="${ip.count}" onclick="openDrawer('${ip.ip}')" title="Click for full context">
       <td><div style="font-family:monospace;font-size:11px;color:var(--forest)">${ip.ip}</div><div class="dim">${ip.org||''}</div></td>
       <td style="color:${ip.country?'var(--text2)':'var(--muted)'}" title="${ip.country?ip.country:'GeoIP pending — resolves within 1 hour'}">${ip.country||'<span style="font-size:10px;font-style:italic">resolving...</span>'}</td>
       <td class="num" style="min-width:70px;white-space:nowrap">${ip.count.toLocaleString()}</td>
@@ -2200,7 +2394,7 @@ async function analyzeBotnet(name, count, uniqueIps){
       body: JSON.stringify({name, count, unique_ips: uniqueIps})
     });
     const d = await r.json();
-    _bCache[ck]={d,ts:Date.now()};
+    _bCache[ck]={d,ts:Date.now()}; lruEvict(_bCache,20);
     renderBotnetResult(body,d,count,uniqueIps);
   }catch(e){
     if(e.name==='AbortError')return;
@@ -2320,13 +2514,79 @@ window.addEventListener('load',()=>{
   } catch(e) {}
   loadStats();loadTriage();loadIntelPanels();
   checkHealth();
+  checkHoneypotHealth();
+  loadPlaybooks();
+  loadCases();
+  restoreHpTab();
   setInterval(loadStats, 60000);
   setInterval(loadIntelPanels, 300000);
   setInterval(checkHealth, 30000);
+  setInterval(checkHoneypotHealth, 60000);
   setInterval(updateRefreshTime, 10000);
   setInterval(()=>apiFetch('/api/velocity').then(r=>r.json()).then(renderVelocity), 30000);
   window.addEventListener('resize', drawTimeline);
+  // Close any open modal/drawer/panel on Escape
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape'){
+      ['spike-modal','botnet-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if(m && m.style.display !== 'none') m.style.display = 'none';
+      });
+      const em = document.getElementById('export-menu');
+      if(em) em.style.display = 'none';
+      if(document.getElementById('alert-drawer').classList.contains('open')) closeDrawer();
+      else if(document.getElementById('cases-panel').classList.contains('open')) toggleCasesPanel(false);
+    }
+  });
+  // Click outside cases panel closes it (drawer handles its own overlay)
+  document.addEventListener('click', e => {
+    const p = document.getElementById('cases-panel');
+    const btn = document.getElementById('cases-btn');
+    if(p.classList.contains('open') && !p.contains(e.target) && btn && !btn.contains(e.target)
+       && !document.getElementById('alert-drawer').contains(e.target)
+       && !document.getElementById('drawer-overlay').classList.contains('open')){
+      // only if click is on the dimmed dashboard, not inside a drawer
+      if(!e.target.closest('.drawer')) toggleCasesPanel(false);
+    }
+  });
 });
+
+
+// ===== Export =====
+function toggleExportMenu(){
+  const m = document.getElementById('export-menu');
+  const btn = document.getElementById('export-btn');
+  const show = m.style.display === 'none';
+  m.style.display = show ? 'block' : 'none';
+  btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+}
+document.addEventListener('click', e => {
+  const m = document.getElementById('export-menu');
+  const btn = document.getElementById('export-btn');
+  if(m && btn && !m.contains(e.target) && e.target !== btn){
+    m.style.display = 'none'; btn.setAttribute('aria-expanded','false');
+  }
+});
+function doExport(format, type){
+  const mins = currentWindow || 1440;
+  const url = `/api/export?format=${format}&type=${type}&minutes=${mins}`;
+  // Trigger browser download
+  const a = document.createElement('a');
+  a.href = url; a.download = '';
+  document.body.appendChild(a); a.click(); a.remove();
+  const m = document.getElementById('export-menu');
+  if(m) m.style.display = 'none';
+}
+
+/** Evict oldest entries from a cache object, keeping at most `max`. */
+function lruEvict(cache, max){
+  const keys = Object.keys(cache);
+  if(keys.length <= max) return;
+  keys.map(k => ({k, ts: cache[k].ts || 0}))
+      .sort((a,b) => a.ts - b.ts)
+      .slice(0, keys.length - max)
+      .forEach(e => { delete cache[e.k]; });
+}
 
 
 // ===== Multi-Honeypot Intelligence =====
@@ -2357,9 +2617,13 @@ function setHpWindow(w) {
 
 function switchHpTab(tab) {
   _hpActiveTab = tab;
+  try { localStorage.setItem('soc_hp_tab', tab); } catch(e) {}
   ['dionaea','nginx','cross'].forEach(t => {
-    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
-    document.getElementById(`pane-${t}`).classList.toggle('active', t === tab);
+    const tabEl = document.getElementById(`tab-${t}`);
+    const isActive = t === tab;
+    tabEl.classList.toggle('active', isActive);
+    tabEl.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    document.getElementById(`pane-${t}`).classList.toggle('active', isActive);
   });
 }
 
@@ -2371,6 +2635,22 @@ async function loadHoneypotPanels() {
     renderDionaea(d.dionaea || {});
     renderNginx(d.nginx || {});
     renderCross(d.dionaea || {}, d.nginx || {});
+    // Update tab badge counts
+    const dBadge = document.getElementById('tab-dionaea-badge');
+    const nBadge = document.getElementById('tab-nginx-badge');
+    if(dBadge) dBadge.textContent = (d.dionaea && d.dionaea.total) ? `(${fmt(d.dionaea.total)})` : '';
+    if(nBadge) nBadge.textContent = (d.nginx && d.nginx.total) ? `(${fmt(d.nginx.total)})` : '';
+    // Cross-honeypot badge = count of IPs seen in both
+    try{
+      const dioIps = new Set((d.dionaea?.top_ips||[]).map(x=>x.ip));
+      const both = (d.nginx?.top_ips||[]).filter(x=>dioIps.has(x.ip)).length;
+      let cBadge = document.getElementById('tab-cross-badge');
+      if(!cBadge){
+        const cTab = document.getElementById('tab-cross');
+        if(cTab){ cBadge=document.createElement('span'); cBadge.id='tab-cross-badge'; cBadge.className='hp-tab-badge'; cTab.appendChild(cBadge); }
+      }
+      if(cBadge) cBadge.textContent = both ? `(${both})` : '';
+    }catch(e){}
     document.getElementById('hp-meta').textContent =
       `${_hpWindow === 1440 ? '24h' : _hpWindow === 10080 ? '7d' : '30d'} window`;
   } catch(e) {
@@ -2516,6 +2796,15 @@ function renderNginx(d) {
   }).join('');
 
   // Timeline
+  // Populate timeline legend with totals across the window
+  const tl = d.timeline || [];
+  const sum2xx = tl.reduce((a,p) => a + (p['2xx']||0), 0);
+  const sum4xx = tl.reduce((a,p) => a + (p['4xx']||0), 0);
+  const sum5xx = tl.reduce((a,p) => a + (p['5xx']||0), 0);
+  const e2 = document.getElementById('ngx-leg-2xx'); if (e2) e2.textContent = fmt(sum2xx);
+  const e4 = document.getElementById('ngx-leg-4xx'); if (e4) e4.textContent = fmt(sum4xx);
+  const e5 = document.getElementById('ngx-leg-5xx'); if (e5) e5.textContent = fmt(sum5xx);
+
   drawNgxTimeline('ngx-tl-canvas', d.timeline || []);
 }
 
@@ -2525,146 +2814,208 @@ function renderCross(dio, ngx) {
   const ngxIps = new Map((ngx.top_ips||[]).map(x => [x.ip, {count: x.count, country: x.country, org: x.org}]));
   const crossEl = document.getElementById('cross-list');
 
-  // Find IPs in BOTH honeypots
-  const overlap = [];
-  for (const [ip, dioInfo] of dioIps) {
-    if (ngxIps.has(ip)) {
-      const ngxInfo = ngxIps.get(ip);
-      overlap.push({
-        ip,
-        country: dioInfo.country || ngxInfo.country,
-        org:     dioInfo.org || ngxInfo.org,
-        dioCount: dioInfo.count,
-        ngxCount: ngxInfo.count,
-        total: dioInfo.count + ngxInfo.count,
-      });
-    }
+  // Pull Cowrie top IPs from the main stats if available (3-way correlation)
+  const cowIps = new Map();
+  if (window._lastTopIps && Array.isArray(window._lastTopIps)) {
+    window._lastTopIps.forEach(x => cowIps.set(x.ip, {count: x.count, country: x.country, org: x.org}));
   }
-  overlap.sort((a,b) => b.total - a.total);
 
-  if (overlap.length === 0) {
+  // Union of all IPs that appear in 2+ honeypots
+  const allIps = new Set([...dioIps.keys(), ...ngxIps.keys(), ...cowIps.keys()]);
+  const rows = [];
+  for (const ip of allIps) {
+    const d = dioIps.get(ip), n = ngxIps.get(ip), c = cowIps.get(ip);
+    const hpCount = (d?1:0) + (n?1:0) + (c?1:0);
+    if (hpCount < 2) continue;  // only multi-honeypot attackers
+    rows.push({
+      ip,
+      country: (d?.country) || (n?.country) || (c?.country) || '',
+      org:     (d?.org) || (n?.org) || (c?.org) || '',
+      cow: c?.count || 0,
+      dio: d?.count || 0,
+      ngx: n?.count || 0,
+      hpCount,
+      total: (d?.count||0) + (n?.count||0) + (c?.count||0),
+    });
+  }
+  rows.sort((a,b) => b.hpCount - a.hpCount || b.total - a.total);
+
+  if (rows.length === 0) {
     crossEl.innerHTML = `
       <div style="text-align:center;padding:24px;color:var(--text3)">
         <div style="font-size:24px;margin-bottom:8px">◈</div>
         <div>No IPs found attacking multiple honeypots in this window.</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Try expanding the time window.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Try expanding the time window — Dionaea data accumulates over time.</div>
       </div>`;
     return;
   }
 
+  // Max count for cell intensity scaling
+  const maxCell = Math.max(1, ...rows.flatMap(r => [r.cow, r.dio, r.ngx]));
+  const cell = (count, color) => {
+    if (!count) return `<td style="text-align:center;color:var(--border)">·</td>`;
+    const intensity = 0.15 + 0.85 * (count / maxCell);
+    return `<td style="text-align:center;background:${color};opacity:${intensity.toFixed(2)};color:#fff;font-weight:600;border-radius:3px" title="${fmt(count)} alerts">${fmt(count)}</td>`;
+  };
+
   crossEl.innerHTML = `
-    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">${overlap.length} IPs seen attacking <strong>both</strong> Dionaea and nginx:</div>
-    ${overlap.slice(0, 20).map(x => `
-      <div class="cross-row">
-        <span class="cross-ip">${x.ip}</span>
-        <span style="font-size:11px;color:var(--text3);min-width:90px">${x.country || '—'}</span>
-        <div class="cross-badges">
-          <span class="svc-badge smb" style="font-size:10px">Dionaea ×${fmt(x.dioCount)}</span>
-          <span class="svc-badge http" style="font-size:10px">nginx ×${fmt(x.ngxCount)}</span>
-        </div>
-        <span class="cross-count">Total: ${fmt(x.total)}</span>
-      </div>`).join('')}
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${rows.length} IPs attacking <strong>2+ honeypots</strong> — sorted by breadth then volume. Cell intensity = alert count.</div>
+    <div class="scroll" style="max-height:320px">
+      <table class="dtable" role="table" aria-label="Cross-honeypot attacker correlation matrix">
+        <thead><tr>
+          <th>IP</th>
+          <th>Country</th>
+          <th class="num cross-col" title="Cowrie SSH/Telnet">SSH</th>
+          <th class="num cross-col" title="Dionaea malware capture">Dionaea</th>
+          <th class="num cross-col" title="nginx web honeypot">nginx</th>
+          <th class="num cross-col">Vectors</th>
+        </tr></thead>
+        <tbody>
+          ${rows.slice(0, 30).map(r => `
+            <tr class="cross-tr ip-clickable" data-ip="${r.ip}" title="${escHtml(r.org)} — click for full context" onclick="openDrawer('${r.ip}')">
+              <td><span class="hash-mono">${r.ip}</span></td>
+              <td style="font-size:11px;color:var(--text3)">${r.country || '—'}</td>
+              ${cell(r.cow, '#8B5E3C')}
+              ${cell(r.dio, '#c85a3a')}
+              ${cell(r.ngx, '#4a7c59')}
+              <td class="num" style="font-weight:700;color:${r.hpCount===3?'var(--red)':'var(--bark)'}">${r.hpCount}/3</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-      These IPs are running multi-vector reconnaissance — probing both service exploits and web vulnerabilities simultaneously.
+      IPs hitting all 3 honeypots (3/3) are running coordinated multi-vector campaigns — service exploits, web probes, and SSH brute force from one source. These are your highest-priority threat actors.
     </div>`;
 }
 
 // ── Timeline canvas renderers ─────────────────────────────────────────────
+function _setupHiDPICanvas(canvas, cssH){
+  const W = Math.max(canvas.offsetWidth || canvas.parentElement?.offsetWidth || 600, 200);
+  const H = cssH;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return {ctx, W, H};
+}
+
 function drawHpTimeline(canvasId, timeline, services, colorFn) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || !timeline.length) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.offsetWidth || 600;
-  const H = 120;
-  canvas.width = W; canvas.height = H;
-  const pad = {t:8, r:8, b:24, l:40};
-  const cw = W - pad.l - pad.r;
-  const ch = H - pad.t - pad.b;
-
-  ctx.clearRect(0, 0, W, H);
-
-  const totals = timeline.map(p => p.total || 0);
-  const maxV = Math.max(1, ...totals);
-  const n = timeline.length;
-  if (!n) return;
-
-  const barW = Math.max(1, cw / n - 1);
-  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg3').trim() || '#dde1d8';
-
-  // Draw stacked bars by service
-  for (let i = 0; i < n; i++) {
-    const pt = timeline[i];
-    const x = pad.l + i * (cw / n);
-    let yOff = 0;
-    const svcsInPt = services.length ? services : Object.keys(pt).filter(k => !['ts','time','total'].includes(k));
-    for (const svc of svcsInPt) {
-      const v = pt[svc] || 0;
-      if (!v) continue;
-      const barH = (v / maxV) * ch;
-      ctx.fillStyle = colorFn(svc);
-      ctx.fillRect(x, pad.t + ch - yOff - barH, barW, barH);
-      yOff += barH;
-    }
-    // If no service breakdown, just use total
-    if (yOff === 0 && pt.total) {
-      const barH = (pt.total / maxV) * ch;
-      ctx.fillStyle = '#4a7c59';
-      ctx.fillRect(x, pad.t + ch - barH, barW, barH);
-    }
-  }
-
-  // Y axis
-  ctx.fillStyle = '#8a9882';
-  ctx.font = '9px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(fmt(maxV), pad.l - 3, pad.t + 8);
-  ctx.fillText('0', pad.l - 3, pad.t + ch);
-
-  // X axis ticks (first and last)
-  ctx.textAlign = 'left';
-  if (timeline[0]?.time)   ctx.fillText(timeline[0].time.slice(5,16),   pad.l,     H - 4);
-  if (timeline[n-1]?.time) { ctx.textAlign='right'; ctx.fillText(timeline[n-1].time.slice(5,16), W - pad.r, H - 4); }
-}
-
-function drawNgxTimeline(canvasId, timeline) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas || !timeline.length) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.offsetWidth || 600;
-  const H = 120;
-  canvas.width = W; canvas.height = H;
-  const pad = {t:8, r:8, b:24, l:40};
+  const {ctx, W, H} = _setupHiDPICanvas(canvas, 120);
+  const pad = {t:10, r:12, b:26, l:46};
   const cw = W - pad.l - pad.r;
   const ch = H - pad.t - pad.b;
   ctx.clearRect(0, 0, W, H);
 
   const maxV = Math.max(1, ...timeline.map(p => p.total || 0));
   const n = timeline.length;
-  const barW = Math.max(1, cw / n - 1);
-  const STATUS_COLORS = {'2xx':'#4a7c59','4xx':'#8B5E3C','5xx':'#c85a3a'};
+  if (!n) return;
+
+  // gridlines + y labels (0, mid, max)
+  ctx.strokeStyle = 'rgba(138,152,130,.22)';
+  ctx.fillStyle = '#8a9882';
+  ctx.font = '9px monospace';
+  ctx.lineWidth = 1;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  [0, 0.5, 1].forEach(f => {
+    const y = pad.t + ch - f * ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y + 0.5); ctx.lineTo(W - pad.r, y + 0.5); ctx.stroke();
+    ctx.fillText(fmt(Math.round(maxV * f)), pad.l - 5, y);
+  });
+
+  // slot geometry: evenly spaced, bar centered in slot with a small gap
+  const slot = cw / n;
+  const barW = Math.max(2, Math.min(slot * 0.7, 28));
+  const svcList = services && services.length ? services : null;
 
   for (let i = 0; i < n; i++) {
     const pt = timeline[i];
-    const x = pad.l + i * (cw / n);
+    const x = pad.l + i * slot + (slot - barW) / 2;
+    let yOff = 0;
+    const svcsInPt = svcList || Object.keys(pt).filter(k => !['ts','time','total'].includes(k));
+    let drewStack = false;
+    for (const svc of svcsInPt) {
+      const v = pt[svc] || 0;
+      if (!v) continue;
+      const barH = Math.max(1, (v / maxV) * ch);
+      ctx.fillStyle = colorFn(svc);
+      ctx.fillRect(x, pad.t + ch - yOff - barH, barW, barH);
+      yOff += barH;
+      drewStack = true;
+    }
+    if (!drewStack && pt.total) {
+      const barH = Math.max(1, (pt.total / maxV) * ch);
+      ctx.fillStyle = '#4a7c59';
+      ctx.fillRect(x, pad.t + ch - barH, barW, barH);
+    }
+  }
+
+  // baseline
+  ctx.strokeStyle = 'rgba(138,152,130,.5)';
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t + ch + 0.5); ctx.lineTo(W - pad.r, pad.t + ch + 0.5); ctx.stroke();
+
+  // x labels (first / last)
+  ctx.fillStyle = '#8a9882';
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  if (timeline[0]?.time)   ctx.fillText(timeline[0].time.slice(5,16).replace('T',' '), pad.l, H - 6);
+  if (n > 1 && timeline[n-1]?.time) { ctx.textAlign='right'; ctx.fillText(timeline[n-1].time.slice(5,16).replace('T',' '), W - pad.r, H - 6); }
+}
+
+function drawNgxTimeline(canvasId, timeline) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || !timeline.length) return;
+  const {ctx, W, H} = _setupHiDPICanvas(canvas, 120);
+  const pad = {t:10, r:12, b:26, l:46};
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+  ctx.clearRect(0, 0, W, H);
+
+  const maxV = Math.max(1, ...timeline.map(p => p.total || 0));
+  const n = timeline.length;
+  const STATUS_COLORS = {'2xx':'#4a7c59','4xx':'#8B5E3C','5xx':'#c85a3a'};
+
+  ctx.strokeStyle = 'rgba(138,152,130,.22)';
+  ctx.fillStyle = '#8a9882';
+  ctx.font = '9px monospace';
+  ctx.lineWidth = 1;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  [0, 0.5, 1].forEach(f => {
+    const y = pad.t + ch - f * ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y + 0.5); ctx.lineTo(W - pad.r, y + 0.5); ctx.stroke();
+    ctx.fillText(fmt(Math.round(maxV * f)), pad.l - 5, y);
+  });
+
+  const slot = cw / n;
+  const barW = Math.max(2, Math.min(slot * 0.7, 28));
+  for (let i = 0; i < n; i++) {
+    const pt = timeline[i];
+    const x = pad.l + i * slot + (slot - barW) / 2;
     let yOff = 0;
     for (const cls of ['5xx','4xx','2xx']) {
       const v = pt[cls] || 0;
       if (!v) continue;
-      const barH = (v / maxV) * ch;
+      const barH = Math.max(1, (v / maxV) * ch);
       ctx.fillStyle = STATUS_COLORS[cls];
       ctx.fillRect(x, pad.t + ch - yOff - barH, barW, barH);
       yOff += barH;
     }
   }
 
+  ctx.strokeStyle = 'rgba(138,152,130,.5)';
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t + ch + 0.5); ctx.lineTo(W - pad.r, pad.t + ch + 0.5); ctx.stroke();
+
   ctx.fillStyle = '#8a9882';
-  ctx.font = '9px monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(fmt(maxV), pad.l - 3, pad.t + 8);
-  ctx.fillText('0', pad.l - 3, pad.t + ch);
+  ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-  if (timeline[0]?.time)   ctx.fillText(timeline[0].time.slice(5,16),   pad.l,     H - 4);
-  if (n > 1 && timeline[n-1]?.time) { ctx.textAlign='right'; ctx.fillText(timeline[n-1].time.slice(5,16), W - pad.r, H - 4); }
+  if (timeline[0]?.time)   ctx.fillText(timeline[0].time.slice(5,16).replace('T',' '), pad.l, H - 6);
+  if (n > 1 && timeline[n-1]?.time) { ctx.textAlign='right'; ctx.fillText(timeline[n-1].time.slice(5,16).replace('T',' '), W - pad.r, H - 6); }
 }
 
 // ── AI Analysis (Dionaea) ─────────────────────────────────────────────────
@@ -2707,12 +3058,12 @@ async function analyzeDionaea() {
     });
     const result = await r.json();
     const html = `
-      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">What is attacking?</span><p style="margin-top:4px">${result.description||'—'}</p></div>
-      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Attack methodology</span><p style="margin-top:4px">${result.methodology||'—'}</p></div>
-      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Detection</span><p style="margin-top:4px">${result.detection||'—'}</p></div>
-      <div><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Threat level</span><p style="margin-top:4px">${result.threat_level||'—'}</p></div>
-      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">Dionaea · ${fmt(d.total)} events · llama3.1:8b</div>`;
-    _dioAiCache[ck] = {html, ts: Date.now()};
+      <div class="modal-section"><div class="modal-section-title">What is attacking?</div><p>${result.description||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Attack methodology</div><p>${result.methodology||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Detection</div><p>${result.detection||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Threat level</div><p>${result.threat_level||'—'}</p></div>
+      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:14px;border-top:1px solid var(--border);padding-top:8px">Dionaea · ${fmt(d.total)} events · llama3.1:8b</div>`;
+    _dioAiCache[ck] = {html, ts: Date.now()}; lruEvict(_dioAiCache,20);
     out.innerHTML = html; out.style.display = 'block';
   } catch(e) {
     out.innerHTML = `<div style="color:#8a3030">Error: ${e.message}</div>`;
@@ -2761,12 +3112,12 @@ async function analyzeNginx() {
     });
     const result = await r.json();
     const html = `
-      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Scanning campaign summary</span><p style="margin-top:4px">${result.description||'—'}</p></div>
-      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Methodology</span><p style="margin-top:4px">${result.methodology||'—'}</p></div>
-      <div style="margin-bottom:8px"><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Detection signals</span><p style="margin-top:4px">${result.detection||'—'}</p></div>
-      <div><span style="font-size:10px;text-transform:uppercase;color:var(--text3)">Threat level</span><p style="margin-top:4px">${result.threat_level||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Scanning campaign summary</div><p>${result.description||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Methodology</div><p>${result.methodology||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Detection signals</div><p>${result.detection||'—'}</p></div>
+      <div class="modal-section"><div class="modal-section-title">Threat level</div><p>${result.threat_level||'—'}</p></div>
       <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">nginx · ${fmt(d.total)} requests · llama3.1:8b</div>`;
-    _ngxAiCache[ck] = {html, ts: Date.now()};
+    _ngxAiCache[ck] = {html, ts: Date.now()}; lruEvict(_ngxAiCache,20);
     out.innerHTML = html; 
     out.style.display = 'block';
   } catch(e) {
@@ -2777,6 +3128,400 @@ async function analyzeNginx() {
     btn.textContent = '◈ AI Analysis of Web Scanning'; 
     btn.classList.remove('running');
   }
+}
+
+// ============================================================
+// Project 4 sprint: Alert Drawer, Search, Cases, Playbooks
+// ============================================================
+let _PLAYBOOKS = {};
+let _drawerIP = null;
+let _drawerCtx = null;
+let _searchType = 'ip';
+let _searchActive = false;
+
+// ── Load playbooks once ───────────────────────────────────────
+async function loadPlaybooks(){
+  try{ const r = await apiFetch('/api/playbooks'); _PLAYBOOKS = await r.json(); }
+  catch(e){ console.error('playbooks load failed', e); }
+}
+
+// ── Alert Details Drawer ──────────────────────────────────────
+async function openDrawer(ip){
+  if(!ip) return;
+  _drawerIP = ip;
+  document.getElementById('dw-ip').textContent = ip;
+  document.getElementById('dw-geo').textContent = '';
+  document.getElementById('dw-body').innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+  document.getElementById('drawer-overlay').classList.add('open');
+  document.getElementById('alert-drawer').classList.add('open');
+  try{
+    const r = await apiFetch(`/api/alert/${encodeURIComponent(ip)}?minutes=${currentWindow}`);
+    const d = await r.json();
+    if(d.error){ document.getElementById('dw-body').innerHTML = `<div style="color:#8a3030">Error: ${escHtml(d.error)}</div>`; return; }
+    _drawerCtx = d;
+    renderDrawer(d);
+  }catch(e){
+    document.getElementById('dw-body').innerHTML = `<div style="color:#8a3030">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+function closeDrawer(){
+  document.getElementById('drawer-overlay').classList.remove('open');
+  document.getElementById('alert-drawer').classList.remove('open');
+  _drawerIP = null; _drawerCtx = null;
+}
+function lvlColor(l){ return l>=15?'var(--red)':l>=12?'var(--orange)':l>=7?'var(--yellow)':'var(--blue)'; }
+function lvlBg(l){ return l>=15?'rgba(200,90,58,.15)':l>=12?'rgba(200,122,58,.15)':l>=7?'rgba(131,212,180,.18)':'rgba(123,168,196,.15)'; }
+
+function renderDrawer(d){
+  const geo = [d.city, d.country].filter(Boolean).join(', ');
+  document.getElementById('dw-geo').textContent = [geo, d.org].filter(Boolean).join(' · ');
+
+  const maxTl = Math.max(1, ...(d.timeline||[]).map(t=>t.count));
+  const tlBars = (d.timeline||[]).map(t=>
+    `<div class="dw-tl-bar" style="height:${Math.max(3,Math.round(t.count/maxTl*46))}px" title="${escHtml(t.time)}: ${t.count}"></div>`
+  ).join('') || '<span style="font-size:11px;color:var(--muted)">No timeline data</span>';
+
+  const events = (d.last_events||[]).map(ev=>{
+    const cred = (ev.username||ev.password) ? `<code>${escHtml(ev.username||'')}/${escHtml(ev.password||'')}</code>` : '';
+    const cmd  = ev.command ? `<div><code>${escHtml(ev.command)}</code></div>` : '';
+    return `<div class="dw-evt">
+      <div class="ev-top">
+        <span><b>${escHtml((ev.eventid||'').replace('cowrie.',''))}</b> ${ev.honeypot?`<span style="color:var(--text3)">· ${escHtml(ev.honeypot)}</span>`:''}</span>
+        <span class="dw-lv" style="color:${lvlColor(ev.level)};background:${lvlBg(ev.level)}">L${ev.level}</span>
+      </div>
+      <div style="color:var(--muted);font-size:10px">${escHtml(ev.ts)}</div>
+      ${cred}${cmd}
+      ${ev.desc?`<div style="color:var(--text3);font-size:10px;margin-top:2px">${escHtml(ev.desc)}</div>`:''}
+    </div>`;
+  }).join('') || '<span style="font-size:11px;color:var(--muted)">No recent events</span>';
+
+  const cmds = (d.commands||[]).map(c=>
+    `<div class="dw-cmd"><code title="${escHtml(c.cmd)}">${escHtml(c.cmd.length>60?c.cmd.slice(0,60)+'…':c.cmd)}</code><span style="color:var(--muted)">${c.count}×</span></div>`
+  ).join('') || '<span style="font-size:11px;color:var(--muted)">No commands recorded</span>';
+
+  const hps = Object.entries(d.honeypots||{}).map(([k,v])=>`${k} (${v})`).join(', ') || '—';
+
+  // suggest a playbook from event signature
+  const suggested = suggestPlaybook(d);
+
+  document.getElementById('dw-body').innerHTML = `
+    <div class="drawer-sec">
+      <h3>Summary</h3>
+      <div class="dw-kv">
+        <div><b>Total events</b>${fmt(d.total_events||0)}</div>
+        <div><b>Max level</b><span style="color:${lvlColor(d.max_level)}">L${d.max_level||0}</span></div>
+        <div><b>Sessions</b>${d.sessions||0}</div>
+        <div><b>Honeypots</b>${escHtml(hps)}</div>
+        <div><b>First seen</b>${escHtml((d.first_seen||'').slice(0,16).replace('T',' '))}</div>
+        <div><b>Last seen</b>${escHtml((d.last_seen||'').slice(0,16).replace('T',' '))}</div>
+      </div>
+    </div>
+    <div class="drawer-sec">
+      <h3>Activity timeline (hourly)</h3>
+      <div class="dw-tl">${tlBars}</div>
+    </div>
+    <div class="drawer-sec">
+      <h3>Recent commands</h3>${cmds}
+    </div>
+    <div class="drawer-sec">
+      <h3>Last ${(d.last_events||[]).length} events</h3>${events}
+    </div>
+    <div class="drawer-sec">
+      <h3>Response playbook</h3>
+      <select class="field-in" id="dw-playbook" onchange="renderDrawerPlaybook(this.value)">
+        <option value="">— select a playbook —</option>
+        ${Object.entries(_PLAYBOOKS).map(([k,p])=>`<option value="${k}" ${k===suggested?'selected':''}>${escHtml(p.name)}</option>`).join('')}
+      </select>
+      <div id="dw-playbook-steps" style="margin-top:8px"></div>
+    </div>
+    <div class="drawer-sec">
+      <h3>Full alert JSON</h3>
+      <div class="dw-json">${escHtml(JSON.stringify(d.full_alert||{}, null, 2))}</div>
+    </div>
+    <div class="drawer-sec" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="mini-btn primary" onclick="openCreateCaseFromDrawer()">＋ Create case</button>
+      <button class="mini-btn" onclick="copyDrawerJSON()">Copy JSON</button>
+    </div>`;
+
+  if(suggested) renderDrawerPlaybook(suggested);
+}
+
+function suggestPlaybook(d){
+  const ev = Object.keys(d.eventids||{}).join(' ');
+  const hp = Object.keys(d.honeypots||{}).join(' ');
+  if(/file_download/.test(ev) || /dionaea/.test(hp)) return 'malware_download';
+  if(/nginx/.test(hp)) return 'web_scanning';
+  if(/login.success/.test(ev)) return 'credential_compromise';
+  if(/login.failed/.test(ev)) return 'ssh_brute_force';
+  return '';
+}
+
+function renderDrawerPlaybook(key, done){
+  const wrap = document.getElementById('dw-playbook-steps');
+  if(!wrap) return;
+  const pb = _PLAYBOOKS[key];
+  if(!pb){ wrap.innerHTML=''; return; }
+  done = done || [];
+  wrap.innerHTML = `<div style="font-size:10px;color:var(--text3);margin-bottom:4px">${escHtml(pb.trigger)}</div>` +
+    pb.steps.map((s,i)=>`
+      <label class="pb-step ${done.includes(i)?'done':''}">
+        <input type="checkbox" ${done.includes(i)?'checked':''} disabled>
+        <span>${escHtml(s)}</span>
+      </label>`).join('') +
+    `<div style="font-size:10px;color:var(--muted);margin-top:4px">Create a case to track completion of these steps.</div>`;
+}
+
+function copyDrawerJSON(){
+  if(!_drawerCtx) return;
+  navigator.clipboard?.writeText(JSON.stringify(_drawerCtx.full_alert||{}, null, 2));
+}
+
+// ── Search / pivot ────────────────────────────────────────────
+function setSearchType(t, btn){
+  _searchType = t;
+  document.querySelectorAll('#search-seg .seg-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const q = document.getElementById('global-search').value.trim();
+  if(q) runSearch();
+}
+function onSearchInput(){
+  const v = document.getElementById('global-search').value;
+  document.getElementById('search-clear').style.display = v ? 'block' : 'none';
+  if(!v && _searchActive) clearSearch();
+}
+function clearSearch(){
+  document.getElementById('global-search').value = '';
+  document.getElementById('search-clear').style.display = 'none';
+  _searchActive = false;
+  document.querySelectorAll('.search-match').forEach(el=>el.classList.remove('search-match'));
+  document.querySelectorAll('.search-dim').forEach(el=>el.classList.remove('search-dim'));
+}
+async function runSearch(){
+  const q = document.getElementById('global-search').value.trim();
+  if(!q){ clearSearch(); return; }
+  _searchActive = true;
+  let matchIps = new Set();
+  try{
+    const r = await apiFetch(`/api/search?q=${encodeURIComponent(q)}&type=${_searchType}&minutes=${currentWindow}`);
+    const d = await r.json();
+    (d.matched_ips||[]).forEach(m=>matchIps.add(m.ip));
+  }catch(e){ console.error('search failed', e); }
+
+  // Always also do a literal client-side match on the typed string
+  highlightAcrossPanels(q, matchIps);
+}
+
+function highlightAcrossPanels(q, matchIps){
+  const ql = q.toLowerCase();
+  // Tables that carry data-ip / data-cred / data-cmd attributes
+  const selectors = ['#ips-tb tr','#creds-tb tr','#cred-intel-tb tr','#dio-ip-tb tr','#ngx-paths-tb tr','.cross-row','.cross-tr','.attacker-row'];
+  let anyMatch = false;
+  selectors.forEach(sel=>{
+    document.querySelectorAll(sel).forEach(row=>{
+      const ip   = row.dataset?.ip || '';
+      const text = (row.textContent||'').toLowerCase();
+      const hit = (ip && matchIps.has(ip)) || text.includes(ql);
+      row.classList.toggle('search-match', hit);
+      row.classList.toggle('search-dim', !hit);
+      if(hit) anyMatch = true;
+    });
+  });
+  // brief visual feedback in the search box
+  const inp = document.getElementById('global-search');
+  inp.style.borderColor = anyMatch ? 'var(--pine)' : 'var(--red)';
+  setTimeout(()=>{ inp.style.borderColor='var(--border)'; }, 1200);
+}
+
+// ── Honeypot tab persistence (req #2) ─────────────────────────
+function restoreHpTab(){
+  try{
+    const saved = localStorage.getItem('soc_hp_tab');
+    if(saved && ['dionaea','nginx','cross'].includes(saved)){
+      switchHpTab(saved);
+    }
+  }catch(e){}
+}
+
+// ── Cases ─────────────────────────────────────────────────────
+let _caseFilter = '';
+let _casesCache = [];
+
+function toggleCasesPanel(force){
+  const p = document.getElementById('cases-panel');
+  const show = (force===undefined) ? !p.classList.contains('open') : force;
+  p.classList.toggle('open', show);
+  if(show) loadCases();
+}
+function setCaseFilter(f, btn){
+  _caseFilter = f;
+  document.querySelectorAll('#cases-filter .seg-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  loadCases();
+}
+async function loadCases(){
+  const list = document.getElementById('cases-list');
+  try{
+    const url = '/api/cases' + (_caseFilter ? `?status=${_caseFilter}` : '');
+    const r = await apiFetch(url);
+    const d = await r.json();
+    _casesCache = d.cases||[];
+    const counts = d.counts||{};
+    const openTotal = (counts.open||0)+(counts.investigating||0);
+    const badge = document.getElementById('cases-count-badge');
+    if(badge) badge.textContent = openTotal ? `(${openTotal})` : '';
+    renderCasesList(_casesCache);
+  }catch(e){
+    list.innerHTML = `<div style="color:#8a3030;font-size:12px">Failed to load cases: ${escHtml(e.message)}</div>`;
+  }
+}
+function renderCasesList(cases){
+  const list = document.getElementById('cases-list');
+  if(!cases.length){ list.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No cases yet. Open an IP and click “Create case”.</div>'; return; }
+  list.innerHTML = cases.map(c=>`
+    <div class="case-card" onclick="openCaseDetail(${c.id})">
+      <div class="cc-top">
+        <span class="cc-title">#${c.id} ${escHtml(c.title)}</span>
+        <span class="case-pill pill-${c.status}">${c.status}</span>
+      </div>
+      <div class="case-meta">
+        <span class="case-pill pill-${c.severity}">${c.severity}</span>
+        <span>👤 ${escHtml(c.assignee)}</span>
+        ${c.src_ip?`<span style="font-family:monospace">${escHtml(c.src_ip)}</span>`:''}
+        <span>${escHtml((c.updated_at||'').slice(0,10))}</span>
+      </div>
+    </div>`).join('');
+}
+
+async function openCaseDetail(id){
+  const list = document.getElementById('cases-list');
+  list.innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+  try{
+    const r = await apiFetch(`/api/cases/${id}`);
+    const c = await r.json();
+    renderCaseDetail(c);
+  }catch(e){
+    list.innerHTML = `<div style="color:#8a3030">Error: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function renderCaseDetail(c){
+  const list = document.getElementById('cases-list');
+  const pb = _PLAYBOOKS[c.playbook];
+  const done = c.playbook_done||[];
+  const pbHtml = pb ? `
+    <div class="field-lbl">Playbook · ${escHtml(pb.name)}</div>
+    ${pb.steps.map((s,i)=>`
+      <label class="pb-step ${done.includes(i)?'done':''}">
+        <input type="checkbox" ${done.includes(i)?'checked':''} onchange="togglePbStep(${c.id},${i},this.checked)">
+        <span>${escHtml(s)}</span>
+      </label>`).join('')}
+    <div style="font-size:10px;color:var(--muted);margin-top:2px">${done.length}/${pb.steps.length} complete</div>
+  ` : '<div style="font-size:11px;color:var(--muted)">No playbook attached.</div>';
+
+  const timeline = (c.timeline||[]).slice().reverse().map(t=>`
+    <div class="tl-item">
+      <div>${escHtml(t.action)}${t.detail?`: ${escHtml(t.detail)}`:''}</div>
+      <div class="tl-when">${escHtml((t.ts||'').slice(0,16).replace('T',' '))} · ${escHtml(t.actor)}</div>
+    </div>`).join('') || '<div style="font-size:11px;color:var(--muted)">No activity</div>';
+
+  const alerts = (c.alerts||[]).map(a=>`
+    <div class="dw-cmd"><span style="font-family:monospace" class="ip-clickable" onclick="openDrawer('${escHtml(a.src_ip)}')">${escHtml(a.src_ip||'')}</span><span style="color:var(--muted)">${escHtml(a.summary||'')}</span></div>`
+  ).join('') || '<div style="font-size:11px;color:var(--muted)">None attached</div>';
+
+  list.innerHTML = `
+    <div class="case-detail-back" onclick="loadCases()">← All cases</div>
+    <h3 style="margin:10px 0 4px">#${c.id} ${escHtml(c.title)}</h3>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <span class="case-pill pill-${c.status}">${c.status}</span>
+      <span class="case-pill pill-${c.severity}">${c.severity}</span>
+    </div>
+
+    <div class="field-lbl">Status</div>
+    <select class="field-in" onchange="patchCase(${c.id},{status:this.value})">
+      ${['open','investigating','closed'].map(s=>`<option value="${s}" ${s===c.status?'selected':''}>${s}</option>`).join('')}
+    </select>
+
+    <div class="field-lbl">Severity</div>
+    <select class="field-in" onchange="patchCase(${c.id},{severity:this.value})">
+      ${['low','medium','high','critical'].map(s=>`<option value="${s}" ${s===c.severity?'selected':''}>${s}</option>`).join('')}
+    </select>
+
+    <div class="field-lbl">Assignee</div>
+    <div style="display:flex;gap:6px">
+      <input class="field-in" id="case-assignee-${c.id}" value="${escHtml(c.assignee)}">
+      <button class="mini-btn" onclick="patchCase(${c.id},{assignee:document.getElementById('case-assignee-${c.id}').value})">Save</button>
+      <button class="mini-btn" onclick="assignSelf(${c.id})">Me</button>
+    </div>
+
+    <div style="margin-top:14px">${pbHtml}</div>
+
+    <div class="field-lbl" style="margin-top:14px">Attached alerts</div>
+    ${alerts}
+
+    <div class="field-lbl" style="margin-top:14px">Add note</div>
+    <textarea class="field-in" id="case-note-${c.id}" rows="2" placeholder="Investigation note…"></textarea>
+    <button class="mini-btn" style="margin-top:6px" onclick="addCaseNote(${c.id})">Add note</button>
+
+    <div class="field-lbl" style="margin-top:14px">Notes</div>
+    <div style="font-size:11px;white-space:pre-wrap;background:var(--bg3);border-radius:6px;padding:8px;min-height:30px">${escHtml(c.notes||'—')}</div>
+
+    <div class="field-lbl" style="margin-top:14px">Audit timeline</div>
+    ${timeline}
+  `;
+}
+
+async function patchCase(id, body){
+  try{
+    await apiFetch(`/api/cases/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    openCaseDetail(id);
+    // refresh badge counts in background
+    apiFetch('/api/cases'+(_caseFilter?`?status=${_caseFilter}`:'')).then(r=>r.json()).then(d=>{
+      const counts=d.counts||{}; const t=(counts.open||0)+(counts.investigating||0);
+      const b=document.getElementById('cases-count-badge'); if(b) b.textContent = t?`(${t})`:'';
+    }).catch(()=>{});
+  }catch(e){ console.error('patch failed', e); }
+}
+function assignSelf(id){ patchCase(id, {assignee:'tycee'}); }
+function addCaseNote(id){
+  const ta = document.getElementById(`case-note-${id}`);
+  const note = (ta.value||'').trim();
+  if(!note) return;
+  patchCase(id, {append_note:note});
+}
+function togglePbStep(id, idx, checked){
+  const c = _casesCache.find(x=>x.id===id);
+  // fetch fresh done-list from the currently rendered checkboxes to be safe
+  const boxes = Array.from(document.querySelectorAll('#cases-list .pb-step input'));
+  const done = boxes.map((b,i)=>b.checked?i:-1).filter(i=>i>=0);
+  patchCase(id, {playbook_done:done});
+}
+
+// Create case from the open drawer
+function openCreateCaseFromDrawer(){
+  if(!_drawerCtx){ return; }
+  const d = _drawerCtx;
+  const pbSel = document.getElementById('dw-playbook');
+  const playbook = pbSel ? pbSel.value : suggestPlaybook(d);
+  const sev = d.max_level>=15?'critical':d.max_level>=12?'high':d.max_level>=7?'medium':'low';
+  const title = `${(playbook&&_PLAYBOOKS[playbook]?_PLAYBOOKS[playbook].name:'Activity')} — ${d.ip}`;
+  const body = {
+    title, severity:sev, assignee:'tycee', src_ip:d.ip,
+    playbook: playbook||null, alert:d,
+    notes:`Auto-created from drawer.\nCountry: ${d.country||'?'} · Org: ${d.org||'?'}\nEvents: ${d.total_events} · Sessions: ${d.sessions} · Max level: ${d.max_level}`,
+  };
+  apiFetch('/api/cases', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(r=>r.json())
+    .then(c=>{
+      toggleCasesPanel(true);
+      openCaseDetail(c.id);
+    })
+    .catch(e=>console.error('create case failed', e));
+}
+
+function exportCases(){
+  const url = '/api/cases/export' + (_caseFilter?`?status=${_caseFilter}`:'');
+  const a=document.createElement('a'); a.href=url; a.download=''; document.body.appendChild(a); a.click(); a.remove();
+  const m=document.getElementById('export-menu'); if(m) m.style.display='none';
 }
 
 // ── Utility ───────────────────────────────────────────────────────────────

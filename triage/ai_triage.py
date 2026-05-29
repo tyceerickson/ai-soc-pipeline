@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 """
 ai_triage.py — AI-Powered Alert Triage Layer
 =============================================
@@ -32,7 +33,7 @@ from collections import Counter
 # OpenSearch connection for pre-aggregation
 OPENSEARCH_URL  = "https://localhost:9200"
 OS_USER         = "admin"
-OS_PASS         = "BJ6xeV2bh?NgSvSPPWBwU+IqRzD6HmJj"
+OS_PASS         = os.environ.get("OPENSEARCH_PASS", "")
 ALERT_INDEX     = "wazuh-alerts-4.x-*"
 GEOIP_CACHE     = "/opt/cowrie-logs/geoip_cache.json"
 
@@ -207,8 +208,8 @@ DEFAULT_INPUT  = "/opt/wazuh-soc/data/alerts_raw.json"
 DEFAULT_OUTPUT = "/opt/wazuh-soc/data/triage_report.json"
 
 # How many alerts to send per AI batch
-# llama3.1:8b context = 4096 tokens — keep batches small
-BATCH_SIZE = 5
+# llama3.1:8b context = 8192 tokens — larger batches for richer analysis
+BATCH_SIZE = 15
 
 
 # ============================================================
@@ -225,7 +226,7 @@ def ollama_generate(prompt, system=None, timeout=600):
         "stream": False,
         "options": {
             "temperature": 0.2,   # low temp = consistent, factual output
-            "num_predict": 1024,
+            "num_predict": 4096,
         }
     }
     if system:
@@ -325,7 +326,7 @@ ALERTS:
 
 Respond with ONLY valid JSON, no markdown:
 {{
-  "threat_assessment": "3-4 sentences. Name specific IPs, countries, orgs. Describe the attack pattern precisely.",
+  "threat_assessment": "6-8 sentences. Name specific IPs with countries/orgs and alert counts. Describe exactly what each attacker did step by step. Explain what would happen on a real production server. Include any lateral movement or persistence indicators.",
   "attacker_profile": "2-3 sentences. Identify if this is a botnet, script kiddie, or targeted attack. Name known tools if recognized.",
   "top_threats": [
     {{
@@ -389,7 +390,7 @@ OPERATIONAL DATA:
 
 Respond with ONLY this JSON:
 {{
-  "executive_summary": "4-5 sentences for a CISO. Name specific countries, mention the dominant botnet credential (345gs5662d34), note the SSH key implant attempts, quantify the threat.",
+  "executive_summary": "8-10 sentences for a CISO. Name specific countries with attack volumes, describe the dominant botnet campaigns (345gs5662d34, mdrfckr) with their TTPs, quantify the threat impact, explain what would have happened on a real system, and describe the persistence mechanisms observed.",
   "key_findings": [
     "Specific finding with numbers and country/IP names",
     "Specific finding about credential patterns observed",
@@ -503,7 +504,7 @@ MITRE TECHNIQUE IDs: {', '.join(intel['mitre_technique_ids'])}
 
 Respond with ONLY valid JSON:
 {{
-  "threat_assessment": "4-5 sentences. Use specific numbers, name top attacker IPs with countries/orgs, describe the dominant attack pattern. Mention the botnet if credentials repeat.",
+  "threat_assessment": "6-10 sentences. Use specific numbers throughout. Name top attacker IPs with their countries and organizations. Describe the dominant attack pattern in detail, including exactly what commands were run and what the attackers were trying to accomplish. Explain what would happen to a real system. Mention specific botnet campaigns by name and their credential signatures.",
   "attacker_profile": "3-4 sentences. Identify specific threat actors by behavior. Is this Mirai? A credential stuffing botnet? Name the mdrfckr SSH key implant if present. Characterize sophistication level.",
   "top_threats": [
     {{
