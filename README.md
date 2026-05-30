@@ -8,7 +8,7 @@ attack data. Three honeypots exposed to the public internet collect live attack 
 across SSH, web, and malware-capture vectors. Data is processed through a Wazuh SIEM,
 enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
 locally-hosted large language model. A custom real-time dashboard provides 12 integrated
-threat-intelligence panels across three honeypot sources.
+threat-intelligence panels across three honeypot sources. Which is currently still live and collecting data in real time.
 
 **This is not a simulation. Every alert in this dataset came from a real attacker.**
 
