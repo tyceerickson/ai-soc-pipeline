@@ -12,6 +12,12 @@ threat-intelligence panels across three honeypot sources.
 
 **This is not a simulation. Every alert in this dataset came from a real attacker.**
 
+## 🎥 Live Demo
+
+[![Watch the SOC dashboard demo](docs/images/dashboard-demo-thumbnail.png)](https://youtu.be/YOUR_VIDEO_ID "Watch the 3-minute demo")
+
+**▶ [Watch the 3-minute walkthrough](https://youtu.be/YOUR_VIDEO_ID)** — a live tour of the dashboard running on real honeypot data: attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
+
 ## Live Stats (collection window May 21–29, 2026)
 
 | Metric | Value |
