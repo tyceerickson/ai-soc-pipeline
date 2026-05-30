@@ -2,126 +2,89 @@
 
 ## Overview
 
-The SOC dashboard is a custom Flask web application (`app.py`, v6) that provides real-time visibility into Cowrie SSH honeypot attack data. It queries OpenSearch (Wazuh) directly for live statistics, renders 10+ intelligence panels, and integrates with Ollama llama3.1:8b for on-demand threat analysis. Accessible at `http://100.82.166.75:5000` via Tailscale.
+The SOC dashboard is a custom Flask web application (`app.py`) providing real-time visibility into all three honeypots. It queries OpenSearch (Wazuh) directly for live statistics, renders 12 intelligence panels across three sections, and integrates with Ollama `llama3.1:8b` for on-demand threat analysis. Accessible at `http://100.82.166.75:5000` via Tailscale.
 
-**Important — Data Source Clarification:**
-The dashboard currently visualizes **Cowrie SSH/Telnet honeypot data only**. Dionaea (malware/exploit honeypot) and nginx (HTTP honeypot) are running in Docker on the VPS but their logs are not yet synced to the Ubuntu Server or indexed in Wazuh. Adding those is planned for a future session. Everything below describes Cowrie-sourced data.
+**Data sources:** the dashboard visualizes **all three honeypots** — Cowrie (SSH/Telnet), Dionaea (malware capture), and nginx (web). The Cowrie panels cover the highest-volume SSH attack data; the Multi-Honeypot section covers malware capture and web scanning; the Threat Actor Correlation panel unifies activity across all three.
 
 ---
 
 ## Alert Source Explained
 
-This is the most important section to understand before interpreting any panel.
-
 ### Where alerts come from
-Every number in the dashboard comes from **Wazuh OpenSearch** at `wazuh-alerts-4.x-*`. Wazuh receives logs forwarded from the Ubuntu Server (which receives them from the VPS via rsync every 15 minutes). The log flow is:
-
+Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-*`). Wazuh receives the normalized JSON feeds produced by the parsers on the Ubuntu Server (fed from the VPS every 15 minutes). Flow:
 ```
-VPS (Cowrie) → rsync → Ubuntu Server → Wazuh → OpenSearch → Dashboard
+VPS honeypots → sync (rsync/timer) → Ubuntu Server parsers → Wazuh → OpenSearch → Dashboard
 ```
 
 ### What is a "Wazuh alert"?
-A Wazuh alert is a **rule violation event** that Wazuh's rule engine generates when it sees a log line matching a pattern. One Cowrie event (e.g., a login attempt) can generate multiple Wazuh alerts if it matches multiple rules. This is why raw alert counts are always higher than raw session or event counts.
+A Wazuh alert is a **rule-violation event** generated when a log line matches a rule. One honeypot event can generate multiple alerts if it matches multiple rules, so raw alert counts are always higher than raw event/session counts. All dashboard queries filter `{"exists": {"field": "data.honeypot"}}`.
 
-All dashboard queries filter `{"exists": {"field": "data.honeypot"}}` to limit to honeypot-tagged alerts only.
+### Credentials are read from the environment
+The dashboard authenticates to OpenSearch using the `OPENSEARCH_PASS` environment variable (set in `soc-dashboard.service`). No credentials are stored in source.
 
-### Why Top Attacker Countries and Geographic Map show different numbers
-
-| Panel | Data source | What it counts |
-|-------|-------------|----------------|
-| Top Attacker Countries | `data.location.country_name` field from OpenSearch aggregation | Total Wazuh rule violation events per country — includes all severity levels |
-| Geographic Attack Map | `top_ips` list — per-IP alert counts, then summed by country | Uses GeoIP-resolved IPs only; IPs without GeoIP resolution are excluded |
-
-The difference: Countries bar chart counts ALL alerts including those without GeoIP (Wazuh's built-in location field). The map only shows countries where `geoip_cache.json` has a match for the source IP. IPs not yet in the GeoIP cache show "resolving..." and don't appear on the map.
+### Why Top Attacker Countries and the Geographic Map can differ
+The Countries bar chart counts **all** alerts via the `data.location.country_name` field (including IPs without a GeoIP cache match). The Map plots only IPs resolved in `geoip_cache.json`. IPs not yet cached show "resolving…" and don't appear on the map.
 
 ---
 
 ## Panel Reference
 
-### Live Alert Summary
-Five cards: Total, Critical (L15+), High (L12–14), Medium (L7–11), Low (L0–6).
-**Source:** Main OpenSearch aggregation on `rule.level` ranges.
-**Why these levels:** Wazuh severity levels 0–15, mapped to severity buckets that match the risk of the underlying Cowrie event type.
+### Cowrie SSH Honeypot
 
-### Alert Timeline
-Canvas chart. Click any spike to open the **Spike Detail Modal** showing MITRE tactics, countries, campaigns, and top IPs active in that exact time bucket.
-**Source:** Date histogram aggregation from OpenSearch. Bucket sizes: 5m (≤2h window), 15m (≤6h), 30m (≤12h), 1h (≤24h), 2h (≤3d), 6h (≤7d), 12h (≤30d), 1d (>30d).
-**Accuracy note:** Click precision matches the bucket size — on a 7-day view each click covers a 6-hour window.
+**Live Alert Summary** — Total / Critical (L15) / High (L12–14) / Medium (L7–11) / Low (L0–6), from a `rule.level` aggregation.
 
-### Top Attacker Countries
-Horizontal bar chart, top 20 countries by Wazuh alert volume.
-**Source:** `data.location.country_name` aggregation. Includes all alerts.
+**Alert Timeline** — Canvas time series; click a spike for the Spike Detail Modal (MITRE tactics, countries, campaigns, top IPs in that bucket). Bucket sizes scale with the window (5m ≤2h … 6h for 7d).
 
-### Geographic Attack Map
-World map with red attack dots sized by alert volume.
-**Source:** `top_ips` list filtered to IPs with GeoIP resolution. Countries without matched IPs are excluded.
+**Geographic Attack Map** — Natural Earth world map with attack dots sized by volume; uses GeoIP-resolved IPs.
 
-### Top Attacker IPs
-Table of source IPs ranked by alert count.
-**Source:** `data.src_ip` terms aggregation, top 2000. GeoIP enriched from `geoip_cache.json`.
+**Top Attacker IPs / Countries** — `data.src_ip` and `data.location.country_name` aggregations, GeoIP-enriched.
 
-### Attack Velocity
-Live 60-minute spark chart showing attacks-per-minute. Hover any bar for exact count and time.
-**Source:** `/api/velocity` — 1-minute bucket date histogram over last 60 minutes.
-**Polling:** Updates every 30 seconds.
+**Attack Velocity** — Live 60-minute attacks/min spark chart; polls every 30s.
 
-### Event Types
-Bar chart of Cowrie event IDs (cowrie.login.failed, cowrie.command.input, cowrie.session.connect, etc.).
-**Source:** `data.eventid` terms aggregation.
+**Attack Chain Funnel** — Kill-chain progression: Connect → KEX → Login → Commands → Downloads → Uploads, from per-eventid counts.
 
-### Attack Chain Funnel
-Kill chain progression showing how many attackers made it through each stage.
-Stages: Session Connect → SSH Key Exchange → Login Failed → Login Success → Command Executed → File Downloaded → File Uploaded.
-**Source:** Separate count queries per eventid type.
+**Attack Heatmap** — 14-day × 24-hour density grid (UTC), two-level date histogram.
 
-### Attack Heatmap
-14-day, 24-hour grid showing attack density by day and hour (UTC).
-**Source:** Two-level date histogram: day × hour.
+**Botnet Fingerprints** — Auto-detected campaigns from credential/command clustering (no hardcoded signatures); detected when 3+ IPs share a credential pair or command signature. Confidence: HIGH ≥5 IPs, MEDIUM 3–4, LOW 1–2. Each card has All/7d/24h selectors and an on-click AI Analysis modal.
 
-### Botnet Fingerprints
-Auto-detected campaigns from credential and command clustering. Each card has All/7d/24h timeline selectors. Click a card to open AI Analysis modal.
-**Source:** Live OpenSearch queries — no hardcoded signatures. Campaigns detected when 3+ IPs share the same credential pair or command signature.
-**Confidence scoring:** HIGH = 5+ IPs, MEDIUM = 3–4, LOW = 1–2.
+**Credential Intelligence** — Failed/success/unique counts and per-credential success rate (`success / (success + failed)`). Distinctive botnet usernames (e.g. `mdrfckr`) are surfaced as named campaigns.
 
-### Top Credentials Attempted
-Table of username/password pairs ranked by attempt count. Click to copy to clipboard. COMPROMISED badge if success rate = 100%.
-**Source:** Painless script aggregation joining username + password fields.
+**Attacker Intelligence** — Top 5 attackers by threat level (expandable to all). Each row shows SSH-KEY / DOWNLOAD / LOGIN badges; expand for MITRE tactics with evidence, credentials tried, and proof commands. Ranks distinct attacker IPs (not raw sessions) so a single hyperactive IP can't monopolize the list.
 
-### Credential Intelligence
-Summary stats (failed/success/unique/rate) plus table with per-credential success rates.
-**Source:** Separate enriched stats query counting `cowrie.login.success` vs total.
+**MITRE ATT&CK Framework** — Tactics/techniques discovered dynamically from `rule.mitre.*` aggregations; hover for definitions, click to expand examples.
 
-### Top Commands Executed
-Commands run by attackers after gaining access. High counts = automated botnet.
-**Source:** `data.command` from `cowrie.command.input` events.
+**On-Demand AI Analysis** — `llama3.1:8b` (Ollama via Tailscale). Summary (~30s), Full (~3min), Executive (~5min). Results cached in `triage_report.json`.
 
-### Attacker Intelligence
-Top 5 attackers by threat level (default), expandable to all. Each row shows SSH KEY / DOWNLOAD / LOGIN badges. Expand for MITRE tactics with evidence, credentials tried, threat indicators with proof commands.
-**Source:** Session data from `/api/sessions`, processed into per-IP aggregations client-side.
+### Multi-Honeypot Intelligence (nginx + Dionaea)
 
-### MITRE ATT&CK Framework
-All tactics found in your data, dynamically discovered from live OpenSearch aggregations. New tactics appear automatically when new Wazuh rules fire. Hover any tactic pill for the official ATT&CK definition. Hover technique IDs (T1110, T1098.004, etc.) for technique-level definitions. Click to expand real examples.
-**Source:** `rule.mitre.tactic` and `rule.mitre.id` aggregations.
+The activity box supports **1h / 1d / 7d / 30d** windows and tab persistence with per-tab count badges.
 
-### On-Demand AI Analysis
-Runs llama3.1:8b (Ollama on RTX 4070 via Tailscale). Three modes: Summary (~30s), Full (~3min), Executive (~5min). Results cached in triage_report.json.
+**Dionaea Malware Capture** — Service breakdown (SMB/FTP/MSSQL/MySQL), top source IPs, and the captured-malware list. Each binary card shows the **VirusTotal verdict** (e.g. 66/76 flagged), **malware family** (e.g. `trojan.wannacry/wanna`), source IP + country, service, file size, capture count, and a link to the VT report. Click the SHA256 to copy it. (Captured binaries are computed to real SHA256 from the file on disk; see `03-log-ingestion-setup.md`.)
+
+**nginx Web Honeypot** — Scanner fingerprints, CVE probe paths (Hikvision, TP-Link, Tomcat, Log4Shell), `.env` credential-theft attempts, user agents, and request timeline.
+
+**Cross-Honeypot Attackers** — IPs observed attacking more than one honeypot, with per-honeypot counts.
+
+### Threat Actor Correlation
+
+**Threat Actor Correlation** — The flagship correlation view. Each row is **one source IP**, with its activity unified across all three honeypots into a single threat-scored profile. Actors are ranked by a composite score (number of attack vectors × weighting, plus rule severity, malware delivery, and confirmed SSH breach). Multi-vector actors — e.g. an IP that brute-forces SSH *and* delivers malware over SMB — are badged and float to the top, revealing coordinated actors that siloed per-sensor panels would miss. Click any row to open the full attacker drawer.
+
+### Incident Management
+
+**Alert Drawer** — `GET /api/alert/<ip>` opens a full context panel for any source IP (recent events, geo, credentials, commands; copy-as-JSON).
+
+**Search / Pivot** — `GET /api/search?q=&type=ip|cred|cmd` pivots across IPs, credentials, and commands.
+
+**Cases** — Create/track incident cases (status open/investigating/closed, severity, notes, linked alerts, audit log) backed by a local SQLite store (`schema.sql`); CSV export supported.
+
+**Response Playbooks** — Five built-in playbooks for common honeypot findings.
 
 ---
 
-## Status Bar (bottom)
-Fixed bar showing:
-- OpenSearch connectivity (green/yellow/red dot)
-- GeoIP cache size (IPs resolved)
-- Last refresh timestamp (updates every 10s)
-- Alert count in current window
+## Status Bar
+OpenSearch connectivity (green/yellow/red), GeoIP cache size, honeypot health, last-refresh timestamp (updates every 10s), and alert count in the current window.
 
 ---
 
-## What's NOT in the dashboard (yet)
-
-| Honeypot | Status | What it would add |
-|----------|--------|-------------------|
-| Dionaea | Running on VPS, not synced | Malware binaries captured, exploit attempts (SMB, FTP, MSSQL, MySQL, HTTP), binary hashes |
-| nginx HTTP | Running on VPS, not synced | HTTP scanning, web exploit attempts, CVE probes, path traversal |
-
-Adding these requires: sync Dionaea's sqlite/json logs to Ubuntu Server, write Wazuh decoders for each format, add new panels to the dashboard.
+## Notes on Copy-to-Clipboard
+The dashboard is served over plain HTTP on the Tailscale network, where the browser's secure-context `navigator.clipboard` API is unavailable. A fallback copy helper (using `execCommand`) is used so SHA256 hashes, credentials, and alert JSON can be copied regardless.

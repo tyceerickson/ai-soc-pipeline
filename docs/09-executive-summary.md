@@ -2,121 +2,140 @@
 
 ## Project Overview
 
-This project deploys a production-grade, AI-powered Security Operations Center pipeline on real internet infrastructure. An SSH honeypot exposed to the public internet collects live attack data which is processed through a SIEM, enriched with threat intelligence, and analyzed by a locally-hosted large language model. A custom real-time dashboard provides security analysts with 8 integrated intelligence panels covering attack chain analysis, behavioral botnet fingerprinting, geographic attribution, session-level kill chain reconstruction, and on-demand AI threat briefings.
+This project deploys a production-grade, AI-powered Security Operations Center (SOC)
+pipeline on real internet infrastructure. **Three honeypots** exposed to the public
+internet — Cowrie (SSH/Telnet), nginx (web), and Dionaea (malware capture) — collect
+live attack data across distinct vectors. That data is processed through a Wazuh SIEM,
+enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
+locally-hosted large language model. A custom real-time dashboard provides analysts with
+**12 integrated intelligence panels** spanning attack-chain analysis, behavioral botnet
+fingerprinting, geographic attribution, session-level kill-chain reconstruction, captured
+malware analysis, cross-honeypot threat-actor correlation, and on-demand AI threat briefings.
 
-**This is not a simulated lab exercise. Every alert, every credential, every command in this dataset came from a real attacker on the internet.**
-
----
+This is not a simulated lab exercise. Every alert, credential, command, and captured
+malware sample in this dataset came from a real attacker on the internet.
 
 ## Key Findings
 
 ### Scale of Observed Threat Activity
 
-Over 7 days of active collection (May 19-26, 2026), the honeypot received:
+Over the active collection window (**May 21–29, 2026**), the sensors recorded:
 
-- **6,185,397 total security alerts** processed by Wazuh SIEM
-- **218,392 individual Cowrie SSH events** logged
-- **944 unique attacking IP addresses** across **99 countries**
-- **13,801 High-severity alerts** including successful logins and command execution
-- **6 distinct botnet campaigns** identified and fingerprinted
+- **6,185,397** total security alerts processed by Wazuh SIEM
+- **872,871** Cowrie SSH/Telnet events
+- **1,000+** unique attacking IP addresses across **99 countries**
+- **6** distinct botnet campaigns identified and fingerprinted
+- **7** unique malware binaries captured and VirusTotal-verified
+- Peak day (May 23): **2,019,221** alerts in 24 hours
 
-The attack surface was a single server with a single open SSH port. The volume of attack traffic represents the baseline threat level that any internet-connected system faces.
+The attack surface was a small set of exposed services on a single VPS. The volume
+represents the baseline threat level any internet-connected system faces — roughly one
+attack event every 1.3 seconds at the average background rate.
+
+### Live Malware Capture — WannaCry Still Propagating
+
+The Dionaea honeypot captured **7 unique malware binaries** delivered over SMB, each
+hash-verified against VirusTotal:
+
+- **6 of 7 samples were WannaCry ransomware variants** (59–66 of ~76 VirusTotal engines
+  flagging each), the remaining sample a trojan downloader
+- Delivered from source IPs across **multiple countries** (United States, Thailand,
+  Sri Lanka, Vietnam) — independent infections all blindly scanning for exposed SMB
+- Each sample is SHA256-hashed, attributed to its source IP/country/service, and preserved
+  in a permanent read-only archive with metadata
+
+WannaCry continuing to self-propagate over exposed SMB years after its 2017 outbreak is a
+concrete, measurable illustration of long-tail internet threat activity — and of why
+legacy-protocol exposure remains a live risk.
 
 ### Two Major Attack Waves
 
-Analysis of the alert timeline reveals two distinct surge events:
-
-**Wave 1 — May 22, ~1.3M alerts in 24 hours**
-The first major botnet campaign involving the 345gs5662d34 credential campaign. The credential `root/3245gs5662d34` was used 103,084 times across 357 unique IPs — a coordinated multi-source campaign probing for vulnerable SSH servers.
-
-**Wave 2 — May 23, ~2M alerts in 24 hours (peak: 2,019,221)**
-The largest attack period, driven by the mdrfckr botnet reaching peak activity. This campaign not only used the 345gs5662d34 credential but also executed a complete SSH key implant playbook on every successful session — establishing persistent backdoor access.
+- **Wave 1 — May 22 (~1.3M alerts/24h):** the `345gs5662d34` credential-stuffing campaign.
+  `root/345gs5662d34` was attempted **103,084 times across 357 unique IPs** — a coordinated
+  multi-source effort and the largest single-credential campaign in the dataset.
+- **Wave 2 — May 23 (peak 2,019,221 alerts/24h):** the `mdrfckr` botnet at peak activity,
+  combining the credential sweep with a full SSH key-implant playbook on every successful
+  session.
 
 ### The mdrfckr Botnet
 
-The most sophisticated campaign observed. Characteristics:
-- **Signature:** SSH public key ending in `mdrfckr` implanted via `~/.ssh/authorized_keys`
-- **Anti-forensics:** Uses `chattr -ia` to set immutable flag on `.ssh` directory, preventing key removal even by root
-- **Scale:** 90,529 key implant attempts across 7 days
-- **Infrastructure:** Routes through Pfcloud UG VPN nodes in Bulgaria, Netherlands, Germany — geographically distributed to evade IP-based blocking
-- **Objective:** Persistent backdoor access to compromised Linux servers, likely for use as botnet nodes or cryptomining infrastructure
+The most sophisticated campaign observed:
 
-On a real production server this attack would result in a persistent, removal-resistant backdoor that survives password changes.
+- **Signature:** an SSH public key ending in `mdrfckr` implanted via `~/.ssh/authorized_keys`
+- **Anti-forensics:** uses `chattr -ia` to set the immutable flag on `.ssh`, preventing key
+  removal even by root
+- **Scale:** ~90,000 key-implant attempts across the window
+- **Infrastructure:** routes through distributed VPN nodes to evade IP-based blocking
+- **Objective:** persistent, removal-resistant backdoor access to Linux servers
 
-### Attack Chain Analysis
+### nginx Web Honeypot
 
-Of all connections observed:
-- **45%** completed SSH key exchange (others are blind port scanners)
-- **27%** attempted credential authentication (reached the login prompt)
-- **17%** "succeeded" (Cowrie accepted all credentials by design)
-- **19%** executed commands after login
-- **7%** downloaded files from attacker-controlled servers
-- **0.2%** uploaded files to the honeypot
+Within days of deployment, the web honeypot logged requests probing hundreds of unique
+paths: IoT botnet activity, `.env` credential theft targeting SendGrid/Twilio API keys,
+Hikvision CVE-2021-36260 RCE probes, TP-Link firmware exploits (CVE-2021-22161), and Tomcat
+manager brute-force.
 
-The 109% command-to-login ratio (more commands than logins) indicates that successful attackers ran multiple commands per session — the average compromised session involved 3-5 commands.
+### Cross-Vector Threat Actors
 
----
+The Threat Actor Correlation analysis unifies each source IP's activity across all three
+honeypots into a single threat-scored profile. Multiple IPs were observed attacking more
+than one honeypot — e.g. brute-forcing SSH *and* delivering malware over SMB — revealing
+coordinated actors that siloed per-sensor views would miss.
 
 ## Technical Architecture
 
-The pipeline spans three physical machines:
-
 | Component | Machine | Role |
 |-----------|---------|------|
-| Cowrie Honeypot | DigitalOcean VPS (NYC1) | Internet-facing attack collection |
-| Wazuh SIEM + OpenSearch | Ubuntu Server (VLAN 10) | Indexing, alerting, enrichment |
-| Flask Dashboard | Ubuntu Server | Real-time visualization |
-| LLM Inference | Alienware m16 R2 | AI threat analysis |
+| Cowrie / nginx / Dionaea honeypots | DigitalOcean VPS (NYC1) | Internet-facing attack collection |
+| Wazuh SIEM + OpenSearch | Ubuntu Server (aarch64) | Indexing, alerting, enrichment |
+| Flask SOC Dashboard | Ubuntu Server | Real-time visualization |
+| LLM inference (Ollama + llama3.1:8b) | Alienware m16 R2 (RTX 4070) | AI threat analysis |
 
-All internal communication uses Tailscale encrypted mesh VPN. The dashboard and API are not accessible from the public internet.
+All internal communication uses the Tailscale encrypted mesh VPN. The dashboard and API are
+not accessible from the public internet. Credentials are supplied via environment variables,
+not stored in source.
 
-**Technology stack:** Python, Flask, OpenSearch, Wazuh 4.x, Cowrie, Docker, Nginx, Dionaea, Tailscale, Ollama, llama3.1:8b, HTML5 Canvas, Natural Earth geodata.
-
----
+**Technology stack:** Python, Flask, OpenSearch, Wazuh 4.x, Cowrie, nginx, Dionaea, Docker,
+Tailscale, rsync, MaxMind GeoLite2, VirusTotal API, Ollama, llama3.1:8b, HTML5 Canvas,
+Natural Earth geodata.
 
 ## Security Capabilities Demonstrated
 
-### 1. Real-Time SIEM Operations
-Wazuh processes honeypot events in real time, applies custom decoders and rules, maps events to MITRE ATT&CK, and indexes 6M+ alerts with sub-second query response via OpenSearch.
-
-### 2. Behavioral Threat Intelligence
-Botnet campaigns are identified not by IP address but by behavioral signatures — the specific credentials, commands, and SSH keys they use. This approach is more durable than IP-based detection because it remains effective even as botnets rotate their infrastructure.
-
-### 3. AI-Augmented Analysis
-A locally-hosted LLM (`llama3.1:8b` on RTX 4070) produces structured threat assessments, attacker profiles, and CISO-ready executive summaries in 15-30 seconds. The model receives pre-aggregated statistical context enabling it to reason about the full 6M-alert dataset rather than just a small sample. No data leaves the internal network.
-
-### 4. Geographic Attribution
-99 attacker countries identified via MaxMind GeoLite2 and visualized on a Natural Earth 50m world map. Top source countries: Indonesia (897K alerts), United States (758K), Netherlands (565K), Bulgaria (471K), Germany (469K).
-
-### 5. Kill Chain Reconstruction
-The Session Depth Analyzer reconstructs complete attacker sessions — from initial connection through credential attempt, command execution, file download, and key implant — mapping each event to its MITRE ATT&CK technique. This enables understanding not just that an attack occurred but exactly what the attacker did.
-
----
+1. **Real-time SIEM operations** — custom decoders/rules, MITRE ATT&CK mapping, 6M+ alerts
+   indexed with sub-second query response.
+2. **Behavioral threat intelligence** — botnets identified by behavioral signature
+   (credentials, commands, SSH keys), more durable than IP-based detection as infrastructure rotates.
+3. **Live malware capture & verification** — real binaries captured, SHA256-hashed,
+   VirusTotal-verified, attributed, and permanently archived (hash-only lookups; samples never leave the network).
+4. **AI-augmented analysis** — a local LLM produces structured threat assessments and
+   CISO-ready briefings in seconds from pre-aggregated context; no data leaves the network.
+5. **Geographic attribution** — 99 countries via MaxMind GeoLite2 on a Natural Earth map.
+6. **Kill-chain & cross-vector reconstruction** — full session reconstruction plus unified
+   per-IP threat-actor profiles across all three honeypots.
 
 ## Skills Demonstrated
 
-This project required and demonstrates proficiency in:
-
-- **Linux system administration** — Ubuntu Server, systemd services, cron automation, disk management
-- **Network security** — VPN configuration (Tailscale), SSH hardening, firewall rules, Docker isolation
-- **SIEM deployment and operation** — Wazuh installation, custom rule and decoder development, OpenSearch query optimization
-- **Data engineering** — Log collection, transport (rsync), transformation (GeoIP enrichment), storage design
-- **Python development** — Flask REST API, OpenSearch client, subprocess orchestration, JSON processing
-- **Frontend development** — HTML5 Canvas, data visualization, responsive dashboard design
-- **AI/ML integration** — Local LLM deployment (Ollama), prompt engineering, structured output parsing
-- **Threat intelligence** — Botnet fingerprinting, behavioral IOC development, MITRE ATT&CK mapping
-- **Incident analysis** — Kill chain reconstruction, attacker profiling, executive reporting
-
----
+Linux system administration (systemd, cron, disk management) · network security (Tailscale
+VPN, SSH hardening, Docker isolation) · SIEM deployment & custom rule development · data
+engineering (collection, transport, GeoIP/VT enrichment, schema design) · Python development
+(Flask REST API, OpenSearch queries, SQLite parsing) · frontend development (HTML5 Canvas
+visualization) · AI/ML integration (local LLM, prompt engineering) · threat intelligence
+(botnet fingerprinting, malware analysis, MITRE mapping) · secure secrets handling
+(environment-based credentials, key rotation discipline).
 
 ## Relevance to Information Security Policy & Management
 
-This project directly addresses core MSISPM curriculum themes:
+- **Risk management:** quantifies actual exposure (1,000+ attackers, 99 countries, 6
+  botnets, live ransomware capture) — concrete data rather than theoretical modeling.
+- **Security operations:** an end-to-end sensor-to-dashboard pipeline mirroring enterprise
+  SOC architecture, with AI triage addressing analyst alert fatigue.
+- **Policy implications:** anti-forensic techniques, VPN obfuscation, and the persistence of
+  legacy-protocol malware illustrate the attacker/defender sophistication gap relevant to
+  security program design.
+- **Executive communication:** the AI executive-summary mode bridges technical operations
+  and organizational leadership — a core MSISPM competency.
 
-**Risk Management:** The project quantifies actual threat exposure — 944 unique attackers, 99 countries, 6 active botnets — providing concrete data for risk assessment rather than theoretical threat modeling.
+---
 
-**Security Operations:** The end-to-end pipeline from sensor to dashboard mirrors enterprise SOC architecture. The AI triage capability addresses analyst alert fatigue, a critical challenge in modern security operations.
-
-**Policy Implications:** The mdrfckr campaign's use of anti-forensic techniques (`chattr -ia`) and VPN infrastructure for geographic obfuscation illustrates the sophistication gap between attackers and defenders, directly relevant to security program design.
-
-**Executive Communication:** The Executive analysis mode produces CISO-ready briefings from raw technical data, bridging the gap between security operations and organizational leadership — a core MSISPM competency.
+*Built as Project 4 of 4 for a CMU MSISPM application portfolio. All data collected from
+real internet attack traffic on infrastructure owned and operated by the author.*

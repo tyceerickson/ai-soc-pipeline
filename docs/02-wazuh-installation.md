@@ -2,7 +2,7 @@
 
 ## Overview
 
-Wazuh is deployed as an all-in-one installation on the Ubuntu Server (aarch64, Ubuntu 24.04). The stack includes the Wazuh Manager, Wazuh Indexer (OpenSearch), and Wazuh Dashboard, all running on the same host. The installation uses the official Wazuh quickstart script for single-node deployment.
+Wazuh is deployed as an all-in-one installation on the Ubuntu Server (aarch64, Ubuntu 24.04). The stack includes the Wazuh Manager, Wazuh Indexer (OpenSearch), and Wazuh Dashboard, all on the same host, installed via the official Wazuh quickstart script for single-node deployment.
 
 ---
 
@@ -10,8 +10,8 @@ Wazuh is deployed as an all-in-one installation on the Ubuntu Server (aarch64, U
 
 ### System Requirements
 - Ubuntu 24.04 LTS (aarch64)
-- 64GB RAM (Wazuh indexer uses ~4-8GB under normal load)
-- 98GB disk (64% used as of May 26, 2026)
+- 64GB RAM (Wazuh indexer uses ~4–8GB under normal load)
+- 98GB disk (66% used as of May 29, 2026)
 - Tailscale installed and authenticated
 
 ### Install Command
@@ -20,12 +20,10 @@ curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh
 bash wazuh-install.sh -a
 ```
 
-The `-a` flag installs all components (manager, indexer, dashboard) in one step. Installation takes approximately 10-15 minutes. Upon completion, the installer prints credentials for the admin user — these must be saved immediately.
+The `-a` flag installs all components (manager, indexer, dashboard) in one step. Installation takes ~10–15 minutes. On completion the installer prints admin credentials — save them immediately.
 
-### Credentials (saved separately)
-- **Dashboard:** `https://100.82.166.75` — `admin / <password>`
-- **API (port 55000):** `wazuh / <password>`
-- **OpenSearch (port 9200):** `admin / <password>`
+### Credentials
+The installer-generated credentials (dashboard `admin`, API `wazuh`, OpenSearch `admin`) are **not stored in this repository**. In this project the OpenSearch password is supplied to every consumer (dashboard, parsers, triage, cron) via the `OPENSEARCH_PASS` environment variable — set in the relevant systemd unit or cron file, never hardcoded in source. See `08-lessons-learned.md` for the migration from hardcoded credentials to environment variables.
 
 ---
 
@@ -38,44 +36,49 @@ systemctl status wazuh-indexer
 systemctl status wazuh-dashboard
 ```
 
-All three should show `active (running)`. If the indexer takes more than 60 seconds to start, it is normal — OpenSearch performs index recovery on first boot.
+All three should show `active (running)`. If the indexer takes more than 60 seconds on first boot, that is normal — OpenSearch performs index recovery.
 
 ### 2. Confirm OpenSearch is Accessible
 ```bash
-curl -k -u admin:<password> https://localhost:9200/_cluster/health?pretty
+curl -k -u admin:"$OPENSEARCH_PASS" https://localhost:9200/_cluster/health?pretty
 ```
 
-Expected output shows `status: "green"` or `status: "yellow"` (yellow is normal for single-node deployments with no replica shards).
+Expected `status: "green"` or `"yellow"` (yellow is normal for single-node deployments with no replica shards).
 
 ### 3. Confirm Alert Index Exists
 ```bash
-curl -k -u admin:<password> \
+curl -k -u admin:"$OPENSEARCH_PASS" \
   "https://localhost:9200/_cat/indices/wazuh-alerts-4.x-*?v"
 ```
 
-This lists all alert indices. After the honeypot pipeline is active you will see daily indices like `wazuh-alerts-4.x-2026.05.22`.
+After the pipeline is active you'll see daily indices like `wazuh-alerts-4.x-2026.05.22`.
 
 ---
 
 ## Wazuh Agent Setup (Local)
 
-Since all log ingestion runs on the same machine as the Wazuh Manager, a local agent is used. The agent monitors the enriched Cowrie log file and forwards events to the manager.
+All log ingestion runs on the same machine as the Wazuh Manager, so a local agent forwards the honeypot JSON feeds to the manager.
 
 ### Register Local Agent
 ```bash
 /var/ossec/bin/manage_agents
-# Choose (A) to add agent
-# Name: homeserver-cowrie
-# IP: 127.0.0.1
-# Note the key generated
+# (A) to add agent · Name: homeserver-cowrie · IP: 127.0.0.1 · note the key
 ```
 
-### Configure Agent to Monitor Cowrie Logs
-Edit `/var/ossec/etc/ossec.conf` and add inside `<ossec_config>`:
+### Configure Agent to Monitor the Honeypot Feeds
+Edit `/var/ossec/etc/ossec.conf` and add inside `<ossec_config>` (see `config/wazuh-ossec-snippet.xml`):
 ```xml
 <localfile>
   <log_format>json</log_format>
   <location>/opt/cowrie-logs/cowrie_enriched.json</location>
+</localfile>
+<localfile>
+  <log_format>json</log_format>
+  <location>/opt/cowrie-logs/wazuh/wazuh-nginx.json</location>
+</localfile>
+<localfile>
+  <log_format>json</log_format>
+  <location>/opt/cowrie-logs/wazuh/wazuh-dionaea.json</location>
 </localfile>
 ```
 
@@ -88,17 +91,15 @@ systemctl restart wazuh-agent
 
 ## Index Lifecycle Management
 
-By default, Wazuh creates a new daily index (`wazuh-alerts-4.x-YYYY.MM.DD`). For a single-node lab setup with limited disk, it is advisable to set a retention policy to prevent disk exhaustion.
+Wazuh creates a daily index (`wazuh-alerts-4.x-YYYY.MM.DD`). For a single-node lab with limited disk, set a retention policy to prevent disk exhaustion.
 
-### Check Current Index Size
 ```bash
-curl -k -u admin:<password> \
+# List indices by size
+curl -k -u admin:"$OPENSEARCH_PASS" \
   "https://localhost:9200/_cat/indices/wazuh-alerts-4.x-*?v&s=index"
-```
 
-### Manual Index Deletion (if needed)
-```bash
-curl -k -u admin:<password> -X DELETE \
+# Manual deletion (if needed)
+curl -k -u admin:"$OPENSEARCH_PASS" -X DELETE \
   "https://localhost:9200/wazuh-alerts-4.x-2026.05.13"
 ```
 
@@ -106,7 +107,7 @@ curl -k -u admin:<password> -X DELETE \
 
 ## SSL Certificate Note
 
-The Wazuh dashboard and OpenSearch use self-signed certificates generated during installation. All internal API calls from the Flask dashboard use `ssl.CERT_NONE` verification:
+The Wazuh dashboard and OpenSearch use self-signed certificates generated during installation. Internal API calls from the Flask dashboard use `ssl.CERT_NONE`:
 
 ```python
 SSL_CTX = ssl.create_default_context()
@@ -114,17 +115,10 @@ SSL_CTX.check_hostname = False
 SSL_CTX.verify_mode = ssl.CERT_NONE
 ```
 
-This is acceptable for an internal lab environment where all traffic stays within the Tailscale mesh. In a production environment, certificates from a trusted CA would be required.
+Acceptable for an internal lab where all traffic stays within the Tailscale mesh. A production deployment would use certificates from a trusted CA.
 
 ---
 
 ## Wazuh Dashboard Access
 
-The Wazuh dashboard is accessible at `https://100.82.166.75` (Tailscale only). It provides:
-- Real-time alert visualization
-- Agent management
-- Rule and decoder management
-- Built-in MITRE ATT&CK module
-- Vulnerability detection (not used in this project)
-
-For this project, the Wazuh dashboard is used primarily for rule development and verification. All production visualization is handled by the custom Flask dashboard.
+The Wazuh dashboard is at `https://100.82.166.75` (Tailscale only): real-time alert visualization, agent management, rule/decoder management, the built-in MITRE ATT&CK module. In this project it is used primarily for rule development and verification — all production visualization is handled by the custom Flask dashboard.

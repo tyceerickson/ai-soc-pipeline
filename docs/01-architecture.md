@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a full-stack, AI-powered Security Operations Center (SOC) pipeline built on real attack data collected from an internet-facing honeypot. The system ingests live SSH attack traffic, enriches it with geolocation and threat intelligence, indexes it into a SIEM, and surfaces insights through a custom real-time dashboard powered by a local large language model.
+This project implements a full-stack, AI-powered Security Operations Center (SOC) pipeline built on real attack data collected from internet-facing honeypots. The system ingests live attack traffic across three vectors — SSH/Telnet, web, and malware capture — enriches it with geolocation and VirusTotal threat intelligence, indexes it into a SIEM, and surfaces insights through a custom real-time dashboard powered by a local large language model.
 
 The architecture spans three physical machines across two networks, connected via a private mesh VPN (Tailscale).
 
@@ -15,40 +15,42 @@ The architecture spans three physical machines across two networks, connected vi
 
 This server is intentionally exposed to the internet. It runs three containerized honeypots via Docker Compose:
 
-- **Cowrie SSH/Telnet Honeypot** — emulates a vulnerable Linux server on port 22 and 23. Accepts all credentials, logs every command, captures file uploads and downloads, and records complete session transcripts.
-- **Nginx** — serves a fake HTTP endpoint to capture web-based scan traffic and credential stuffing attempts against common web paths.
-- **Dionaea** — a multi-protocol malware capture honeypot that listens on SMB, FTP, HTTP, and other common ports to attract and record malware drop attempts.
+- **Cowrie SSH/Telnet Honeypot** — emulates a vulnerable Linux server on ports 22 and 23. Accepts all credentials, logs every command, captures file uploads and downloads, and records complete session transcripts.
+- **nginx** — serves a fake HTTP endpoint to capture web-based scan traffic, CVE probes, and credential-theft attempts against common web paths.
+- **Dionaea** — a multi-protocol malware capture honeypot listening on SMB, FTP, MSSQL, MySQL, and other ports to attract and **save** malware drop attempts. Captured binaries are stored on disk (named by MD5) and recorded in Dionaea's SQLite event store.
 
-Every 15 minutes, a cron job on the VPS rsyncs all collected logs to the Ubuntu Server over Tailscale. After sync, Cowrie logs are truncated to prevent disk exhaustion (a hard lesson learned after a 24-hour disk-full outage on May 24-25, 2026).
+Every 15 minutes, automation on the VPS syncs collected data to the Ubuntu Server over Tailscale: Cowrie/nginx logs via cron rsync, and the Dionaea SQLite database **plus captured binaries** via a dedicated sync (`sync_dionaea.sh`, run by a systemd timer on the SIEM side). After sync, Cowrie/Dionaea text logs are truncated to prevent disk exhaustion — a hard lesson after a 24-hour disk-full outage on May 24–25, 2026.
 
-**Security posture:** SSH access is restricted to port 2222, key-only authentication, and Tailscale IP only. Fail2ban is active. The honeypot services are isolated in Docker containers with no host network access beyond their designated ports.
+**Security posture:** administrative SSH is restricted to port 2222, key-only authentication, Tailscale IP only. The honeypot services are isolated in Docker containers with only their designated ports exposed. (The honeypot SSH on port 22 is the deliberately-exposed sensor; real admin access is the separate 2222 listener.)
 
 ---
 
 ### Ubuntu Server — `192.168.10.4` (VLAN 10) / `100.82.166.75` (Tailscale)
-**Role:** SIEM host, log enrichment engine, AI analysis server, dashboard backend
+**Role:** SIEM host, log enrichment engine, AI analysis backend, dashboard backend
 
 This is the core of the SOC pipeline. It runs:
 
-- **Wazuh SIEM** (v4.x) — receives, parses, and indexes all honeypot alerts. Custom rules map Cowrie event types to MITRE ATT&CK tactics and assign severity levels. Wazuh's built-in decoders handle Cowrie's JSON log format.
-- **OpenSearch** — the underlying data store for all Wazuh alerts (index: `wazuh-alerts-4.x-*`). Queried directly by the dashboard backend for real-time aggregations.
-- **GeoIP Enrichment Pipeline** — a Python script (`enrich_logs.py`) that reads consolidated Cowrie logs, resolves each attacker IP against MaxMind GeoLite2 databases (City + ASN), and writes enriched JSON. A cache of 944 fully-resolved IPs is maintained at `/opt/cowrie-logs/geoip_cache.json`.
-- **Flask Dashboard** (`app.py`) — serves the SOC dashboard web application on port 5000. Queries OpenSearch directly via HTTPS for all real-time stats, aggregations, and intelligence panels.
-- **Systemd Service** (`soc-dashboard.service`) — keeps the Flask app running continuously, auto-restarts on failure.
+- **Wazuh SIEM** (v4.x) — receives, parses, and indexes all honeypot alerts. Custom rules map honeypot event types to MITRE ATT&CK tactics and assign severity. Wazuh's built-in JSON decoder handles the normalized event format.
+- **OpenSearch** — the data store for all Wazuh alerts (index: `wazuh-alerts-4.x-*`). Queried directly by the dashboard backend for real-time aggregations.
+- **GeoIP + VirusTotal enrichment** — Python pipeline resolving each attacker IP against MaxMind GeoLite2 (City + ASN), and looking up captured-malware hashes against VirusTotal (hash only — samples are never uploaded). A GeoIP cache is maintained at `/opt/cowrie-logs/geoip_cache.json`.
+- **Log parsers** — `parse_nginx.py` (nginx CLF) and `parse_dionaea.py` (Dionaea SQLite → connection/login/malware events with SHA256 + VirusTotal + permanent archive).
+- **Flask Dashboard** (`app.py`) — serves the SOC dashboard on port 5000, querying OpenSearch directly over HTTPS for all real-time stats and intelligence panels.
+- **Systemd services** — `soc-dashboard.service` keeps the Flask app running; `dionaea-sync.timer` runs the Dionaea sync + parse every 15 minutes. Credentials are supplied via environment variables in the unit files, never hardcoded.
 
 **Automation:**
-- Hourly cron: consolidate rotated Cowrie log files → run GeoIP enrichment → rebuild cache
-- Every 30 minutes: run AI triage pipeline (summary mode)
-- Weekly Monday 6am: update MaxMind GeoIP databases
+- Every 15 min: nginx parse (cron) and Dionaea sync + parse (systemd timer)
+- Hourly: consolidate rotated Cowrie logs → GeoIP enrichment → rebuild cache
+- Every 30 min: AI triage pipeline (summary mode)
+- Weekly (Mon 06:00): update MaxMind GeoIP databases
 
 ---
 
 ### Alienware m16 R2 — `100.72.171.104` (Tailscale)
 **Role:** AI inference server
 
-Runs Ollama as a Windows service, serving `llama3.1:8b` on an NVIDIA RTX 4070 (8GB VRAM) over the Tailscale network. The Ubuntu Server sends structured threat intelligence prompts to this endpoint and receives natural-language analysis in response.
+Runs Ollama as a Windows service, serving `llama3.1:8b` on an NVIDIA RTX 4070 (8GB VRAM) over Tailscale. The Ubuntu Server sends structured threat-intelligence prompts to this endpoint and receives natural-language analysis.
 
-**Model:** `llama3.1:8b` — chosen for its balance of reasoning quality and speed on consumer GPU hardware. Full inference runs in 15-30 seconds for summary mode. `llama3.3:70b` was tested but rejected due to excessive RAM offload (42GB) causing unacceptable latency.
+**Model:** `llama3.1:8b` — chosen for its balance of reasoning quality and speed on consumer GPU hardware. Summary-mode inference runs in 15–30 seconds. `llama3.3:70b` was tested but rejected: at ~42GB it offloaded heavily from VRAM to system RAM, causing 10+ minute latencies.
 
 ---
 
@@ -59,58 +61,54 @@ Internet Attackers
        │
        ▼
 [DigitalOcean VPS — NYC1]
-  Cowrie SSH Honeypot (port 22/23)
-  Nginx (port 80/443)
-  Dionaea (port 445, 21, etc.)
+  Cowrie SSH/Telnet (port 22/23)
+  nginx (port 80/443)
+  Dionaea (port 445, 21, 1433, 3306, ...)  ── captures malware binaries
        │
-       │  rsync every 15 min (Tailscale)
+       │  rsync every 15 min (Tailscale): logs + dionaea.sqlite + binaries/
        ▼
 [Ubuntu Server — VLAN 10]
-  cowrie.json (consolidated raw logs)
+  cowrie.json  +  nginx access.log  +  dionaea.sqlite  +  binaries/
        │
-       │  hourly: enrich_logs.py
+       │  parsers + hourly GeoIP enrichment + per-hash VirusTotal lookup
        ▼
-  cowrie_enriched.json (with GeoIP)
+  wazuh-*.json  (normalized, enriched)        archive/YYYY-MM/<sha256> (+ .json sidecar)
        │
-       │  Wazuh agent reads enriched logs
+       │  Wazuh agent reads the JSON feeds
        ▼
-  Wazuh SIEM → OpenSearch Index
-  wazuh-alerts-4.x-*
+  Wazuh SIEM → OpenSearch Index  (wazuh-alerts-4.x-*)
        │
-       ├──────────────────────────────────┐
-       │                                  │
-       ▼                                  ▼
-  Flask Dashboard (port 5000)       AI Triage (every 30 min)
-  Live queries to OpenSearch        alert_poller.py
-  8 intelligence panels             → alerts_raw.json
-  Real-time stats + aggregations    → ai_triage.py
-       │                            → Ollama (Tailscale)
-       │                            → llama3.1:8b on RTX 4070
-       ▼                            → triage_report.json
-  Browser (Tailscale only)               │
-  http://100.82.166.75:5000              ▼
-                                    Dashboard /api/triage
+       ├───────────────────────────────────────┐
+       ▼                                         ▼
+  Flask Dashboard (port 5000)              AI Triage (every 30 min)
+  Live OpenSearch queries                  alert_poller.py → ai_triage.py
+  12 intelligence panels                   → Ollama (Tailscale) → llama3.1:8b
+       │                                    → triage_report.json
+       ▼                                         │
+  Browser (Tailscale only)                       ▼
+  http://100.82.166.75:5000                Dashboard /api/triage
 ```
 
 ---
 
 ## Network Security
 
-All dashboard and API access is restricted to the Tailscale mesh VPN. Neither the Wazuh dashboard (port 443) nor the SOC dashboard (port 5000) nor the Ollama API (port 11434) are accessible from the public internet. Only the honeypot ports on the VPS are intentionally exposed.
+All dashboard and API access is restricted to the Tailscale mesh VPN. Neither the Wazuh dashboard (443), the SOC dashboard (5000), nor the Ollama API (11434) are reachable from the public internet. Only the honeypot ports on the VPS are intentionally exposed.
 
-Tailscale acts as a zero-trust overlay network — each device authenticates with a cryptographic identity before joining the mesh. No firewall rules need to be opened on the Ubuntu Server for the dashboard to be reachable.
+Tailscale acts as a zero-trust overlay — each device authenticates with a cryptographic identity before joining the mesh, so no inbound firewall rules need to be opened on the Ubuntu Server for the dashboard to be reachable.
 
 ---
 
-## Key Statistics (as of May 26, 2026)
+## Key Statistics (collection window May 21–29, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Total Wazuh alerts | 6,185,397 |
-| Cowrie SSH events | 218,392 |
-| Unique attacker IPs | 944 |
+| Total Wazuh alerts | 6,185,397+ |
+| Cowrie SSH/Telnet events | 872,871 |
+| Malware binaries captured | 7 (6 WannaCry + 1 downloader, VirusTotal-verified) |
+| Unique attacker IPs | 1,000+ |
 | Countries observed | 99 |
-| Collection period | May 19 – May 26, 2026 |
 | Data gap (disk outage) | May 24 22:12 → May 25 21:39 UTC |
 | Active botnets identified | 6 |
 | MITRE ATT&CK tactics observed | 7 |
+| Peak day (May 23) | 2,019,221 alerts / 24h |

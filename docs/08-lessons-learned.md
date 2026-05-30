@@ -2,138 +2,137 @@
 
 ## Overview
 
-This document captures the key technical, operational, and analytical lessons learned during the design, build, and operation of this SOC pipeline. Several significant problems were encountered, diagnosed, and resolved — each one deepened understanding of the systems involved.
+This document captures the key technical, operational, and analytical lessons learned during the design, build, and operation of this SOC pipeline. Several significant problems were encountered, diagnosed, and resolved — each deepened understanding of the systems involved.
 
 ---
 
 ## Lesson 1: Disk Management in Production is Non-Negotiable
 
 ### What Happened
-On May 24, 2026 at approximately 22:12 UTC, the DigitalOcean VPS ran out of disk space. The immediate cause was Dionaea generating ~600MB/hour of logs (compared to Cowrie's ~50MB/hour). The 24GB SSD filled completely in approximately 4 days. When the disk filled:
-- Cowrie stopped logging new events
-- The rsync job ran successfully but copied zero new data
-- The Ubuntu Server continued running normally with no indication of the problem
-- **~23 hours of attack data was permanently lost** (May 24 22:12 → May 25 21:39 UTC)
+On May 24, 2026 at ~22:12 UTC, the DigitalOcean VPS ran out of disk space. The cause was Dionaea generating ~600MB/hour of raw protocol logs (vs Cowrie's ~50MB/hour); the 24GB SSD filled in ~4 days. When the disk filled, Cowrie stopped logging, rsync copied zero new data, the Ubuntu Server showed no problem, and **~23 hours of attack data was permanently lost** (May 24 22:12 → May 25 21:39 UTC).
 
 ### Root Cause
-Dionaea was logging raw protocol captures including binary SMB and FTP handshake data. Unlike Cowrie which logs structured JSON summaries, Dionaea logs complete packet captures that grow unboundedly.
+Dionaea was logging raw packet captures (binary SMB/FTP handshake data) that grow unboundedly, unlike Cowrie's structured JSON summaries.
 
 ### Resolution
-Four independent safeguards were implemented:
-1. **Post-rsync truncation** — after every rsync, the cron job truncates `dionaea.log` to zero bytes
-2. **Hourly disk monitor** — if disk usage exceeds 70%, `dionaea.log` is emergency-truncated
-3. **Logrotate** — weekly rotation with 2-file retention cap
-4. **Docker log limits** — `/etc/docker/daemon.json` capped all container logs at 50MB max
+Four safeguards: (1) post-rsync truncation of `dionaea.log`; (2) hourly disk monitor that emergency-truncates above 70%; (3) logrotate with a 2-file cap; (4) Docker log limits (50MB max) in `/etc/docker/daemon.json`. Crucially, only the **unused text log** is truncated — the Dionaea SQLite store and captured binaries are preserved.
 
 ### Takeaway
-Monitoring disk space is as important as monitoring the security tools themselves. In a production SOC, this would be an alert condition — a sensor going silent is a critical gap in visibility, and the absence of logs is not the same as the absence of attacks.
+Monitoring disk space is as important as monitoring the security tools. A sensor going silent is a critical visibility gap — the absence of logs is not the absence of attacks.
 
 ---
 
 ## Lesson 2: OpenSearch Query Design Matters at Scale
 
 ### What Happened
-Early versions of the dashboard used simple `match_all` queries with Python-side filtering. At 6 million alerts this was completely impractical — each API call retrieved thousands of records, parsed them in Python, and timed out.
+Early dashboard versions used `match_all` queries with Python-side filtering. At 6M+ alerts this was impractical — each call pulled thousands of records, parsed them in Python, and timed out.
 
 ### Resolution
-All data aggregation was moved into OpenSearch using the aggregation API. A single query with nested aggregations (timeline, by_country, by_src_ip, by_eventid, mitre_tactics) returns all required data in one round trip in under 2 seconds:
-
+All aggregation was moved into OpenSearch. A single query with nested aggregations (timeline, by_country, by_src_ip, by_eventid, mitre) returns everything in one round trip in under 2 seconds:
 ```python
 body = {
-    "size": 0,  # No individual documents — aggregations only
-    "track_total_hits": True,
-    "aggs": {
-        "by_country": {"terms": {"field": "data.location.country_name", "size": 100}},
-        "by_src_ip":  {"terms": {"field": "data.src_ip", "size": 2000}},
-        "timeline":   {"date_histogram": {...}},
-        # ...
-    }
+  "size": 0, "track_total_hits": True,
+  "aggs": {
+    "by_country": {"terms": {"field": "data.location.country_name", "size": 100}},
+    "by_src_ip":  {"terms": {"field": "data.src_ip", "size": 2000}},
+    "timeline":   {"date_histogram": {...}},
+  }
 }
 ```
 
 ### Takeaway
-At millions of events, the difference between correct and incorrect query design is the difference between a 2-second response and a 60-second timeout. OpenSearch/Elasticsearch aggregations push computation to the data rather than pulling data to compute.
+At millions of events, query design is the difference between a 2-second response and a 60-second timeout. Aggregations push computation to the data instead of pulling data to compute.
 
 ---
 
 ## Lesson 3: AI Models Have Real Hardware Constraints
 
 ### What Happened
-`llama3.3:70b` was tested as an upgrade from `llama3.1:8b`. The 70B model produces noticeably better threat reasoning and more nuanced analysis. However, the RTX 4070 has only 8GB VRAM — insufficient to fit the full model. Ollama offloaded the excess to system RAM, and each inference call took 10-15 minutes instead of 15-30 seconds.
+`llama3.3:70b` produced better reasoning than `llama3.1:8b`, but the RTX 4070's 8GB VRAM couldn't hold it. Ollama offloaded ~42GB to system RAM and inference took 10–15 minutes instead of 15–30 seconds.
 
 ### Resolution
-Reverted to `llama3.1:8b`, which fits entirely in VRAM. Compensated for the smaller model by improving prompt engineering — providing pre-aggregated statistics directly in the prompt rather than asking the model to reason from raw alert data:
-
-```
-# Instead of: "Here are 100 alerts, analyze them"
-# We send:    "Total: 6.18M alerts. Top credential: root/3245gs5662d34 (103K×).
-#              Top command: chattr -ia .ssh (90K×). Botnet: mdrfckr..."
-```
-
-The model still produces the raw alerts for pattern recognition, but the statistical context is pre-computed rather than inferred.
+Reverted to `llama3.1:8b` (fits entirely in VRAM) and compensated with prompt engineering — feeding pre-aggregated statistics directly rather than asking the model to infer scale from a small sample.
 
 ### Takeaway
-Consumer GPU hardware is a real constraint for local LLM deployment. Quantization (Q4/Q8) and careful model selection matter. A smaller model with better-structured inputs often outperforms a larger model with poorly structured inputs.
+Consumer GPU hardware is a real constraint for local LLM deployment. A smaller model with well-structured inputs often beats a larger model with poorly structured ones.
 
 ---
 
 ## Lesson 4: Cowrie Accepts Everything — By Design
 
 ### What Happened
-Initial analysis of the credential data showed a 63.3% "success" rate, which seemed extremely high and raised questions about data validity.
+Credential data showed a 63.3% "success" rate, which seemed implausibly high.
 
 ### Resolution
-Cowrie is designed to accept all credentials — this is the fundamental honeypot mechanic. The "success" in `cowrie.login.success` means "Cowrie let the attacker in to the fake shell" not "the credential is valid on a real system." Every attacker eventually succeeds at "logging in," which is what makes Cowrie effective — attackers think they've compromised a real server and proceed to run their full playbook.
+Cowrie accepts all credentials by design — `cowrie.login.success` means "Cowrie let the attacker into the fake shell," not "valid credential." The value is in what attackers do *after* they log in.
 
 ### Takeaway
-Understanding what your data means requires understanding the tool that generates it. The 63.3% success rate is a data artifact, not a security finding. The valuable data is what attackers do *after* they log in.
+Understanding data requires understanding the tool that generates it. The 63.3% rate is an artifact, not a finding.
 
 ---
 
 ## Lesson 5: rsync + File Rotation Requires Careful Ordering
 
 ### What Happened
-After the disk outage was resolved, the consolidation command initially missed data because the order of log files in the `cat` command didn't account for the logrotate `.1` suffix used on the day boundaries.
+After the disk outage, the consolidation command initially missed data because the `cat` ordering didn't account for the logrotate `.1` suffix at day boundaries.
 
 ### Resolution
-The consolidation explicitly includes all file variants in chronological order:
-```bash
-cat cowrie.json.2026-05-21 \
-    cowrie.json.2026-05-22 \
-    cowrie.json.2026-05-23 \
-    cowrie.json.2026-05-24 \
-    cowrie.json.1 \        # Yesterday's midnight rotation
-    cowrie.json            # Today's current file
-```
+Consolidation explicitly includes all variants in chronological order (date-suffixed files, then `.1`, then current `cowrie.json`).
 
 ### Takeaway
-Log rotation creates multiple file formats (date-suffixed, numeric-suffixed, current). Any consolidation pipeline must account for all variants. A missing file silently produces an incomplete dataset.
+Log rotation creates multiple file formats. Any consolidation pipeline must account for all of them; a missing file silently produces an incomplete dataset.
 
 ---
 
 ## Lesson 6: Canvas Rendering Requires Layout to Complete First
 
 ### What Happened
-The Geographic Attack Map used SVG innerHTML initially. When that had rendering issues, it was replaced with an HTML5 Canvas approach. However, the canvas rendered blank because `offsetWidth` returned 0 when queried immediately — the browser hadn't finished laying out the parent div before the drawing code ran.
+The Geographic Attack Map (HTML5 Canvas) rendered blank because `offsetWidth` returned 0 when queried before the browser finished layout.
 
 ### Resolution
-Wrapped the drawing code in multiple `setTimeout` calls (0ms, 200ms, 500ms) to ensure at least one execution occurs after the browser completes its layout pass. The 500ms call is the reliable fallback.
+Wrapped the draw code in staged `setTimeout` calls (0/200/500ms) so at least one execution runs after layout completes; later HiDPI scaling was added for crisp rendering on high-DPI displays.
 
 ### Takeaway
-Browser rendering is asynchronous. Any JavaScript that measures DOM dimensions must wait for the layout phase to complete. `requestAnimationFrame` and `setTimeout` are the standard patterns for this.
+Browser rendering is asynchronous. JavaScript that measures DOM dimensions must wait for the layout phase (`requestAnimationFrame` / `setTimeout`).
 
 ---
 
 ## Lesson 7: Botnet Detection by Behavioral Signature
 
 ### What Happened
-Initially, the botnet fingerprinting used simple IP-based clustering. But many botnets rotate their IP addresses constantly, making IP-based identification unreliable.
+IP-based botnet clustering was unreliable because campaigns rotate IPs constantly.
 
 ### Resolution
-Switched to behavioral signatures — patterns in the credentials and commands used that are consistent across all IPs in the same campaign:
-- **mdrfckr botnet:** Identified by the SSH public key string containing "mdrfckr"
-- **345gs5662d34 campaign:** Identified by the distinctive credential string `3245gs5662d34`
-- **Solana scanner:** Identified by exclusive use of `solana`/`sol` usernames
+Switched to behavioral signatures consistent across all IPs in a campaign: the `mdrfckr` SSH key string, the `345gs5662d34` credential, the Solana-only username set. Detection dedups on the **campaign type** (what the command does), not the first token — so a multi-stage implant that begins with `cd` is still classified as an SSH key implant rather than being shadowed by a generic `cd` command.
 
 ### Takeaway
-Behavioral IOCs (Indicators of Compromise) are more durable than network IOCs. An attacker can change their IP easily; changing their payload or credential list requires retooling the entire campaign.
+Behavioral IOCs are more durable than network IOCs. Changing an IP is trivial; changing a payload or credential list requires retooling the whole campaign.
+
+---
+
+## Lesson 8: A Wrong Column Name Silently Dropped Every Malware Capture
+
+### What Happened
+The Dionaea honeypot was capturing real malware to disk (7 binaries, later confirmed as WannaCry), yet the dashboard reported **0 binaries captured** for days. Connections were logged; captures were not.
+
+### Root Cause
+`parse_dionaea.py` queried `SELECT connection, url, sha512 FROM downloads` — but the real Dionaea schema has **`download_url`** and **`download_md5_hash`**, with no `url` or `sha512` column. The query threw an exception, which was swallowed by a broad `except:` that fell back to an empty result — so every capture was silently discarded. The parser was also stuck on an unadvanced state cursor.
+
+### Resolution
+Rewrote the query against the verified schema, joined `downloads → connections` for source attribution, switched dedup to be hash-keyed (independent of the connection cursor), and **computed the real SHA256 from the captured file on disk** (falling back to MD5 only if the file isn't synced, so a capture is never dropped). A bytes-to-string sanitizer was added because Dionaea returns some TEXT columns as BLOBs, which broke JSON serialization. VirusTotal enrichment and a permanent read-only archive were layered on top. The whole pipeline was then automated with a systemd timer.
+
+### Takeaway
+A broad `except:` that hides the real error is dangerous — it turns a loud, fixable bug into silent data loss. Validate assumptions against the **actual** schema, not the documented or assumed one, and let parsing errors surface loudly. "No data" should be treated as suspicious until proven, especially when the upstream sensor clearly has data on disk.
+
+---
+
+## Lesson 9: Hardcoded Credentials, and Migrating to Environment Variables
+
+### What Happened
+During development, the OpenSearch admin password was hardcoded across five files (the dashboard, two triage scripts, a GeoIP rebuild script, and an IP-resolver script) — some with no environment fallback at all. Because several of these were committed, the credential ended up in the public git history.
+
+### Resolution
+All five files were migrated to read the password from the `OPENSEARCH_PASS` environment variable with no hardcoded fallback. The value is now supplied only at runtime: via the systemd unit override for the dashboard, and via environment lines in the relevant cron/crontab entries for the batch jobs. A pre-commit check (`git grep --cached` for the secret pattern) was adopted as a gate so a credential can never be staged again. Stale `__pycache__` `.pyc` files — which retained the secret after the source was cleaned — were purged as part of the scrub.
+
+### Takeaway
+Secrets do not belong in source, and they especially do not belong in git history (where a later deletion does not undo the exposure — only rotation does). Centralize secrets in the runtime environment, treat any exposed secret as compromised, and enforce a mechanical pre-commit gate rather than relying on memory. Compiled artifacts (`.pyc`) can retain a secret after the source is fixed, so they must be cleaned too.

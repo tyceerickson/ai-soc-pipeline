@@ -2,50 +2,50 @@
 
 ## Overview
 
-Raw Cowrie logs are collected on the DigitalOcean VPS and transported to the Ubuntu Server every 15 minutes via rsync over Tailscale. On the Ubuntu Server, they are consolidated, enriched with geolocation data, and made available to Wazuh for indexing. The entire pipeline is automated and runs unattended.
+Raw data from three honeypots is collected on the DigitalOcean VPS and transported to the Ubuntu Server every 15 minutes over Tailscale. On the Ubuntu Server it is consolidated, enriched (GeoIP + VirusTotal), normalized to Wazuh JSON, and indexed. The pipeline is fully automated and runs unattended.
 
 ---
 
 ## Stage 1: Collection (VPS)
 
-### Cowrie Log Format
-Cowrie writes one JSON object per line to `/home/cowrie/cowrie-data/log/cowrie.json`. Each event has a consistent structure:
-
+### Cowrie (SSH/Telnet)
+Cowrie writes one JSON object per line. Example:
 ```json
 {
   "eventid": "cowrie.login.success",
   "timestamp": "2026-05-23T15:30:21.686037Z",
   "src_ip": "175.182.36.5",
-  "src_port": 51234,
   "session": "abc123def456",
   "username": "root",
-  "password": "3245gs5662d34",
+  "password": "345gs5662d34",
   "sensor": "cowrie-nyc1"
 }
 ```
 
-Key event types and what they represent:
-
 | Event ID | Meaning |
 |----------|---------|
-| `cowrie.session.connect` | New TCP connection established |
-| `cowrie.client.kex` | SSH key exchange negotiated (attacker's SSH client fingerprint) |
-| `cowrie.login.failed` | Credential attempt rejected by real system (accepted by Cowrie) |
-| `cowrie.login.success` | Cowrie accepted the credential (all credentials succeed in Cowrie) |
+| `cowrie.session.connect` | New TCP connection |
+| `cowrie.client.kex` | SSH key exchange (attacker client fingerprint) |
+| `cowrie.login.failed` | Credential rejected (real systems) / still recorded by Cowrie |
+| `cowrie.login.success` | Cowrie accepted the credential (all succeed by design) |
 | `cowrie.command.input` | Attacker typed a command |
-| `cowrie.session.file_download` | Attacker downloaded a file from the honeypot |
-| `cowrie.session.file_upload` | Attacker uploaded a file to the honeypot |
+| `cowrie.session.file_download` / `file_upload` | File transfer |
 | `cowrie.session.closed` | Session ended |
-| `cowrie.client.version` | Attacker's SSH client version string |
+
+### nginx (web)
+Standard Combined Log Format access log, parsed by `parse_nginx.py`.
+
+### Dionaea (malware capture)
+Dionaea records connections, logins, **downloads (captured malware)**, and optional VirusTotal results in a SQLite database (`dionaea.sqlite`), and saves each captured binary to a `binaries/` directory named by its MD5. The text log is unstructured scapy debug noise and is **not** used for parsing — the SQLite store is the source of truth.
 
 ### Log Rotation
-Cowrie rotates its log file daily at midnight UTC. The current day's log is always `cowrie.json`; previous days are `cowrie.json.YYYY-MM-DD`. This is important for the consolidation step.
+Cowrie rotates daily at midnight UTC: current day is `cowrie.json`, previous days are `cowrie.json.YYYY-MM-DD`. This matters for the consolidation step.
 
 ---
 
 ## Stage 2: Transport (VPS → Ubuntu Server)
 
-### Rsync Cron (`/etc/cron.d/cowrie-sync` on VPS)
+### Cowrie / nginx — rsync cron (`/etc/cron.d/cowrie-sync` on VPS)
 ```cron
 */15 * * * * root rsync -az --timeout=30 \
   /home/cowrie/cowrie-data/log/cowrie.json* \
@@ -54,102 +54,74 @@ Cowrie rotates its log file daily at midnight UTC. The current day's log is alwa
 */15 * * * * root rsync -az --timeout=30 \
   /var/log/nginx/ \
   terickson@100.82.166.75:/opt/cowrie-logs/nginx/
-
-*/15 * * * * root rsync -az --timeout=30 \
-  /var/lib/dionaea/log/ \
-  terickson@100.82.166.75:/opt/cowrie-logs/dionaea/ && \
-  truncate -s 0 /var/lib/dionaea/log/dionaea.log
 ```
 
-The Dionaea log is truncated after each sync to prevent it from filling the VPS disk. Dionaea was logging ~600MB/hour during peak periods and caused a full disk outage on May 24-25, 2026, resulting in ~23 hours of lost data.
+### Dionaea — systemd timer (`dionaea-sync.timer` on Ubuntu Server)
+Rather than a VPS-side push, the SIEM **pulls** Dionaea data so it can also fetch the captured binaries and run the parser in one step. `sync_dionaea.sh` (run every 15 min by the timer):
+1. rsyncs `dionaea.sqlite` from the VPS
+2. rsyncs the `binaries/` directory (`--ignore-existing`, append-only)
+3. runs `parse_dionaea.py`, which emits Wazuh events, computes SHA256, looks up VirusTotal, and archives new samples
+
+Host/port/key for the sync are supplied via environment variables in `config/dionaea-sync.service` — no infrastructure details are committed to source.
 
 ### Disk Safety Monitor (`/etc/cron.d/disk-monitor` on VPS)
 ```cron
 0 * * * * root USED=$(df / | awk 'NR==2{print $5}' | tr -d '%'); \
-  if [ "$USED" -gt 70 ]; then \
-    truncate -s 0 /var/lib/dionaea/log/dionaea.log; \
-    docker logs --since 1h cowrie > /dev/null 2>&1; \
-  fi
+  if [ "$USED" -gt 70 ]; then truncate -s 0 /var/lib/dionaea/log/dionaea.log; fi
 ```
-
-Triggers emergency truncation if disk usage exceeds 70%.
+Emergency truncation if disk usage exceeds 70%. Dionaea's text log grew ~600MB/hour and caused a full-disk outage on May 24–25, 2026 (~23 hours of lost data). Note: this truncates only the unused **text** log; the SQLite store and captured binaries are preserved.
 
 ---
 
 ## Stage 3: Consolidation (Ubuntu Server)
 
-### Hourly Cron (`/etc/cron.d/geoip-enrich` on Ubuntu Server)
+### Hourly Cron (`/etc/cron.d/geoip-enrich`)
 ```cron
+OPENSEARCH_PASS=<set-in-cron-env>
 0 * * * * terickson /opt/cowrie-tools/pipeline/consolidate_and_enrich.sh
 0 6 * * 1 terickson /usr/bin/python3 /opt/cowrie-tools/pipeline/update_maxmind.py
 ```
 
 ### Consolidation Logic
-The consolidation script cats all rotated log files into a single `cowrie.json`:
-
 ```bash
 cat /opt/cowrie-logs/cowrie.json.2026-05-21 \
     /opt/cowrie-logs/cowrie.json.2026-05-22 \
-    /opt/cowrie-logs/cowrie.json.2026-05-23 \
-    /opt/cowrie-logs/cowrie.json.2026-05-24 \
+    ... \
     /opt/cowrie-logs/cowrie.json.1 \
     /opt/cowrie-logs/cowrie.json \
     > /opt/cowrie-logs/cowrie_all.json
-
 cp /opt/cowrie-logs/cowrie_all.json /opt/cowrie-logs/cowrie.json
 ```
-
-As of May 26, 2026 this produces **218,392 events** covering May 21-26.
+Across the May 21–29 window this yields **872,871 Cowrie events**.
 
 ---
 
-## Stage 4: GeoIP Enrichment
+## Stage 4: Enrichment
 
-### Script: `enrich_logs.py`
-Reads `cowrie.json` line by line and resolves each unique `src_ip` using MaxMind GeoLite2 databases:
+### GeoIP (`enrich_logs.py` / `rebuild_geoip_cache.py`)
+Resolves each unique `src_ip` against MaxMind GeoLite2 (City + ASN), adding country, city, lat/lon, org, and ASN. Results are cached in `/opt/cowrie-logs/geoip_cache.json`; only uncached IPs are resolved on each run.
 
-- **GeoLite2-City.mmdb** — resolves country, city, latitude, longitude
-- **GeoLite2-ASN.mmdb** — resolves organization/ISP name and ASN number
+### VirusTotal (captured malware, in `parse_dionaea.py`)
+For each captured binary, the parser computes the real **SHA256** from the file on disk and looks the hash up on VirusTotal — *hash only; the sample is never uploaded*. The detection ratio, threat label, and permalink are attached to the event and recorded in the permanent archive sidecar. Lookups are cached so each hash is queried once; free-tier rate limits are respected. Enable by setting `VT_API_KEY` in `config/dionaea-sync.service`.
 
-Enriched events add these fields:
-```json
-{
-  "src_country": "Indonesia",
-  "src_city": "Mataram",
-  "src_lat": -8.5833,
-  "src_lon": 116.1167,
-  "src_org": "Universitas Mataram",
-  "src_asn": 45XXX
-}
-```
-
-The script maintains a cache at `/opt/cowrie-logs/geoip_cache.json` mapping IP → GeoIP data. On each run it only resolves IPs not already in the cache, making subsequent runs fast.
-
-**Current cache:** 944 IPs fully resolved.
-
-### Output Files
-```
-/opt/cowrie-logs/cowrie.json           — consolidated raw events
-/opt/cowrie-logs/cowrie_enriched.json  — GeoIP-enriched events (Wazuh reads this)
-/opt/cowrie-logs/geoip_cache.json      — IP → GeoIP lookup cache
-```
+### Permanent Malware Archive
+Each new sample is copied to `/opt/cowrie-logs/dionaea/archive/YYYY-MM/<sha256>` (read-only, mode 400) with a JSON metadata sidecar (source IP, country, service, size, VT verdict) — surviving index rollover and container rotation.
 
 ---
 
 ## Stage 5: Wazuh Indexing
 
-The Wazuh agent monitors `cowrie_enriched.json` as a JSON log file. When new lines are appended, the agent forwards them to the Wazuh Manager, which applies custom decoders and rules (see `04-custom-rules.md`) before indexing into OpenSearch.
+The Wazuh agent monitors the JSON feeds (`cowrie_enriched.json`, `wazuh-nginx.json`, `wazuh-dionaea.json`). New lines are forwarded to the manager, which applies custom decoders/rules (see `04-custom-rules.md`) before indexing into OpenSearch.
 
-### Verify Ingestion is Working
 ```bash
-# Check agent is sending events
-tail -f /var/ossec/logs/ossec.log | grep cowrie
+# agent activity
+tail -f /var/ossec/logs/ossec.log | grep -E 'cowrie|dionaea|nginx'
 
-# Check OpenSearch is receiving them
-curl -k -u admin:<password> \
+# malware capture events in the index
+curl -k -u admin:"$OPENSEARCH_PASS" \
   "https://localhost:9200/wazuh-alerts-4.x-*/_count" \
   -H "Content-Type: application/json" \
-  -d '{"query":{"exists":{"field":"data.honeypot"}}}'
+  -d '{"query":{"term":{"data.eventid":"dionaea.binary.captured"}}}'
 ```
 
 ---
@@ -158,22 +130,26 @@ curl -k -u admin:<password> \
 
 ```
 /opt/cowrie-logs/
-├── cowrie.json              # Consolidated raw Cowrie events (218K lines)
-├── cowrie_enriched.json     # GeoIP-enriched (Wazuh reads this)
-├── cowrie.json.1            # Yesterday's rotated log
-├── cowrie.json.2026-05-21   # Per-day archives
-├── cowrie.json.2026-05-22
-├── cowrie.json.2026-05-23
-├── cowrie.json.2026-05-24
-├── geoip_cache.json         # 944-IP GeoIP cache
-├── nginx/                   # Nginx access logs from VPS
-├── dionaea/                 # Dionaea malware capture logs
-└── wazuh/                   # Wazuh-formatted export files
+├── cowrie.json                 # Consolidated raw Cowrie events
+├── cowrie_enriched.json        # GeoIP-enriched (Wazuh reads this)
+├── cowrie.json.2026-05-2x      # Per-day archives
+├── geoip_cache.json            # IP → GeoIP cache
+├── nginx/                      # nginx access logs from VPS
+├── dionaea/
+│   ├── dionaea.sqlite          # Dionaea event store (synced from VPS)
+│   ├── binaries/               # captured malware (named by MD5)
+│   ├── archive/YYYY-MM/        # permanent SHA256-named samples + .json sidecars
+│   └── .parse_state_sqlite.json
+└── wazuh/
+    ├── wazuh-nginx.json
+    └── wazuh-dionaea.json
 
-/opt/cowrie-tools/
-└── pipeline/
-    ├── enrich_logs.py           # GeoIP enrichment
-    ├── rebuild_geoip_cache.py   # Rebuild cache from scratch
-    ├── export_to_wazuh.py       # Format for Wazuh ingestion
-    └── update_maxmind.py        # Weekly MaxMind database update
+/opt/cowrie-tools/pipeline/
+├── enrich_logs.py              # GeoIP enrichment
+├── rebuild_geoip_cache.py      # rebuild GeoIP cache
+├── parse_nginx.py              # nginx CLF → Wazuh JSON
+├── parse_dionaea.py            # Dionaea SQLite → Wazuh JSON (+SHA256/VT/archive)
+├── sync_dionaea.sh             # VPS pull (sqlite+binaries) → parse
+├── export_to_wazuh.py          # format helpers
+└── update_maxmind.py           # weekly MaxMind update
 ```

@@ -9,16 +9,23 @@
 # All output goes to journald via the .service unit.
 #
 # Author: Tyce Erickson · CMU MSISPM Portfolio · Project 4
+#
+# NOTE: Host, port, and key path are read from the environment so no
+# infrastructure details are committed. Set them in the systemd unit
+# (config/dionaea-sync.service) or a local env file:
+#   VPS_HOST=user@<vps-host-or-tailscale-name>
+#   VPS_PORT=<ssh-port>
+#   SSH_KEY=/path/to/private_key
 
 set -uo pipefail
 
-VPS_HOST="root@100.89.15.57"
-VPS_PORT="2222"
-SSH_KEY="/home/terickson/.ssh/vps_sync"
+VPS_HOST="${VPS_HOST:-user@vps-host.example}"
+VPS_PORT="${VPS_PORT:-22}"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/vps_sync}"
 SSH_OPTS="-p ${VPS_PORT} -i ${SSH_KEY} -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
 
-VPS_SQLITE="/opt/cowrie/dionaea-data/dionaea.sqlite"
-VPS_BINARIES="/opt/cowrie/dionaea-data/binaries/"
+VPS_SQLITE="${VPS_SQLITE:-/opt/cowrie/dionaea-data/dionaea.sqlite}"
+VPS_BINARIES="${VPS_BINARIES:-/opt/cowrie/dionaea-data/binaries/}"
 
 LOCAL_DIR="/opt/cowrie-logs/dionaea"
 LOCAL_BINARIES="${LOCAL_DIR}/binaries/"
@@ -37,7 +44,7 @@ if [ $rc_db -ne 0 ]; then
 fi
 
 # 1b. Captured binaries (append-only set; --ignore-existing keeps it cheap and
-#     never re-pulls a sample we already have)
+# never re-pulls a sample we already have)
 rsync -az --timeout=120 --ignore-existing -e "ssh ${SSH_OPTS}" \
     "${VPS_HOST}:${VPS_BINARIES}" "${LOCAL_BINARIES}"
 rc_bin=$?
