@@ -28,9 +28,7 @@ Over the active collection window (**May 21–29, 2026**), the sensors recorded:
 - **7** unique malware binaries captured and VirusTotal-verified
 - Peak day (May 23): **2,019,221** alerts in 24 hours
 
-The attack surface was a small set of exposed services on a single VPS. The volume
-represents the baseline threat level any internet-connected system faces — roughly one
-attack event every 1.3 seconds at the average background rate.
+The attack surface was a small set of exposed services on a single VPS. The volume represents the baseline threat level any internet-connected system faces — on the order of 20+ attack events per second at sustained volume.
 
 ### Live Malware Capture — WannaCry Still Propagating
 
