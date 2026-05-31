@@ -21,7 +21,7 @@ malware sample in this dataset came from a real attacker on the internet.
 
 Over the active collection window (**May 21–29, 2026**), the sensors recorded:
 
-- **6,185,397** total security alerts processed by Wazuh SIEM
+- **11,611,908** total security alerts processed by Wazuh SIEM
 - **872,871** Cowrie SSH/Telnet events
 - **1,000+** unique attacking IP addresses across **99 countries**
 - **6** distinct botnet campaigns identified and fingerprinted
