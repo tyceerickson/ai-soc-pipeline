@@ -30,7 +30,7 @@ threat-intelligence panels across three honeypot sources. Which is currently sti
 | Countries observed | 99 |
 | Active botnets identified | 6 |
 | MITRE ATT&CK tactics | 7 |
-| Peak day (May 23) | 2,019,221 alerts / 24h |
+| Peak day | ~2.8M alerts / 24h |
 
 ## Architecture
 
@@ -115,9 +115,7 @@ SendGrid/Twilio API keys, Hikvision CVE-2021-36260 RCE probes, TP-Link firmware 
 (CVE-2021-22161), and Tomcat manager brute-force.
 
 ### Attack Scale
-At peak (May 23, 2026): **2,019,221 alerts in a single day**, driven by two overlapping
-botnet campaigns. The average background rate is ~67,000 alerts/day — roughly one attack
-event every 1.3 seconds.
+At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet campaigns. The sustained daily volume across the capture ran in the low millions — roughly tens of attacks per second at peak.
 
 ## Repository Structure
 
