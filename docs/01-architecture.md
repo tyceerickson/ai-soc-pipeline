@@ -111,4 +111,4 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 | Data gap (disk outage) | May 24 22:12 → May 25 21:39 UTC |
 | Active botnets identified | 6 |
 | MITRE ATT&CK tactics observed | 7 |
-| Peak day (May 23) | 2,019,221 alerts / 24h |
+| Peak day | ~2.8M alerts / 24h |
