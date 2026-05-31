@@ -103,7 +103,7 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 
 | Metric | Value |
 |--------|-------|
-| Total Wazuh alerts | 6,185,397+ |
+| Total Wazuh alerts | 11,611,908 (~11.6M) |
 | Cowrie SSH/Telnet events | 872,871 |
 | Malware binaries captured | 7 (6 WannaCry + 1 downloader, VirusTotal-verified) |
 | Unique attacker IPs | 1,000+ |
