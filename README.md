@@ -22,7 +22,7 @@ threat-intelligence panels across three honeypot sources. Which is currently sti
 
 | Metric | Value |
 |--------|-------|
-| Total Wazuh alerts | 6,185,397+ |
+| Total Wazuh alerts | 11,611,908 (~11.6M) |
 | Cowrie SSH/Telnet events | 872,871 |
 | nginx web requests | 1,352+ |
 | Malware binaries captured | 7 (6 WannaCry + 1 downloader, VirusTotal-verified) |
