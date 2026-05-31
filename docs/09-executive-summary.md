@@ -26,7 +26,7 @@ Over the active collection window (**May 21–29, 2026**), the sensors recorded:
 - **1,000+** unique attacking IP addresses across **99 countries**
 - **6** distinct botnet campaigns identified and fingerprinted
 - **7** unique malware binaries captured and VirusTotal-verified
-- Peak day (May 23): **2,019,221** alerts in 24 hours
+- Peak day: ~2.8M alerts in 24 hours
 
 The attack surface was a small set of exposed services on a single VPS. The volume represents the baseline threat level any internet-connected system faces — on the order of 20+ attack events per second at sustained volume.
 
@@ -99,7 +99,7 @@ Natural Earth geodata.
 
 ## Security Capabilities Demonstrated
 
-1. **Real-time SIEM operations** — custom decoders/rules, MITRE ATT&CK mapping, 6M+ alerts
+1. **Real-time SIEM operations** — custom decoders/rules, MITRE ATT&CK mapping, 11M+ alerts
    indexed with sub-second query response.
 2. **Behavioral threat intelligence** — botnets identified by behavioral signature
    (credentials, commands, SSH keys), more durable than IP-based detection as infrastructure rotates.
