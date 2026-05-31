@@ -115,7 +115,7 @@ SendGrid/Twilio API keys, Hikvision CVE-2021-36260 RCE probes, TP-Link firmware 
 (CVE-2021-22161), and Tomcat manager brute-force.
 
 ### Attack Scale
-At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet campaigns. The sustained daily volume across the capture ran in the low millions — roughly tens of attacks per second at peak.
+At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet campaigns. Across the 6-day capture the system averaged roughly 1.9 million alerts/day — on the order of 20+ attack events every second at sustained volume.
 
 ## Repository Structure
 
