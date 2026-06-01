@@ -478,9 +478,9 @@ def get_enriched_stats(since_ms, since):
             "unique_cmds": {
                 "terms": {
                     "field": "data.input",
-                    "size":  100,
+                    "size":  150,
                     "order": {"_count": "desc"},
-                    "min_doc_count": 2,
+                    "min_doc_count": 1,
                 }
             }
         }
@@ -505,7 +505,7 @@ def get_enriched_stats(since_ms, since):
     ]
     top_cmds = [
         {"cmd": k, "count": v}
-        for k, v in sorted(cmds.items(), key=lambda x: x[1], reverse=True)[:100]
+        for k, v in sorted(cmds.items(), key=lambda x: x[1], reverse=True)[:150]
     ]
 
     return {
@@ -836,6 +836,7 @@ def get_attack_chain(minutes):
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     body = {
         "size": 0,
+        "timeout": "20s",
         "query": {"bool": {"filter": [
             {"range": {"data.timestamp": {"gte": since.isoformat()}}},
             {"exists": {"field": "data.honeypot"}},
@@ -2623,6 +2624,260 @@ def api_alert(ip):
     return jsonify(get_alert_context(ip, minutes))
 
 
+# ============================================================
+# Attacker narrative — unified cross-honeypot story for ONE IP
+# ============================================================
+# Maps cowrie/dionaea/nginx eventids onto the kill-chain phase they represent,
+# so a single IP's activity across all three honeypots can be told as one
+# ordered story rather than three siloed event lists.
+_PHASE_ORDER = ["recon", "access", "execution", "download", "persistence", "exfil", "other"]
+
+def _phase_for_event(eid: str, command: str = "") -> str:
+    eid = eid or ""
+    cmd = command or ""
+    if eid.startswith("nginx.probe.") or eid in ("cowrie.session.connect", "dionaea.connection") \
+            or eid.startswith("dionaea.connection.") or eid == "nginx.probe.404":
+        return "recon"
+    if eid in ("cowrie.login.success",) or eid.endswith(".login.smb") or eid.endswith(".login.ftp") \
+            or eid == "cowrie.login.failed":
+        return "access"
+    if eid == "cowrie.command.input":
+        if "ssh-rsa" in cmd or "authorized_keys" in cmd or "chattr" in cmd:
+            return "persistence"
+        if any(t in cmd for t in ("wget", "curl", "tftp", "ftpget", "scp")):
+            return "download"
+        return "execution"
+    if eid in ("cowrie.session.file_download", "dionaea.binary.captured"):
+        return "download"
+    if eid.startswith("dionaea.incident.") or eid == "nginx.probe.log4shell":
+        return "execution"
+    return "other"
+
+
+def get_attack_narrative(ip: str, minutes: int = 43200) -> Dict:
+    """Reconstruct a single attacker's complete, ordered story across ALL three
+    honeypots, plus a compiled IOC block. This is the correlation view: it turns
+    siloed per-honeypot events into one coherent kill-chain narrative for one IP.
+    """
+    since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    since_iso = since.isoformat()
+    base = [
+        {"range": {"data.timestamp": {"gte": since_iso}}},
+        {"term":  {"data.src_ip": ip}},
+    ]
+    geo = build_geoip_lookup().get(ip, {})
+    geo = geo if isinstance(geo, dict) else {}
+
+    # 1) Per-honeypot + per-phase counts, distinct sessions, time bounds
+    body = {
+        "size": 0,
+        "track_total_hits": True,
+        "query": {"bool": {"filter": base}},
+        "aggs": {
+            "honeypots":  {"terms": {"field": "data.honeypot", "size": 6}},
+            "eventids":   {"terms": {"field": "data.eventid", "size": 40}},
+            "sessions":   {"cardinality": {"field": "data.session"}},
+            "max_level":  {"max": {"field": "rule.level"}},
+            "first_seen": {"min": {"field": "data.timestamp"}},
+            "last_seen":  {"max": {"field": "data.timestamp"}},
+            "mitre":      {"terms": {"field": "rule.mitre.tactic", "size": 15}},
+            "countries":  {"terms": {"field": "data.location.country_name", "size": 3}},
+            # credential pairs tried (and whether each succeeded)
+            "creds_tried": {"terms": {
+                "script": {"lang": "painless",
+                           "source": ("doc['data.username'].size() > 0 && doc['data.password'].size() > 0 "
+                                      "? doc['data.username'].value + '/' + doc['data.password'].value : null")},
+                "size": 25, "order": {"_count": "desc"}}},
+            "creds_ok": {"filter": {"term": {"data.eventid": "cowrie.login.success"}},
+                         "aggs": {"pairs": {"terms": {
+                             "script": {"lang": "painless",
+                                        "source": ("doc['data.username'].size() > 0 && doc['data.password'].size() > 0 "
+                                                   "? doc['data.username'].value + '/' + doc['data.password'].value : null")},
+                             "size": 10}}}},
+            # command frequency (the "what did they run" view)
+            "commands": {"filter": {"term": {"data.eventid": "cowrie.command.input"}},
+                         "aggs": {"by_cmd": {"terms": {"field": "data.input", "size": 40,
+                                                        "order": {"_count": "desc"}}}}},
+            # malware delivered (dionaea), with VT verdict
+            "malware": {"filter": {"term": {"data.eventid": "dionaea.binary.captured"}},
+                        "aggs": {"hashes": {"terms": {"field": "data.sha256", "size": 10},
+                                            "aggs": {"doc": {"top_hits": {"size": 1,
+                                                "sort": [{"data.timestamp": "desc"}],
+                                                "_source": ["data.sha256", "data.md5", "data.file_size",
+                                                            "data.service", "data.vt_malicious", "data.vt_total",
+                                                            "data.vt_label", "data.vt_permalink", "data.download_url"]}}}}}},
+            # web CVE / exploit probes (nginx)
+            "cve_probes": {"terms": {"field": "data.eventid", "size": 15, "include": "nginx.probe.*"}},
+            "web_paths":  {"terms": {"field": "data.http_path", "size": 15, "order": {"_count": "desc"}}},
+            "user_agents": {"terms": {"field": "data.user_agent", "size": 5}},
+            "dst_ports":  {"terms": {"field": "data.dst_port", "size": 10}},
+            "services":   {"terms": {"field": "data.service", "size": 8}},
+        },
+    }
+    res = os_query(f"/{ALERT_INDEX}/_search", body)
+    if "error" in res:
+        return {"error": res["error"], "ip": ip}
+    aggs = res.get("aggregations", {})
+    total = res.get("hits", {}).get("total", {}).get("value", 0)
+
+    eventids = {b["key"]: b["doc_count"] for b in aggs.get("eventids", {}).get("buckets", [])}
+    honeypots = {b["key"]: b["doc_count"] for b in aggs.get("honeypots", {}).get("buckets", [])}
+
+    # Normalise vectors
+    vectors = set()
+    for h in honeypots:
+        if "cowrie" in h: vectors.add("ssh")
+        elif "dionaea" in h: vectors.add("malware")
+        elif "nginx" in h: vectors.add("web")
+
+    creds_tried = [{"cred": b["key"], "count": b["doc_count"]}
+                   for b in aggs.get("creds_tried", {}).get("buckets", []) if b.get("key")]
+    creds_ok = [b["key"] for b in aggs.get("creds_ok", {}).get("pairs", {}).get("buckets", []) if b.get("key")]
+    ok_set = set(creds_ok)
+    for c in creds_tried:
+        c["success"] = c["cred"] in ok_set
+
+    commands = [{"cmd": b["key"], "count": b["doc_count"]}
+                for b in aggs.get("commands", {}).get("by_cmd", {}).get("buckets", []) if b.get("key")]
+
+    malware = []
+    for hb in aggs.get("malware", {}).get("hashes", {}).get("buckets", []):
+        hits = hb.get("doc", {}).get("hits", {}).get("hits", [])
+        d = hits[0].get("_source", {}).get("data", {}) if hits else {}
+        malware.append({
+            "sha256": hb["key"], "sha256_short": (hb["key"] or "")[:16] + "…",
+            "count": hb["doc_count"], "md5": d.get("md5", ""), "file_size": d.get("file_size", ""),
+            "service": d.get("service", ""), "vt_malicious": d.get("vt_malicious"),
+            "vt_total": d.get("vt_total"), "vt_label": d.get("vt_label", ""),
+            "vt_permalink": d.get("vt_permalink", ""), "download_url": d.get("download_url", ""),
+        })
+
+    cve_probes = [b["key"].replace("nginx.probe.", "") for b in aggs.get("cve_probes", {}).get("buckets", [])]
+    web_paths  = [{"path": b["key"][:120], "count": b["doc_count"]}
+                  for b in aggs.get("web_paths", {}).get("buckets", []) if b.get("key")]
+    user_agents = [b["key"][:160] for b in aggs.get("user_agents", {}).get("buckets", []) if b.get("key")]
+    dst_ports  = {str(b["key"]): b["doc_count"] for b in aggs.get("dst_ports", {}).get("buckets", [])}
+    services   = {b["key"]: b["doc_count"] for b in aggs.get("services", {}).get("buckets", [])}
+    mitre      = [b["key"] for b in aggs.get("mitre", {}).get("buckets", [])]
+
+    # 2) Persistence / TTP detection from commands
+    persistence = []
+    cmd_text = " \n ".join(c["cmd"] for c in commands)
+    if "ssh-rsa" in cmd_text or "authorized_keys" in cmd_text:
+        persistence.append({"type": "ssh_key_backdoor",
+                            "label": "SSH authorized_keys backdoor implanted"})
+    if "mdrfckr" in cmd_text:
+        persistence.append({"type": "mdrfckr_botnet",
+                            "label": "mdrfckr botnet RSA key (known campaign)"})
+    if "chattr" in cmd_text:
+        persistence.append({"type": "immutable_flag",
+                            "label": "chattr immutable flag — anti-removal"})
+    if any(k in cmd_text for k in ("crontab", "/etc/cron", "rc.local", "systemctl enable")):
+        persistence.append({"type": "scheduled_task", "label": "cron / init persistence"})
+    if any(k in cmd_text for k in ("useradd", "adduser", "/etc/passwd")):
+        persistence.append({"type": "new_account", "label": "account creation attempt"})
+
+    # 3) Build ordered kill-chain phase summary (which phases this actor reached)
+    phase_hit = {p: 0 for p in _PHASE_ORDER}
+    for eid, cnt in eventids.items():
+        phase_hit[_phase_for_event(eid)] += cnt
+    if any(c.get("success") for c in creds_tried):
+        phase_hit["access"] += 0  # already counted; keep phase visible
+    phases = [{"phase": p, "events": phase_hit[p]} for p in _PHASE_ORDER if phase_hit[p] > 0]
+
+    # 4) Compile IOC block (the takeaway artifacts for a case)
+    iocs = {
+        "source_ip": ip,
+        "country": geo.get("country", "") or "",
+        "org": geo.get("org", "") or "",
+        "credentials_succeeded": creds_ok,
+        "malware_sha256": [m["sha256"] for m in malware if m["sha256"]],
+        "malware_md5": [m["md5"] for m in malware if m.get("md5")],
+        "cve_probes": cve_probes,
+        "persistence": [p["type"] for p in persistence],
+        "targeted_ports": list(dst_ports.keys()),
+        "user_agents": user_agents,
+    }
+
+    # 5) Human-readable one-line narrative summary
+    story = _compose_story(ip, geo, vectors, creds_tried, creds_ok, commands,
+                           malware, cve_probes, persistence, total)
+
+    return {
+        "ip": ip,
+        "country": geo.get("country", "") or "",
+        "city": geo.get("city", "") or "",
+        "org": geo.get("org", "") or "",
+        "total_events": total,
+        "sessions": int(aggs.get("sessions", {}).get("value") or 0),
+        "max_level": int(aggs.get("max_level", {}).get("value") or 0),
+        "first_seen": aggs.get("first_seen", {}).get("value_as_string", ""),
+        "last_seen": aggs.get("last_seen", {}).get("value_as_string", ""),
+        "vectors": sorted(vectors),
+        "honeypots": honeypots,
+        "phases": phases,
+        "mitre_tactics": mitre,
+        "credentials_tried": creds_tried,
+        "credentials_succeeded": creds_ok,
+        "commands": commands,
+        "malware": malware,
+        "cve_probes": cve_probes,
+        "web_paths": web_paths,
+        "user_agents": user_agents,
+        "services": services,
+        "dst_ports": dst_ports,
+        "persistence": persistence,
+        "iocs": iocs,
+        "story": story,
+        "window_minutes": minutes,
+    }
+
+
+def _compose_story(ip, geo, vectors, creds_tried, creds_ok, commands, malware,
+                   cve_probes, persistence, total) -> str:
+    """Plain-language one-paragraph summary of what this actor did."""
+    loc = geo.get("country", "") or "an unknown location"
+    org = geo.get("org", "")
+    where = f"{loc}" + (f" ({org})" if org else "")
+    vec_txt = " + ".join(sorted(vectors)) if vectors else "no recognised"
+    parts = [f"{ip} from {where} generated {total:,} events across {vec_txt} vector(s)."]
+    if creds_tried:
+        if creds_ok:
+            parts.append(f"It brute-forced SSH and SUCCEEDED with {len(creds_ok)} credential pair(s) "
+                         f"({', '.join(creds_ok[:3])}), after trying {len(creds_tried)} combinations.")
+        else:
+            parts.append(f"It attempted {len(creds_tried)} credential pair(s) but did not succeed.")
+    if commands:
+        parts.append(f"Post-access it ran {len(commands)} distinct command(s).")
+    if persistence:
+        parts.append("Persistence: " + "; ".join(p["label"] for p in persistence) + ".")
+    if malware:
+        flagged = [m for m in malware if isinstance(m.get("vt_malicious"), int) and m["vt_malicious"]]
+        if flagged:
+            top = max(flagged, key=lambda m: m["vt_malicious"])
+            parts.append(f"It delivered {len(malware)} binary/-ies; the most-flagged "
+                         f"({top.get('vt_label') or 'malware'}) hit {top['vt_malicious']}/{top.get('vt_total','?')} "
+                         f"VirusTotal engines.")
+        else:
+            parts.append(f"It delivered {len(malware)} binary/-ies over the malware honeypot.")
+    if cve_probes:
+        parts.append(f"On the web honeypot it probed: {', '.join(cve_probes[:6])}.")
+    return " ".join(parts)
+
+
+@app.route("/api/actor/<ip>")
+@rate_limit(max_per_minute=60)
+def api_actor(ip):
+    """Unified cross-honeypot attack narrative + IOC block for a single IP."""
+    if not _valid_ip(ip):
+        return jsonify({"error": "Invalid IP"}), 400
+    try:
+        minutes = max(1, min(int(request.args.get("minutes", 43200)), 129600))
+    except (ValueError, TypeError):
+        minutes = 43200
+    return jsonify(get_attack_narrative(ip, minutes))
+
+
 @app.route("/api/search")
 @rate_limit(max_per_minute=60)
 def api_search():
@@ -2712,6 +2967,18 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     since_iso = since.isoformat()
 
+    # Two competing orderings matter here:
+    #   • hp_card desc  → surfaces genuine multi-vector actors (the rare, most
+    #     interesting IPs that hit SSH + web + malware).
+    #   • max_lvl desc  → surfaces the highest-severity single-vector actors.
+    # Ranking by only one of them is what collapsed the panel to "1 attacker" on
+    # long windows: on a 7d+ window almost every IP is single-vector, so a pure
+    # hp_card ordering returns a flat tie broken arbitrarily by doc_count, and one
+    # hyperactive IP dominated. We pull a generous candidate set ordered by
+    # severity (so high-impact actors are never missed) and compute the real
+    # composite score in Python across ALL candidates, then rank.
+    cred_script = ("doc['data.username'].size() > 0 && doc['data.password'].size() > 0 "
+                   "? doc['data.username'].value + '/' + doc['data.password'].value : null")
     body = {
         "size": 0,
         "query": {"bool": {"filter": [
@@ -2721,22 +2988,31 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
         ]}},
         "aggs": {
             "actors": {
-                # Order by how many DISTINCT honeypots the IP touched, so genuine
-                # cross-vector actors surface ahead of high-volume single-vector
-                # noise (cowrie-raw alone is ~14M events and would otherwise drown
-                # out the handful of IPs that also tripped dionaea's 122 events).
-                "terms": {"field": "data.src_ip", "size": 200, "order": {"hp_card": "desc"}},
+                "terms": {"field": "data.src_ip", "size": 150, "order": {"max_lvl": "desc"}},
                 "aggs": {
                     "hp_card":    {"cardinality": {"field": "data.honeypot"}},
                     "max_lvl":    {"max": {"field": "rule.level"}},
                     "honeypots":  {"terms": {"field": "data.honeypot", "size": 6}},
-                    "eventids":   {"terms": {"field": "data.eventid", "size": 25}},
+                    "eventids":   {"terms": {"field": "data.eventid", "size": 30}},
                     "first_seen": {"min": {"field": "data.timestamp"}},
                     "last_seen":  {"max": {"field": "data.timestamp"}},
                     "mitre":      {"terms": {"field": "rule.mitre.tactic", "size": 12}},
                     "got_malware": {"filter": {"term": {"data.eventid": "dionaea.binary.captured"}}},
                     "got_login":   {"filter": {"term": {"data.eventid": "cowrie.login.success"}}},
                     "got_cmds":    {"filter": {"term": {"data.eventid": "cowrie.command.input"}}},
+                    # ── enrichment so the headline panel can render rich cards ──
+                    "creds":      {"terms": {"field": "data.username", "size": 8, "order": {"_count": "desc"}}},
+                    "cred_card":  {"cardinality": {"field": "data.username"}},
+                    "top_cmds":   {"terms": {"field": "data.input", "size": 6, "order": {"_count": "desc"}}},
+                    "countries":  {"terms": {"field": "data.location.country_name", "size": 1}},
+                    # persistence / backdoor signal — SSH key implant (mdrfckr family)
+                    "key_implant": {"filter": {"match_phrase": {"data.input": "ssh-rsa"}}},
+                    "immutable":   {"filter": {"match_phrase": {"data.input": "chattr"}}},
+                    # web CVE / exploit probes (nginx vectors)
+                    "cve_probes":  {"terms": {"field": "data.eventid", "size": 12,
+                                              "include": "nginx.probe.*"}},
+                    "malware_fam": {"terms": {"field": "data.vt_label", "size": 4}},
+                    "services":    {"terms": {"field": "data.service", "size": 8}},
                 },
             }
         },
@@ -2764,15 +3040,30 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
         cmds    = b.get("got_cmds", {}).get("doc_count", 0)
         mitre = [x["key"] for x in b.get("mitre", {}).get("buckets", [])]
 
+        creds = [x["key"] for x in b.get("creds", {}).get("buckets", []) if x.get("key")]
+        cred_card = int(b.get("cred_card", {}).get("value") or 0)
+        top_cmds = [{"cmd": x["key"][:120], "count": x["doc_count"]}
+                    for x in b.get("top_cmds", {}).get("buckets", []) if x.get("key")]
+        key_implant = b.get("key_implant", {}).get("doc_count", 0) > 0
+        immutable   = b.get("immutable", {}).get("doc_count", 0) > 0
+        cve_probes  = [x["key"].replace("nginx.probe.", "")
+                       for x in b.get("cve_probes", {}).get("buckets", [])]
+        malware_fam = [x["key"] for x in b.get("malware_fam", {}).get("buckets", []) if x.get("key")]
+        services    = {x["key"]: x["doc_count"] for x in b.get("services", {}).get("buckets", [])}
+        eventids    = {x["key"]: x["doc_count"] for x in b.get("eventids", {}).get("buckets", [])}
+        ctry_bkts   = b.get("countries", {}).get("buckets", [])
+        ctry_evt    = ctry_bkts[0]["key"] if ctry_bkts else ""
+
         # Composite threat score: multi-vector actors and those who actually
         # breached (login/commands) or delivered malware rank highest.
         score = (n_vectors * 25) + min(max_lvl, 15) * 3 + (40 if malware else 0) \
-                + (20 if logins else 0) + (10 if cmds else 0) + min(total // 100, 20)
+                + (20 if logins else 0) + (10 if cmds else 0) + min(total // 100, 20) \
+                + (15 if key_implant else 0) + (10 if cve_probes else 0)
 
         g = geo.get(ip, {}) if isinstance(geo.get(ip, {}), dict) else {}
         actors.append({
             "ip": ip,
-            "country": g.get("country", ""),
+            "country": g.get("country", "") or ctry_evt,
             "org": g.get("org", ""),
             "vectors": sorted(vectors),
             "n_vectors": n_vectors,
@@ -2786,10 +3077,23 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
             "last_seen": b.get("last_seen", {}).get("value_as_string", ""),
             "score": score,
             "honeypot_breakdown": hps,
+            # ── enrichment ──
+            "credentials": creds,
+            "credential_count": cred_card,
+            "top_commands": top_cmds,
+            "key_implant": key_implant,
+            "immutable_flag": immutable,
+            "cve_probes": cve_probes,
+            "malware_family": malware_fam,
+            "services": services,
+            "eventids": eventids,
         })
 
-    # Rank by score; prioritise multi-vector actors for the headline list
-    actors.sort(key=lambda a: (a["n_vectors"], a["score"]), reverse=True)
+    # Rank by composite score across the full candidate set (NOT by n_vectors
+    # first — that buried high-severity single-vector actors and caused the panel
+    # to under-fill on long windows). Multi-vector actors still float to the top
+    # because n_vectors contributes heavily to the score.
+    actors.sort(key=lambda a: (a["score"], a["max_level"], a["total_events"]), reverse=True)
     multi = [a for a in actors if a["n_vectors"] >= 2]
     return {
         "actors": actors[:limit],
@@ -2807,7 +3111,11 @@ def api_threat_actors():
         minutes = max(1, min(int(request.args.get("minutes", 10080)), 129600))
     except (ValueError, TypeError):
         minutes = 10080
-    return jsonify(get_threat_actors(minutes))
+    try:
+        limit = max(1, min(int(request.args.get("limit", 15)), 100))
+    except (ValueError, TypeError):
+        limit = 15
+    return jsonify(get_threat_actors(minutes, limit))
 
 
 # ── Cases CRUD ────────────────────────────────────────────────

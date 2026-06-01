@@ -777,17 +777,17 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
   </div>
 
-  <!-- Row 6: Top Commands + Session Depth -->
+  <!-- Row 6: Top Commands + Attacker Intelligence -->
   <div class="g2" style="margin-bottom:12px;align-items:stretch">
-    <div class="panel" style="display:flex;flex-direction:column">
+    <div class="panel" style="display:flex;flex-direction:column;max-height:620px">
       <div class="panel-hdr"><span class="panel-title">Top Commands Executed</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Shell commands run by attackers AFTER gaining access to the honeypot. High counts = automated botnet activity.">post-login shell ⓘ</span><span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Shell commands run by attackers after gaining access. High repeat counts = automated botnet scripts.">post-login shell commands ⓘ</span></div>
-      <div class="scroll" id="cmds-list" style="flex:1;overflow-y:auto"></div>
+      <div class="scroll" id="cmds-list" style="flex:1;overflow-y:auto;max-height:none"></div>
     </div>
-    <div class="panel" style="display:flex;flex-direction:column">
+    <div class="panel" style="display:flex;flex-direction:column;max-height:620px">
       <div class="panel-hdr">
         <span class="panel-title">Attacker Intelligence</span>
         <span class="panel-meta" id="attacker-meta"></span>
-        <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Top attackers ranked by threat score. Shows credentials tried, commands run, and persistence attempts per IP. Click any row to expand.">threat-scored attackers ⓘ</span>
+        <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Top attackers ranked by composite threat score, unified across all three honeypots. Shows credentials tried, commands run, malware, CVE probes, and persistence per IP. Click any row to expand; 🔍 opens the full attack narrative.">threat-scored attackers ⓘ</span>
       </div>
       <div id="attacker-list" style="flex:1;overflow-y:auto"></div>
     </div>
@@ -1289,6 +1289,7 @@ async function loadIntelPanels(){
   renderSessions(sess);
   renderBotnets(bots);
   renderCredIntel(credIntel);
+  loadAttackerIntel();
   ensureHoneypotsLoaded();
 }
 
@@ -1653,146 +1654,129 @@ const EVENT_ICONS = {
   'cowrie.login.success':'✓','cowrie.command.input':'⌨','cowrie.session.file_download':'↓',
   'cowrie.session.file_upload':'↑','cowrie.session.closed':'✂',
 };
-/** @param {Object} d - Sessions API response (used to build attacker intelligence) */
+/** @param {Object} d - Sessions API response (kept for botnet/cred panels) */
 function renderSessions(d){
   window._lastSessionData = d;
-  renderAttackerIntel(d);
+  // Attacker Intelligence is now driven by /api/threat_actors (see
+  // renderAttackerIntel), which aggregates every source IP across all three
+  // honeypots instead of a 120-session Cowrie sample. The old session-derived
+  // path collapsed to a single IP on 7d+ windows.
 }
 
-/** Build the Attacker Intelligence panel from session data.
- *  Groups events by IP and computes threat scores.
+/** Build the Attacker Intelligence panel from cross-honeypot threat-actor data.
+ *  Each row is ONE source IP with its activity unified across SSH/web/malware.
+ *  @param {Object} d - /api/threat_actors response
  */
 function renderAttackerIntel(d){
-  const sessions = d.sessions||[];
   const listEl = document.getElementById('attacker-list');
   const metaEl = document.getElementById('attacker-meta');
   if(!listEl) return;
-  // Store full list for show-all toggle
-  window._attackerFull = null;
+  if(d && d.error){ listEl.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">${escHtml(d.error)}</div>`; return; }
 
-  // Group sessions by IP and compute threat score
-  const byIP = {};
-  sessions.forEach(s=>{
-    const ip = s.src_ip||s.session||'unknown';
-    if(!byIP[ip]) byIP[ip]={
-      ip, country:s.country||'', org:s.org||'',
-      sessions:0, maxLevel:0, tactics:new Set(),
-      hasKeyImplant:false, hasDownload:false, hasBrute:false,
-      loginCred:'', downloadCmd:'', keyCmd:'',
-      creds:new Set(), allCmds:[], tacticEvidence:{}
-    };
-    const a = byIP[ip];
-    a.sessions++;
-    a.maxLevel = Math.max(a.maxLevel, s.max_level||0);
-    (s.events||[]).forEach(ev=>{
-      (ev.mitre||[]).forEach(t=>a.tactics.add(t));
-      if(ev.eventid==='cowrie.login.success'){
-        a.hasBrute=true;
-        if(ev.username&&ev.password) a.loginCred=`${ev.username}/${ev.password}`;
-      }
-      if(ev.eventid==='cowrie.session.file_download'){
-        a.hasDownload=true;
-        if(!a.downloadCmd) a.downloadCmd=ev.command||ev.url||'(binary payload)';
-      }
-      if(ev.command&&ev.command.includes('ssh-rsa')){
-        a.hasKeyImplant=true;
-        if(!a.keyCmd) a.keyCmd=ev.command.slice(0,120);
-      }
-      if(ev.password&&ev.username) a.creds.add(`${ev.username}/${ev.password}`);
-      // Map commands to the MITRE tactics they triggered
-      if(ev.command&&ev.command.length>2){
-        (ev.mitre||[]).forEach(t=>{
-          if(!a.tacticEvidence[t]) a.tacticEvidence[t]=[];
-          if(a.tacticEvidence[t].length<2) a.tacticEvidence[t].push(ev.command.slice(0,80));
-        });
-        // Also store general commands for fallback
-        if(a.allCmds.length<20) a.allCmds.push(ev.command.slice(0,80));
-      }
-    });
-  });
-
-  const attackers = Object.values(byIP).sort((a,b)=>b.maxLevel-a.maxLevel||b.sessions-a.sessions);
-  // meta set inside display logic above
+  const attackers = (d && d.actors) ? d.actors.slice() : [];
+  window._attackerFull = attackers;
+  if(!attackers.length){ listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">No attackers in this window</div>'; if(metaEl) metaEl.textContent=''; return; }
 
   const LEVEL_COLOR = l=> l>=12?'#c85a3a':l>=10?'#8B5E3C':l>=8?'#b89050':'var(--text3)';
-  const LEVEL_LABEL = l=> l>=12?'CRITICAL':l>=10?'HIGH':l>=8?'MEDIUM':'LOW';
+  const LEVEL_LABEL = l=> l>=15?'CRITICAL':l>=12?'CRITICAL':l>=10?'HIGH':l>=8?'MEDIUM':'LOW';
+  const VEC_COLOR = {ssh:'var(--forest)', web:'#7BA8C4', malware:'#c85a3a'};
 
-  window._attackerFull = attackers;
   const showAll = window._attackerShowAll || false;
   const display = showAll ? attackers : attackers.slice(0, 5);
-  if(metaEl) metaEl.textContent = `${display.length} of ${attackers.length} attackers`;
-  // Add show all / collapse button
-  const btnHtml = attackers.length > 5
+  const totalActors = (d && d.total_actors) || attackers.length;
+  if(metaEl) metaEl.textContent = `${display.length} of ${totalActors} attackers · ${(d&&d.multi_vector_count)||0} multi-vector`;
+
+  const btnHtml = totalActors > 5
     ? `<div style="margin-bottom:8px">
-        <button onclick="window._attackerShowAll=!window._attackerShowAll;renderAttackerIntel(window._lastSessionData||{sessions:[]})" 
+        <button onclick="window._attackerShowAll=!window._attackerShowAll;loadAttackerIntel(true)"
           style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 12px;font-size:11px;color:var(--forest);cursor:pointer">
-          ${showAll ? `▲ Show Top 5` : `▼ Show All ${attackers.length} Attackers`}
+          ${showAll ? `▲ Show Top 5` : `▼ Show All ${totalActors} Attackers`}
         </button>
        </div>` : '';
-  listEl.innerHTML = btnHtml + display.map((a,i)=>{
+
+  listEl.innerHTML = btnHtml + display.map((a)=>{
+    const lvl = a.max_level||0;
+    const vecBadges = (a.vectors||[]).map(v=>
+      `<span style="background:${VEC_COLOR[v]||'var(--text3)'}1f;color:${VEC_COLOR[v]||'var(--text3)'};border:1px solid ${VEC_COLOR[v]||'var(--text3)'}44;font-size:9px;padding:1px 6px;border-radius:10px;font-weight:700;text-transform:uppercase">${escHtml(v)}</span>`
+    ).join(' ');
     const badges = [
-      a.hasKeyImplant ? '<span style="background:rgba(200,90,58,.12);color:#c85a3a;border:1px solid rgba(200,90,58,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">SSH KEY</span>' : '',
-      a.hasDownload   ? '<span style="background:rgba(139,94,60,.12);color:#8B5E3C;border:1px solid rgba(139,94,60,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">DOWNLOAD</span>' : '',
-      a.hasBrute      ? '<span style="background:rgba(74,124,89,.1);color:var(--forest);border:1px solid rgba(74,124,89,.2);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">LOGIN</span>' : '',
+      a.key_implant   ? '<span style="background:rgba(200,90,58,.12);color:#c85a3a;border:1px solid rgba(200,90,58,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">SSH KEY</span>' : '',
+      a.malware_delivered ? `<span style="background:rgba(139,94,60,.12);color:#8B5E3C;border:1px solid rgba(139,94,60,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">MALWARE${a.malware_delivered>1?'×'+a.malware_delivered:''}</span>` : '',
+      a.ssh_login_success ? '<span style="background:rgba(74,124,89,.1);color:var(--forest);border:1px solid rgba(74,124,89,.2);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">BREACH</span>' : '',
+      (a.cve_probes&&a.cve_probes.length) ? `<span style="background:rgba(123,168,196,.12);color:#7BA8C4;border:1px solid rgba(123,168,196,.25);font-size:9px;padding:1px 5px;border-radius:3px;font-family:monospace">CVE×${a.cve_probes.length}</span>` : '',
     ].filter(Boolean).join(' ');
-    const tactics = [...a.tactics].slice(0,3).join(', ');
-    const topCmd = (a.allCmds&&a.allCmds[0])||'';
-    const credCount = a.creds.size;
+    const multi = (a.n_vectors>=2) ? `<span style="background:#c85a3a;color:#fff;font-size:9px;padding:1px 6px;border-radius:10px;font-weight:700" title="Hit ${a.n_vectors} honeypot types">${a.n_vectors}-VECTOR</span>` : '';
+    const creds = a.credentials||[];
+    const credCount = a.credential_count||creds.length;
+    const cmds = a.top_commands||[];
 
     return `<div class="attacker-row" data-ip="${a.ip}" style="padding:10px 12px;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;background:var(--bg2)">
       <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="toggleAttacker(this)">
-        <div style="font-family:monospace;font-size:12px;font-weight:600;color:var(--forest);min-width:130px">${a.ip}</div>
-        <div style="flex:1;font-size:11px;color:var(--text3)">${a.country}${a.org?' · '+a.org:''}</div>
-        <div style="display:flex;gap:4px;align-items:center">${badges}</div>
-        <div style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:4px;background:${LEVEL_COLOR(a.maxLevel)}22;color:${LEVEL_COLOR(a.maxLevel)};border:1px solid ${LEVEL_COLOR(a.maxLevel)}44;white-space:nowrap">${LEVEL_LABEL(a.maxLevel)}</div>
-        <div class="mini-btn" style="padding:2px 7px;font-size:11px" onclick="event.stopPropagation();openDrawer('${a.ip}')" title="Open full context drawer">🔍</div>
+        <div style="font-family:monospace;font-size:12px;font-weight:600;color:var(--forest);min-width:120px">${a.ip}</div>
+        <div style="flex:1;font-size:11px;color:var(--text3)">${escHtml(a.country||'')}${a.org?' · '+escHtml(a.org):''}</div>
+        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${vecBadges} ${multi} ${badges}</div>
+        <div style="font-size:10px;font-family:monospace;padding:2px 8px;border-radius:4px;background:${LEVEL_COLOR(lvl)}22;color:${LEVEL_COLOR(lvl)};border:1px solid ${LEVEL_COLOR(lvl)}44;white-space:nowrap" title="Composite threat score ${a.score}">${LEVEL_LABEL(lvl)}</div>
+        <div class="mini-btn" style="padding:2px 7px;font-size:11px" onclick="event.stopPropagation();openDrawer('${a.ip}')" title="Open full attacker narrative">🔍</div>
         <div style="font-size:16px;color:var(--text3);margin-left:4px">▶</div>
       </div>
       <div class="attacker-detail" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:11px">
           <div>
-            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">MITRE Tactics with Evidence (${Object.keys(a.tacticEvidence||{}).length})</div>
-            <div>${Object.keys(a.tacticEvidence||{}).length===0
-              ? '<span style="color:var(--muted);font-size:10px">No command evidence captured for tactics</span>'
-              : Object.entries(a.tacticEvidence||{}).map(([t,cmds])=>`<span style="display:inline-block;margin:2px;padding:2px 7px;border-radius:4px;background:${(TACTIC_COLORS&&TACTIC_COLORS[t])||'var(--bg3)'};color:${(TACTIC_COLORS&&TACTIC_COLORS[t])?'#fff':'var(--text2)'};opacity:.85;font-size:10px" title="${cmds[0]||''}">${t}</span>`).join('')
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">MITRE Tactics (${(a.mitre_tactics||[]).length})</div>
+            <div>${(a.mitre_tactics||[]).length===0
+              ? '<span style="color:var(--muted);font-size:10px">None recorded</span>'
+              : (a.mitre_tactics||[]).map(t=>`<span style="display:inline-block;margin:2px;padding:2px 7px;border-radius:4px;background:${(TACTIC_COLORS&&TACTIC_COLORS[t])||'var(--bg3)'};color:${(TACTIC_COLORS&&TACTIC_COLORS[t])?'#fff':'var(--text2)'};opacity:.85;font-size:10px">${escHtml(t)}</span>`).join('')
             }</div>
+            <div style="color:var(--text3);margin:10px 0 6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Activity Footprint</div>
+            <div style="font-size:10px;line-height:1.8;color:var(--text2)">
+              <div>Total events: <b>${(a.total_events||0).toLocaleString()}</b></div>
+              <div>SSH logins succeeded: <b>${a.ssh_login_success||0}</b> · commands: <b>${a.commands_run||0}</b></div>
+              ${Object.keys(a.services||{}).length?`<div>Services hit: ${Object.entries(a.services).map(([k,v])=>`${escHtml(k)} (${v})`).join(', ')}</div>`:''}
+              <div>First→last: ${escHtml((a.first_seen||'').slice(0,16).replace('T',' '))} → ${escHtml((a.last_seen||'').slice(0,16).replace('T',' '))}</div>
+            </div>
           </div>
           <div>
             <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Credentials Tried (${credCount})</div>
-            <div style="font-family:monospace;font-size:10px;line-height:1.8">${[...a.creds].slice(0,8).map(c=>`<div style="padding:1px 0;border-bottom:1px solid var(--border)">${c}</div>`).join('')||'<span style="color:var(--muted)">None captured</span>'}${a.creds.size>8?`<div style="color:var(--muted);margin-top:4px">…and ${a.creds.size-8} more</div>`:''}</div>
+            <div style="font-family:monospace;font-size:10px;line-height:1.8">${creds.slice(0,8).map(c=>`<div style="padding:1px 0;border-bottom:1px solid var(--border)">${escHtml(c)}</div>`).join('')||'<span style="color:var(--muted)">None captured</span>'}${credCount>creds.length?`<div style="color:var(--muted);margin-top:4px">…and ${credCount-creds.length} more</div>`:''}</div>
           </div>
           <div>
-            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Command Evidence</div>
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Top Commands</div>
             <div style="font-size:11px;line-height:1.7">
-              ${Object.entries(a.tacticEvidence||{}).slice(0,4).map(([tactic,cmds])=>`
-                <div style="margin-bottom:8px">
-                  <div style="font-size:9px;color:${(TACTIC_COLORS&&TACTIC_COLORS[tactic])||'var(--text3)'};font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px">▸ ${tactic}</div>
-                  ${cmds.slice(0,2).map(c=>`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid ${(TACTIC_COLORS&&TACTIC_COLORS[tactic])||'var(--border)'};margin-bottom:2px;word-break:break-all;color:var(--text2)">${c}</div>`).join('')}
-                </div>`).join('')}
-              ${Object.keys(a.tacticEvidence||{}).length===0 ? '<span style="color:var(--muted);font-size:10px">No command evidence captured</span>' : ''}
+              ${cmds.length===0 ? '<span style="color:var(--muted);font-size:10px">No commands captured</span>'
+                : cmds.slice(0,6).map(c=>`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid var(--border);margin-bottom:2px;word-break:break-all;color:var(--text2)">${escHtml(c.cmd)} <span style="color:var(--muted)">×${c.count}</span></div>`).join('')}
             </div>
           </div>
           <div>
-            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Threat Indicators + Evidence</div>
+            <div style="color:var(--text3);margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:.05em">Threat Indicators</div>
             <div style="font-size:11px;line-height:1.6">
-              ${a.hasKeyImplant?`<div style="margin-bottom:8px">
-                <div>🔑 <b>SSH Key Backdoor</b> — implanted authorized_keys</div>
-                ${a.keyCmd?`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid #c85a3a;margin-top:3px;word-break:break-all;color:var(--text2)">${a.keyCmd.slice(0,100)}${a.keyCmd.length>100?'…':''}</div>`:''}
-              </div>`:''}
-              ${a.hasDownload?`<div style="margin-bottom:8px">
-                <div>⬇ <b>Malware Download</b> — fetched remote payload</div>
-                ${a.downloadCmd?`<div style="font-family:monospace;font-size:9px;padding:2px 6px;background:var(--bg3);border-left:2px solid #8B5E3C;margin-top:3px;word-break:break-all;color:var(--text2)">${a.downloadCmd.slice(0,100)}</div>`:''}
-              </div>`:''}
-              ${a.hasBrute?`<div style="margin-bottom:4px">
-                <div>🔓 <b>Successful Login</b> — gained access with: <span style="font-family:monospace;color:var(--bark)">${a.loginCred||'unknown credential'}</span></div>
-              </div>`:''}
-              ${!a.hasKeyImplant&&!a.hasDownload&&!a.hasBrute?'<div style="color:var(--muted)">Reconnaissance only — no successful access</div>':''}
+              ${a.key_implant?`<div style="margin-bottom:6px">🔑 <b>SSH Key Backdoor</b> — authorized_keys implant${a.immutable_flag?' + chattr immutable':''}</div>`:''}
+              ${a.malware_delivered?`<div style="margin-bottom:6px">⬇ <b>Malware Delivered</b> — ${a.malware_delivered} binary capture(s)${(a.malware_family&&a.malware_family.length)?` · ${escHtml(a.malware_family[0])}`:''}</div>`:''}
+              ${a.ssh_login_success?`<div style="margin-bottom:6px">🔓 <b>SSH Breach</b> — ${a.ssh_login_success} successful login(s)</div>`:''}
+              ${(a.cve_probes&&a.cve_probes.length)?`<div style="margin-bottom:6px">🌐 <b>Web Exploitation</b> — probed: ${a.cve_probes.slice(0,6).map(escHtml).join(', ')}</div>`:''}
+              ${!a.key_implant&&!a.malware_delivered&&!a.ssh_login_success&&!(a.cve_probes&&a.cve_probes.length)?'<div style="color:var(--muted)">Reconnaissance only — no successful access</div>':''}
             </div>
+            <button class="mini-btn primary" style="margin-top:8px;font-size:10px" onclick="event.stopPropagation();openDrawer('${a.ip}')">View full narrative →</button>
           </div>
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// Loads the Attacker Intelligence panel from the cross-honeypot endpoint.
+// When the user toggles "show all", request a larger limit.
+async function loadAttackerIntel(forceShowAll){
+  const listEl = document.getElementById('attacker-list');
+  if(listEl && !listEl.innerHTML.trim()) listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">Loading attackers…</div>';
+  const limit = (window._attackerShowAll||forceShowAll) ? 100 : 25;
+  try{
+    const r = await apiFetch(`/api/threat_actors?minutes=${currentWindow}&limit=${limit}`);
+    const d = await r.json();
+    window._lastThreatActors = d;
+    renderAttackerIntel(d);
+  }catch(e){
+    if(listEl) listEl.innerHTML = `<div style="color:#8a3030;font-size:12px">Failed to load attackers: ${escHtml(e.message)}</div>`;
+  }
 }
 
 function toggleAttacker(hdr){
@@ -2283,10 +2267,15 @@ function renderCredsTable(creds){
 // ===== Commands =====
 function renderCmds(cmds){
   const items=Array.isArray(cmds)?cmds:Object.entries(cmds).map(([k,v])=>({cmd:k,count:v})).sort((a,b)=>b.count-a.count);
-  document.getElementById('cmds-list').innerHTML=items.slice(0,100).map(({cmd,count})=>`
-    <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-      <div style="font-family:monospace;word-break:break-all;line-height:1.5;font-size:11px;color:var(--forest)">${cmd.length>140?cmd.slice(0,140)+'…':cmd}</div>
-      <div class="dim" style="margin-top:3px">${count.toLocaleString()}× executed</div>
+  const el=document.getElementById('cmds-list');
+  if(!items.length){ el.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0">No post-login commands in this window</div>'; return; }
+  el.innerHTML=items.slice(0,150).map(({cmd,count},i)=>`
+    <div style="display:flex;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+      <div style="font-size:10px;color:var(--text3);font-family:monospace;min-width:22px;text-align:right;padding-top:1px">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:monospace;word-break:break-all;line-height:1.5;font-size:11px;color:var(--forest)">${escHtml(cmd.length>180?cmd.slice(0,180)+'…':cmd)}</div>
+        <div class="dim" style="margin-top:3px">${count.toLocaleString()}× executed</div>
+      </div>
     </div>`).join('');
 }
 
@@ -2530,6 +2519,7 @@ function hideSevTooltip(){
 function setWindow(v){
   currentWindow = parseInt(v);
   document.getElementById('win-sel').value = v;
+  window._attackerShowAll = false;   // collapse Attacker Intelligence on window change
   // Persist to localStorage
   try { localStorage.setItem('soc_window', v); } catch(e) {}
   // Persist to URL so bookmarks/links preserve the window
@@ -2584,16 +2574,29 @@ window.addEventListener('load',()=>{
       else if(document.getElementById('cases-panel').classList.contains('open')) toggleCasesPanel(false);
     }
   });
-  // Click outside cases panel closes it (drawer handles its own overlay)
-  document.addEventListener('click', e => {
+  // Click outside cases panel closes it (drawer handles its own overlay).
+  // NOTE: clicking a case card re-renders #cases-list synchronously, which
+  // DETACHES the clicked node from the DOM before this click handler runs — a
+  // detached node fails p.contains(e.target), which previously made the panel
+  // close itself the instant you opened a case. We instead record, on mousedown
+  // (fires before the onclick re-render), whether the press began inside the
+  // panel/button, and only close on an outside press.
+  let _pressedInsideCases = false;
+  document.addEventListener('mousedown', e => {
     const p = document.getElementById('cases-panel');
     const btn = document.getElementById('cases-btn');
-    if(p.classList.contains('open') && !p.contains(e.target) && btn && !btn.contains(e.target)
-       && !document.getElementById('alert-drawer').contains(e.target)
-       && !document.getElementById('drawer-overlay').classList.contains('open')){
-      // only if click is on the dimmed dashboard, not inside a drawer
-      if(!e.target.closest('.drawer')) toggleCasesPanel(false);
-    }
+    _pressedInsideCases = !!(
+      (p && p.contains(e.target)) ||
+      (btn && btn.contains(e.target)) ||
+      (e.target.closest && e.target.closest('.drawer'))
+    );
+  }, true);
+  document.addEventListener('click', e => {
+    const p = document.getElementById('cases-panel');
+    if(!p.classList.contains('open')) return;
+    if(_pressedInsideCases) return;                       // press began inside — keep open
+    if(document.getElementById('drawer-overlay').classList.contains('open')) return;
+    toggleCasesPanel(false);
   });
 });
 
@@ -3202,6 +3205,7 @@ async function analyzeNginx() {
 let _PLAYBOOKS = {};
 let _drawerIP = null;
 let _drawerCtx = null;
+let _drawerNarr = null;
 let _searchType = 'ip';
 let _searchActive = false;
 
@@ -3215,17 +3219,26 @@ async function loadPlaybooks(){
 async function openDrawer(ip){
   if(!ip) return;
   _drawerIP = ip;
+  // Reset drawer-local playbook progress for the new IP
+  _drawerPbKey = ''; _drawerPbDone = [];
   document.getElementById('dw-ip').textContent = ip;
   document.getElementById('dw-geo').textContent = '';
-  document.getElementById('dw-body').innerHTML = '<div style="color:var(--muted);font-size:12px">Loading…</div>';
+  document.getElementById('dw-body').innerHTML = '<div style="color:var(--muted);font-size:12px">Loading attacker narrative…</div>';
   document.getElementById('drawer-overlay').classList.add('open');
   document.getElementById('alert-drawer').classList.add('open');
   try{
-    const r = await apiFetch(`/api/alert/${encodeURIComponent(ip)}?minutes=${currentWindow}`);
-    const d = await r.json();
+    // Fetch the per-IP context AND the unified cross-honeypot narrative in parallel
+    const [ctxR, narrR] = await Promise.all([
+      apiFetch(`/api/alert/${encodeURIComponent(ip)}?minutes=${currentWindow}`),
+      apiFetch(`/api/actor/${encodeURIComponent(ip)}?minutes=${currentWindow}`).catch(()=>null),
+    ]);
+    const d = await ctxR.json();
     if(d.error){ document.getElementById('dw-body').innerHTML = `<div style="color:#8a3030">Error: ${escHtml(d.error)}</div>`; return; }
+    let narr = null;
+    try { narr = narrR ? await narrR.json() : null; if(narr && narr.error) narr=null; } catch(e){ narr=null; }
     _drawerCtx = d;
-    renderDrawer(d);
+    _drawerNarr = narr;
+    renderDrawer(d, narr);
   }catch(e){
     document.getElementById('dw-body').innerHTML = `<div style="color:#8a3030">Failed to load: ${escHtml(e.message)}</div>`;
   }
@@ -3233,12 +3246,13 @@ async function openDrawer(ip){
 function closeDrawer(){
   document.getElementById('drawer-overlay').classList.remove('open');
   document.getElementById('alert-drawer').classList.remove('open');
-  _drawerIP = null; _drawerCtx = null;
+  _drawerIP = null; _drawerCtx = null; _drawerNarr = null;
 }
 function lvlColor(l){ return l>=15?'var(--red)':l>=12?'var(--orange)':l>=7?'var(--yellow)':'var(--blue)'; }
 function lvlBg(l){ return l>=15?'rgba(200,90,58,.15)':l>=12?'rgba(200,122,58,.15)':l>=7?'rgba(131,212,180,.18)':'rgba(123,168,196,.15)'; }
 
-function renderDrawer(d){
+function renderDrawer(d, narr){
+  if(narr===undefined) narr = _drawerNarr;
   const geo = [d.city, d.country].filter(Boolean).join(', ');
   document.getElementById('dw-geo').textContent = [geo, d.org].filter(Boolean).join(' · ');
 
@@ -3271,6 +3285,7 @@ function renderDrawer(d){
   const suggested = suggestPlaybook(d);
 
   document.getElementById('dw-body').innerHTML = `
+    ${renderNarrativeBlock(narr)}
     <div class="drawer-sec">
       <h3>Summary</h3>
       <div class="dw-kv">
@@ -3307,9 +3322,74 @@ function renderDrawer(d){
     <div class="drawer-sec" style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="mini-btn primary" onclick="openCreateCaseFromDrawer()">＋ Create case</button>
       <button class="mini-btn" onclick="copyDrawerJSON()">Copy JSON</button>
+      ${narr?'<button class="mini-btn" onclick="copyDrawerIOCs()">Copy IOCs</button>':''}
     </div>`;
 
   if(suggested) renderDrawerPlaybook(suggested);
+}
+
+/** The cohesive cross-honeypot attacker narrative (the correlation view). */
+function renderNarrativeBlock(n){
+  if(!n) return '';
+  const PHASE_LABEL = {recon:'Recon',access:'Access',execution:'Execution',download:'Download',persistence:'Persistence',exfil:'Exfil',other:'Other'};
+  const PHASE_COLOR = {recon:'#7BA8C4',access:'#b89050',execution:'var(--forest)',download:'#8B5E3C',persistence:'#c85a3a',exfil:'#a04668',other:'var(--text3)'};
+  const VEC_COLOR = {ssh:'var(--forest)', web:'#7BA8C4', malware:'#c85a3a'};
+
+  const vecs = (n.vectors||[]).map(v=>`<span style="background:${VEC_COLOR[v]||'var(--text3)'}1f;color:${VEC_COLOR[v]||'var(--text3)'};border:1px solid ${VEC_COLOR[v]||'var(--text3)'}55;font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700;text-transform:uppercase">${escHtml(v)}</span>`).join(' ');
+
+  // Kill-chain phase strip
+  const phases = (n.phases||[]).map(p=>`
+    <div style="flex:1;min-width:64px;text-align:center">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:${PHASE_COLOR[p.phase]||'var(--text3)'};font-weight:700">${PHASE_LABEL[p.phase]||p.phase}</div>
+      <div style="height:5px;background:${PHASE_COLOR[p.phase]||'var(--text3)'};border-radius:3px;margin:4px 0;opacity:.8"></div>
+      <div style="font-size:10px;color:var(--text2);font-family:monospace">${(p.events||0).toLocaleString()}</div>
+    </div>`).join('<div style="align-self:center;color:var(--text3);font-size:12px">→</div>') || '';
+
+  // Credentials tried, success highlighted
+  const credRows = (n.credentials_tried||[]).slice(0,10).map(c=>`
+    <div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0;border-bottom:1px solid var(--border);${c.success?'background:rgba(74,124,89,.10)':''}">
+      <span style="font-family:monospace;font-size:10px;${c.success?'color:var(--forest);font-weight:600':''}">${escHtml(c.cred)}${c.success?' ✓':''}</span>
+      <span style="color:var(--muted);font-size:10px">${(c.count||0).toLocaleString()}×</span>
+    </div>`).join('') || '<span style="font-size:11px;color:var(--muted)">None captured</span>';
+
+  // Malware with VT verdict
+  const mal = (n.malware||[]).map(m=>{
+    const vt = (typeof m.vt_malicious==='number') ? `<span style="color:${m.vt_malicious>=20?'#c85a3a':m.vt_malicious>0?'#b89050':'var(--text3)'};font-weight:600">${m.vt_malicious}/${m.vt_total||'?'} VT</span>` : '<span style="color:var(--muted)">no VT</span>';
+    const link = m.vt_permalink ? ` · <a href="${escHtml(m.vt_permalink)}" target="_blank" rel="noopener" style="color:var(--pine)">report</a>` : '';
+    return `<div style="font-size:10px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <div style="font-family:monospace;word-break:break-all;color:var(--text2)" title="click to copy" onclick="copyToClipboard('${escHtml(m.sha256)}', this)">${escHtml(m.sha256_short||m.sha256)}</div>
+      <div style="color:var(--text3);margin-top:1px">${m.vt_label?escHtml(m.vt_label)+' · ':''}${vt}${link}${m.service?' · '+escHtml(m.service):''}${m.file_size?' · '+escHtml(String(m.file_size))+'B':''}</div>
+    </div>`;
+  }).join('') || '';
+
+  const cve = (n.cve_probes||[]).map(c=>`<span style="display:inline-block;margin:2px;padding:2px 7px;border-radius:4px;background:rgba(123,168,196,.14);color:#7BA8C4;font-size:10px;font-family:monospace">${escHtml(c)}</span>`).join('') || '';
+  const persist = (n.persistence||[]).map(p=>`<div style="font-size:10px;color:var(--text2);margin-bottom:2px">⚠ ${escHtml(p.label)}</div>`).join('') || '';
+
+  return `
+    <div class="drawer-sec" style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px">
+      <h3 style="border:none;margin-bottom:6px">Attack Narrative ${vecs}</h3>
+      <div style="font-size:12px;line-height:1.6;color:var(--text2);margin-bottom:10px">${escHtml(n.story||'')}</div>
+      ${phases?`<div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px">Kill Chain</div>
+        <div style="display:flex;gap:4px;align-items:stretch;margin-bottom:10px">${phases}</div>`:''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px">Credentials (${(n.credentials_succeeded||[]).length} succeeded)</div>
+          ${credRows}
+        </div>
+        <div>
+          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px">Indicators</div>
+          ${persist}
+          ${cve?`<div style="margin-top:4px"><div style="font-size:9px;color:var(--text3);margin-bottom:2px">Web/CVE probes:</div>${cve}</div>`:''}
+          ${!persist&&!cve?'<span style="font-size:11px;color:var(--muted)">No persistence / exploit indicators</span>':''}
+        </div>
+      </div>
+      ${mal?`<div style="margin-top:10px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px">Malware Delivered</div>${mal}</div>`:''}
+    </div>`;
+}
+
+function copyDrawerIOCs(){
+  if(!_drawerNarr || !_drawerNarr.iocs) return;
+  copyToClipboard(JSON.stringify(_drawerNarr.iocs, null, 2));
 }
 
 function suggestPlaybook(d){
@@ -3322,19 +3402,37 @@ function suggestPlaybook(d){
   return '';
 }
 
+// Local (pre-case) playbook progress, keyed by playbook id. Lets the analyst
+// tick steps while triaging in the drawer; carried into the case on creation.
+let _drawerPbKey = '';
+let _drawerPbDone = [];
+
 function renderDrawerPlaybook(key, done){
   const wrap = document.getElementById('dw-playbook-steps');
   if(!wrap) return;
   const pb = _PLAYBOOKS[key];
-  if(!pb){ wrap.innerHTML=''; return; }
-  done = done || [];
+  if(!pb){ wrap.innerHTML=''; _drawerPbKey=''; _drawerPbDone=[]; return; }
+  // Reset progress when switching to a different playbook
+  if(key !== _drawerPbKey){ _drawerPbKey = key; _drawerPbDone = Array.isArray(done)?done.slice():[]; }
+  const d = _drawerPbDone;
   wrap.innerHTML = `<div style="font-size:10px;color:var(--text3);margin-bottom:4px">${escHtml(pb.trigger)}</div>` +
     pb.steps.map((s,i)=>`
-      <label class="pb-step ${done.includes(i)?'done':''}">
-        <input type="checkbox" ${done.includes(i)?'checked':''} disabled>
+      <label class="pb-step ${d.includes(i)?'done':''}">
+        <input type="checkbox" ${d.includes(i)?'checked':''} onchange="toggleDrawerPbStep(${i},this.checked)">
         <span>${escHtml(s)}</span>
       </label>`).join('') +
-    `<div style="font-size:10px;color:var(--muted);margin-top:4px">Create a case to track completion of these steps.</div>`;
+    `<div id="dw-pb-progress" style="font-size:10px;color:var(--muted);margin-top:4px">${d.length}/${pb.steps.length} complete · saved into the case when you create it.</div>`;
+}
+
+function toggleDrawerPbStep(idx, checked){
+  const set = new Set(_drawerPbDone);
+  if(checked) set.add(idx); else set.delete(idx);
+  _drawerPbDone = [...set].sort((a,b)=>a-b);
+  const pb = _PLAYBOOKS[_drawerPbKey];
+  const lbl = document.querySelectorAll('#dw-playbook-steps .pb-step')[idx];
+  if(lbl) lbl.classList.toggle('done', checked);
+  const prog = document.getElementById('dw-pb-progress');
+  if(prog && pb) prog.textContent = `${_drawerPbDone.length}/${pb.steps.length} complete · saved into the case when you create it.`;
 }
 
 function copyDrawerJSON(){
@@ -3577,6 +3675,14 @@ function openCreateCaseFromDrawer(){
   };
   apiFetch('/api/cases', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
     .then(r=>r.json())
+    .then(c=>{
+      // Carry over any playbook steps the analyst ticked in the drawer
+      if(playbook && _drawerPbKey===playbook && _drawerPbDone.length){
+        return apiFetch(`/api/cases/${c.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({playbook_done:_drawerPbDone})}).then(()=>c);
+      }
+      return c;
+    })
     .then(c=>{
       toggleCasesPanel(true);
       openCaseDetail(c.id);

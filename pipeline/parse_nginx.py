@@ -73,7 +73,7 @@ SCANNER_PATTERNS = [
     (r'curl/',                                              "curl Client"),
     (r'wget/',                                              "wget Client"),
     # Botnets / IoT malware
-    (r'mirai|mozi|gafgyt|satori|bashlite',                 "IoT Botnet"),
+    (r'mirai|\bmozi\b|gafgyt|satori|bashlite|hajime|tsunami|kaiten|dofloo',                 "IoT Botnet"),
     (r'libwww-perl|lwp-trivial',                            "Perl Bot"),
     # Vulnerability scanners
     (r'nikto|nessus|openvas|acunetix|burpsuite|nuclei',    "Vuln Scanner"),
@@ -97,6 +97,19 @@ SCANNER_PATTERNS = [
 ]
 
 SCANNER_RE = [(re.compile(p, re.IGNORECASE), label) for p, label in SCANNER_PATTERNS]
+
+# Fall-through markers — consulted ONLY after the real signatures above miss.
+LIBRARY_UA_RE = re.compile(
+    r'java/|okhttp|apache-httpclient|httpclient|node-fetch|axios|libwww|lwp::|'
+    r'python-urllib|python/|urllib|aiohttp|httpx|guzzle|winhttp|wininet|'
+    r'mechanize|scrapy|colly|restsharp|postmanruntime|insomnia|'
+    r'headlesschrome|phantomjs|selenium|puppeteer|playwright',
+    re.IGNORECASE,
+)
+BROWSER_UA_RE = re.compile(
+    r'mozilla/|applewebkit|gecko/|chrome/|safari/|firefox/|edge/|opera/|msie ',
+    re.IGNORECASE,
+)
 
 # ── Path classification ───────────────────────────────────────────────────────
 PATH_CATEGORIES = [
@@ -126,12 +139,25 @@ def classify_path(path: str) -> str:
     return "other"
 
 
-def identify_scanner(ua: str, path: str) -> str:
+def identify_scanner(ua: str, path: str, status: int = 0, method: str = "GET") -> str:
+    ua = ua or ""
+    path = path or ""
     combined = ua + " " + path
+    # 1) Real signatures win first (tool names, botnets, CVE paths)
     for pattern, label in SCANNER_RE:
         if pattern.search(combined):
             return label
-    return "Unknown"
+    # 2) Fall-through so nothing is left "Unknown".
+    ua_stripped = ua.strip()
+    if ua_stripped in ("", "-"):
+        return "No User-Agent"
+    if LIBRARY_UA_RE.search(ua):
+        return "HTTP Library"
+    if BROWSER_UA_RE.search(ua):
+        if status in (400, 403, 404, 405, 500) or method not in ("GET", "HEAD"):
+            return "Spoofed Browser"
+        return "Browser-Like Crawler"
+    return "Other Automated"
 
 
 def wazuh_event_id(method: str, status: int, path: str, scanner: str) -> str:
@@ -300,7 +326,7 @@ def main():
 
                     status  = int(status_s)
                     byte_ct = int(bytes_s) if bytes_s != "-" else 0
-                    scanner = identify_scanner(user_agent, path)
+                    scanner = identify_scanner(user_agent, path, status, method)
                     path_cat = classify_path(path)
                     eventid  = wazuh_event_id(method, status, path, scanner)
                     level    = wazuh_level_for(method, status, path, scanner)

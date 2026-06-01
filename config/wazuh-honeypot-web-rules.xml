@@ -9,7 +9,7 @@
        sudo systemctl restart wazuh-manager
 
      Changelog from v1:
-       - Fixed rule 100220: broken regex \.^ → valid pcre2 pattern
+       - Fixed rule 100220: broken regex \.^ -> valid pcre2 pattern
        - Added Dionaea brute force frequency rules (100212, 100213)
        - Added Dionaea malware binary frequency rule (100231)
        - Fixed nginx incident regex to use type="pcre2"
@@ -18,8 +18,14 @@
        - Added nginx multi-CVE probe rule (100332) — same IP hits 3+ CVE paths
        - Added nginx Log4Shell POST rule (100317)
        - Added nginx bad method rule refinement (100322)
-     ============================================================ -->
 
+     Changelog (this revision):
+       - Added nginx scanner-identity rules (100340-100343) so the parser's
+         fall-through scanner_type labels — "Spoofed Browser", "No User-Agent",
+         "HTTP Library" — get their own severity + MITRE tagging instead of
+         landing in an untagged "Unknown" bucket.
+       - Added "Spoofed Browser" automated-scan frequency rule (100344).
+     ============================================================ -->
 
 <!-- ============================================================
      DIONAEA MALWARE CAPTURE HONEYPOT
@@ -122,28 +128,27 @@
     <field name="eventid">dionaea.binary.captured</field>
     <description>Dionaea: Malware binary captured from $(src_ip) — SHA512=$(sha512)</description>
     <mitre><id>T1105</id></mitre>
-    <group>honeypot,malware,binary,ingress_tool_transfer,</group>
+    <group>honeypot,malware,binary,</group>
   </rule>
 
-  <!-- Multiple binaries from same IP — active malware spreader -->
+  <!-- Multiple binaries from one IP — active malware spreader -->
   <rule id="100231" level="15" frequency="3" timeframe="300">
     <if_matched_sid>100230</if_matched_sid>
     <same_field>src_ip</same_field>
     <description>Dionaea: Multiple malware binaries from $(src_ip) — active malware spreader</description>
     <mitre><id>T1105</id><id>T1570</id></mitre>
-    <group>honeypot,malware,spreading,critical,</group>
+    <group>honeypot,malware,spreader,</group>
   </rule>
 
-  <!-- Generic session -->
+  <!-- Session activity -->
   <rule id="100240" level="3">
     <if_sid>100200</if_sid>
     <field name="eventid" type="pcre2">dionaea\.session\.</field>
     <description>Dionaea: Session on $(service) from $(src_ip)</description>
-    <group>honeypot,connection,</group>
+    <group>honeypot,session,</group>
   </rule>
 
 </group>
-
 
 <!-- ============================================================
      NGINX WEB HONEYPOT
@@ -151,7 +156,7 @@
      ============================================================ -->
 <group name="nginx,honeypot,web,">
 
-  <!-- Base: all nginx events -->
+  <!-- Base: all nginx JSON events -->
   <rule id="100300" level="3">
     <decoded_as>json</decoded_as>
     <field name="honeypot">nginx</field>
@@ -159,7 +164,7 @@
     <group>honeypot,web,</group>
   </rule>
 
-  <!-- Generic 404 probe -->
+  <!-- Generic 404 web probe -->
   <rule id="100301" level="3">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.404</field>
@@ -168,52 +173,52 @@
     <group>honeypot,web,recon,</group>
   </rule>
 
-  <!-- .env credential theft -->
+  <!-- .env credential theft probe -->
   <rule id="100310" level="8">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.env_file</field>
     <description>nginx: .env credential theft probe from $(src_ip)</description>
     <mitre><id>T1552.001</id></mitre>
-    <group>honeypot,web,credential_access,</group>
+    <group>honeypot,web,credential_access,cve,</group>
   </rule>
 
-  <!-- .git exposure -->
+  <!-- .git repository exposure probe -->
   <rule id="100311" level="8">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.git</field>
     <description>nginx: .git repository exposure probe from $(src_ip)</description>
     <mitre><id>T1213</id></mitre>
-    <group>honeypot,web,recon,</group>
+    <group>honeypot,web,recon,cve,</group>
   </rule>
 
-  <!-- WordPress -->
+  <!-- WordPress vulnerability probe -->
   <rule id="100312" level="6">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.wordpress</field>
     <description>nginx: WordPress vulnerability probe from $(src_ip)</description>
     <mitre><id>T1190</id></mitre>
-    <group>honeypot,web,initial_access,</group>
+    <group>honeypot,web,initial_access,cve,</group>
   </rule>
 
-  <!-- Tomcat manager -->
+  <!-- Tomcat manager panel probe -->
   <rule id="100313" level="7">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.tomcat</field>
     <description>nginx: Tomcat manager panel probe from $(src_ip)</description>
     <mitre><id>T1190</id></mitre>
-    <group>honeypot,web,initial_access,</group>
+    <group>honeypot,web,initial_access,cve,</group>
   </rule>
 
-  <!-- Router/IoT firmware -->
+  <!-- Router/IoT firmware exploit probe -->
   <rule id="100314" level="7">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.router</field>
     <description>nginx: Router/IoT firmware exploit probe from $(src_ip)</description>
     <mitre><id>T1190</id></mitre>
-    <group>honeypot,web,iot,initial_access,</group>
+    <group>honeypot,web,iot,initial_access,cve,</group>
   </rule>
 
-  <!-- Hikvision CVE-2021-36260 -->
+  <!-- Hikvision RCE probe (CVE-2021-36260) -->
   <rule id="100315" level="9">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.hikvision</field>
@@ -222,7 +227,7 @@
     <group>honeypot,web,cve,initial_access,</group>
   </rule>
 
-  <!-- Log4Shell GET probe -->
+  <!-- Log4Shell probe (CVE-2021-44228) -->
   <rule id="100316" level="13">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.probe.log4shell</field>
@@ -231,7 +236,7 @@
     <group>honeypot,web,cve,log4shell,initial_access,</group>
   </rule>
 
-  <!-- Log4Shell POST — more dangerous than GET probe -->
+  <!-- Log4Shell POST — active exploitation -->
   <rule id="100317" level="14">
     <if_sid>100316</if_sid>
     <field name="http_method">POST</field>
@@ -240,7 +245,7 @@
     <group>honeypot,web,cve,log4shell,active_exploit,</group>
   </rule>
 
-  <!-- Successful GET (scanner completed request) -->
+  <!-- Scanner completed a request (2xx) -->
   <rule id="100320" level="3">
     <if_sid>100300</if_sid>
     <field name="eventid">nginx.request.success</field>
@@ -279,11 +284,67 @@
   <!-- Multi-CVE scanner — hits 3+ different CVE probe types -->
   <!-- One IP hitting Hikvision + Log4Shell + .env = targeted threat actor -->
   <rule id="100332" level="11" frequency="3" timeframe="300">
-    <if_matched_sid>100310,100311,100312,100313,100314,100315,100316</if_matched_sid>
+    <if_matched_group>cve</if_matched_group>
     <same_field>src_ip</same_field>
     <description>nginx: Multi-CVE scanner — $(src_ip) probing multiple vulnerability classes</description>
     <mitre><id>T1595.003</id></mitre>
     <group>honeypot,web,scanner,multi_cve,</group>
+  </rule>
+
+  <!-- ============================================================
+       SCANNER-IDENTITY RULES (100340-100344)
+       The parser classifies every request's scanner_type. These rules
+       tag the behaviour-derived "fall-through" identities so they get
+       their own severity + MITRE instead of an untagged Unknown bucket.
+       Matched on the scanner_type field set by parse_nginx.py.
+       ============================================================ -->
+
+  <!-- Spoofed Browser — a browser-looking UA hitting a honeypot that hosts
+       nothing. Masquerading as a normal client to evade simple UA filters. -->
+  <rule id="100340" level="6">
+    <if_sid>100300</if_sid>
+    <field name="scanner_type">Spoofed Browser</field>
+    <description>nginx: Spoofed-browser scanner from $(src_ip) — fake browser UA, path=$(http_path)</description>
+    <mitre><id>T1595.003</id><id>T1036</id></mitre>
+    <group>honeypot,web,scanner,spoofed_browser,defense_evasion,</group>
+  </rule>
+
+  <!-- No User-Agent — automated client; legitimate browsers always send a UA. -->
+  <rule id="100341" level="5">
+    <if_sid>100300</if_sid>
+    <field name="scanner_type">No User-Agent</field>
+    <description>nginx: Request with no User-Agent from $(src_ip) — automated client, path=$(http_path)</description>
+    <mitre><id>T1595.003</id></mitre>
+    <group>honeypot,web,scanner,no_user_agent,</group>
+  </rule>
+
+  <!-- HTTP Library — scripted client (java/okhttp/headless/etc.) with no
+       specific tool signature. -->
+  <rule id="100342" level="5">
+    <if_sid>100300</if_sid>
+    <field name="scanner_type">HTTP Library</field>
+    <description>nginx: Scripted HTTP-library client from $(src_ip) — path=$(http_path)</description>
+    <mitre><id>T1595.003</id></mitre>
+    <group>honeypot,web,scanner,http_library,</group>
+  </rule>
+
+  <!-- Other Automated — non-empty unrecognised UA; still non-interactive. -->
+  <rule id="100343" level="4">
+    <if_sid>100300</if_sid>
+    <field name="scanner_type">Other Automated</field>
+    <description>nginx: Unrecognised automated client from $(src_ip) — path=$(http_path)</description>
+    <mitre><id>T1595.003</id></mitre>
+    <group>honeypot,web,scanner,other_automated,</group>
+  </rule>
+
+  <!-- Spoofed-browser automated scan — 15+ spoofed-browser probes/60s from one
+       IP. A real user never generates this; this is an evasive scan campaign. -->
+  <rule id="100344" level="9" frequency="15" timeframe="60">
+    <if_matched_sid>100340</if_matched_sid>
+    <same_field>src_ip</same_field>
+    <description>nginx: Evasive scan campaign — 15+ spoofed-browser probes/60s from $(src_ip)</description>
+    <mitre><id>T1595.003</id><id>T1036</id></mitre>
+    <group>honeypot,web,scanner,spoofed_browser,automated,</group>
   </rule>
 
 </group>
