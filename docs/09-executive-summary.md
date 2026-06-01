@@ -21,16 +21,14 @@ malware sample in this dataset came from a real attacker on the internet.
 
 Over the active collection window (**May 21–29, 2026**), the sensors recorded:
 
-- **6,185,397** total security alerts processed by Wazuh SIEM
+- **11,611,908** total security alerts processed by Wazuh SIEM
 - **872,871** Cowrie SSH/Telnet events
 - **1,000+** unique attacking IP addresses across **99 countries**
 - **6** distinct botnet campaigns identified and fingerprinted
 - **7** unique malware binaries captured and VirusTotal-verified
-- Peak day (May 23): **2,019,221** alerts in 24 hours
+- Peak day: ~2.8M alerts in 24 hours
 
-The attack surface was a small set of exposed services on a single VPS. The volume
-represents the baseline threat level any internet-connected system faces — roughly one
-attack event every 1.3 seconds at the average background rate.
+The attack surface was a small set of exposed services on a single VPS. The volume represents the baseline threat level any internet-connected system faces — on the order of 20+ attack events per second at sustained volume.
 
 ### Live Malware Capture — WannaCry Still Propagating
 
@@ -53,7 +51,7 @@ legacy-protocol exposure remains a live risk.
 - **Wave 1 — May 22 (~1.3M alerts/24h):** the `345gs5662d34` credential-stuffing campaign.
   `root/345gs5662d34` was attempted **103,084 times across 357 unique IPs** — a coordinated
   multi-source effort and the largest single-credential campaign in the dataset.
-- **Wave 2 — May 23 (peak 2,019,221 alerts/24h):** the `mdrfckr` botnet at peak activity,
+- **Wave 2 — peak day (~2.8M alerts/24h):** the `mdrfckr` botnet at peak activity,
   combining the credential sweep with a full SSH key-implant playbook on every successful
   session.
 
@@ -101,7 +99,7 @@ Natural Earth geodata.
 
 ## Security Capabilities Demonstrated
 
-1. **Real-time SIEM operations** — custom decoders/rules, MITRE ATT&CK mapping, 6M+ alerts
+1. **Real-time SIEM operations** — custom decoders/rules, MITRE ATT&CK mapping, 11M+ alerts
    indexed with sub-second query response.
 2. **Behavioral threat intelligence** — botnets identified by behavioral signature
    (credentials, commands, SSH keys), more durable than IP-based detection as infrastructure rotates.

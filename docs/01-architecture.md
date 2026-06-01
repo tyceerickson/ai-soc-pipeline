@@ -103,7 +103,7 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 
 | Metric | Value |
 |--------|-------|
-| Total Wazuh alerts | 6,185,397+ |
+| Total Wazuh alerts | 11,611,908 (~11.6M) |
 | Cowrie SSH/Telnet events | 872,871 |
 | Malware binaries captured | 7 (6 WannaCry + 1 downloader, VirusTotal-verified) |
 | Unique attacker IPs | 1,000+ |
@@ -111,4 +111,4 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 | Data gap (disk outage) | May 24 22:12 → May 25 21:39 UTC |
 | Active botnets identified | 6 |
 | MITRE ATT&CK tactics observed | 7 |
-| Peak day (May 23) | 2,019,221 alerts / 24h |
+| Peak day | ~2.8M alerts / 24h |

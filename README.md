@@ -8,15 +8,21 @@ attack data. Three honeypots exposed to the public internet collect live attack 
 across SSH, web, and malware-capture vectors. Data is processed through a Wazuh SIEM,
 enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
 locally-hosted large language model. A custom real-time dashboard provides 12 integrated
-threat-intelligence panels across three honeypot sources.
+threat-intelligence panels across three honeypot sources. Which is currently still live and collecting data in real time.
 
 **This is not a simulation. Every alert in this dataset came from a real attacker.**
+
+## 🎥 Live Demo
+
+[![Watch the SOC dashboard demo](docs/images/dashboard-demo-thumbnail.png)](https://youtu.be/YOUR_VIDEO_ID "Watch the 3-minute demo")
+
+**▶ [Watch the 3-minute walkthrough](https://youtu.be/YOUR_VIDEO_ID)** — a live tour of the dashboard running on real honeypot data: attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
 
 ## Live Stats (collection window May 21–29, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Total Wazuh alerts | 6,185,397+ |
+| Total Wazuh alerts | 11,611,908 (~11.6M) |
 | Cowrie SSH/Telnet events | 872,871 |
 | nginx web requests | 1,352+ |
 | Malware binaries captured | 7 (6 WannaCry + 1 downloader, VirusTotal-verified) |
@@ -24,7 +30,7 @@ threat-intelligence panels across three honeypot sources.
 | Countries observed | 99 |
 | Active botnets identified | 6 |
 | MITRE ATT&CK tactics | 7 |
-| Peak day (May 23) | 2,019,221 alerts / 24h |
+| Peak day | ~2.8M alerts / 24h |
 
 ## Architecture
 
@@ -109,9 +115,7 @@ SendGrid/Twilio API keys, Hikvision CVE-2021-36260 RCE probes, TP-Link firmware 
 (CVE-2021-22161), and Tomcat manager brute-force.
 
 ### Attack Scale
-At peak (May 23, 2026): **2,019,221 alerts in a single day**, driven by two overlapping
-botnet campaigns. The average background rate is ~67,000 alerts/day — roughly one attack
-event every 1.3 seconds.
+At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet campaigns. Across the 6-day capture the system averaged roughly 1.9 million alerts/day — on the order of 20+ attack events every second at sustained volume.
 
 ## Repository Structure
 

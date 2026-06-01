@@ -77,7 +77,7 @@ Without this step the LLM would under-report the true scale.
 You are a senior SOC analyst reviewing honeypot threat intelligence.
 
 ATTACK STATISTICS (last 1440 minutes):
-- Total alerts: 6,185,397  | High: 13,801 | Medium: 563,404
+- Total alerts: 11,611,908
 - Unique source IPs: 1,000+ across 99 countries
 - Top credentials: root/345gs5662d34 (103,084×), 345gs5662d34/345gs5662d34 (102,804×)
 - Top command: cd ~; chattr -ia .ssh; lockr -ia .ssh (90,529×)
