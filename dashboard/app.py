@@ -303,7 +303,7 @@ def os_query(path: str, body: Optional[Dict] = None, retries: int = 2) -> Dict:
     for attempt in range(retries + 1):
         try:
             req = urllib.request.Request(url, data=data, headers=headers, method=method)
-            with urllib.request.urlopen(req, context=SSL_CTX, timeout=15) as r:
+            with urllib.request.urlopen(req, context=SSL_CTX, timeout=25) as r:
                 result = json.loads(r.read().decode())
                 # Validate OpenSearch response has expected structure
                 if "error" in result and "status" in result:
@@ -2104,6 +2104,22 @@ Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid J
         "detection": "Campaign was detected via credential/command clustering.",
         "threat_level": "Manual review recommended.",
     }
+    # Fast reachability pre-check: if Ollama's host is down (e.g. laptop asleep),
+    # fail in ~3s instead of waiting out the full generation timeout twice.
+    try:
+        _tags_url = OLLAMA_URL.replace("/api/generate", "/api/tags")
+        import ssl as _ssl_pc
+        _ctx_pc = _ssl_pc.create_default_context()
+        _ctx_pc.check_hostname = False
+        _ctx_pc.verify_mode = _ssl_pc.CERT_NONE
+        urllib.request.urlopen(
+            urllib.request.Request(_tags_url, method="GET"),
+            timeout=3, context=_ctx_pc,
+        )
+    except Exception as _pc_err:
+        log.warning("Ollama pre-check failed (%s) — returning fallback without waiting", _pc_err)
+        return dict(_OLLAMA_FALLBACK)
+
     for _attempt in range(2):
         try:
             import ssl as _ssl
@@ -2121,7 +2137,7 @@ Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid J
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=120) as r:
+            with urllib.request.urlopen(req, timeout=90) as r:
                 result = json.loads(r.read().decode())
             raw = result.get("response", "")
             if not raw:
@@ -2760,6 +2776,73 @@ def get_attack_narrative(ip: str, minutes: int = 43200) -> Dict:
     services   = {b["key"]: b["doc_count"] for b in aggs.get("services", {}).get("buckets", [])}
     mitre      = [b["key"] for b in aggs.get("mitre", {}).get("buckets", [])]
 
+    # 1b) SIGNIFICANT EVENTS — reconstruct what actually happened, in order,
+    #     excluding the cowrie-raw session noise (connect/closed/kex/version)
+    #     that otherwise drowns out the meaningful actions.
+    _NOISE_EVENTS = [
+        "cowrie.session.connect", "cowrie.session.closed", "cowrie.log.closed",
+        "cowrie.client.kex", "cowrie.client.version", "cowrie.client.size",
+        "cowrie.session.params", "cowrie.direct-tcpip.request",
+        "cowrie.direct-tcpip.data",
+    ]
+    sig_body = {
+        "size": 60,
+        "sort": [{"data.timestamp": {"order": "asc"}}],
+        "_source": ["data.timestamp", "data.eventid", "data.honeypot", "data.input",
+                    "data.username", "data.password", "data.http_method", "data.http_path",
+                    "data.dst_port", "data.service", "rule.level", "rule.description",
+                    "rule.mitre.tactic", "rule.mitre.technique", "rule.mitre.id"],
+        "query": {"bool": {
+            "filter": base,
+            "must_not": [{"terms": {"data.eventid": _NOISE_EVENTS}}],
+        }},
+    }
+    sig_res = os_query(f"/{ALERT_INDEX}/_search", sig_body)
+    significant_events = []
+    tactic_evidence = {}   # tactic -> ordered list of {evidence, eventid, technique}
+    if "error" not in sig_res:
+        for h in sig_res.get("hits", {}).get("hits", []):
+            s = h.get("_source", {})
+            dd = s.get("data", {})
+            rule = s.get("rule", {})
+            mit = rule.get("mitre", {}) if isinstance(rule.get("mitre"), dict) else {}
+            tactics = mit.get("tactic", []) or []
+            if isinstance(tactics, str): tactics = [tactics]
+            techniques = mit.get("technique", []) or []
+            if isinstance(techniques, str): techniques = [techniques]
+            eid = dd.get("eventid", "")
+            cmd = dd.get("input", "")
+            # human-readable evidence string for this event
+            if cmd:
+                evidence = cmd
+            elif dd.get("http_path"):
+                evidence = f"{dd.get('http_method','GET')} {dd.get('http_path','')}"
+            elif dd.get("username") is not None:
+                evidence = f"login {dd.get('username','')}/{dd.get('password','')}"
+            else:
+                evidence = rule.get("description", eid)
+            ev = {
+                "ts": dd.get("timestamp", ""),
+                "eventid": eid,
+                "honeypot": dd.get("honeypot", ""),
+                "level": rule.get("level", 0),
+                "desc": rule.get("description", ""),
+                "command": cmd,
+                "evidence": evidence[:200],
+                "tactics": tactics,
+                "techniques": techniques,
+            }
+            significant_events.append(ev)
+            # map each tactic to the concrete evidence that triggered it
+            for t in tactics:
+                bucket = tactic_evidence.setdefault(t, [])
+                # dedupe by evidence text, keep first few
+                if evidence and not any(x["evidence"] == evidence[:200] for x in bucket) and len(bucket) < 4:
+                    bucket.append({"evidence": evidence[:200], "eventid": eid,
+                                   "techniques": techniques})
+    # keep the most recent ~25 significant events for display (already asc-ordered)
+    significant_events = significant_events[-25:]
+
     # 2) Persistence / TTP detection from commands
     persistence = []
     cmd_text = " \n ".join(c["cmd"] for c in commands)
@@ -2817,6 +2900,8 @@ def get_attack_narrative(ip: str, minutes: int = 43200) -> Dict:
         "honeypots": honeypots,
         "phases": phases,
         "mitre_tactics": mitre,
+        "tactic_evidence": tactic_evidence,
+        "significant_events": significant_events,
         "credentials_tried": creds_tried,
         "credentials_succeeded": creds_ok,
         "commands": commands,
@@ -2966,6 +3051,9 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
     """
     since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
     since_iso = since.isoformat()
+    # Adaptive candidate pool: smaller for long windows to stay fast
+    # under concurrent dashboard load (scan is sub-second even at 90d).
+    _pool = 200 if minutes <= 20160 else 100  # 14 days = 20160 min
 
     # Two competing orderings matter here:
     #   • hp_card desc  → surfaces genuine multi-vector actors (the rare, most
@@ -2981,6 +3069,7 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
                    "? doc['data.username'].value + '/' + doc['data.password'].value : null")
     body = {
         "size": 0,
+        "timeout": "30s",
         "query": {"bool": {"filter": [
             {"range": {"data.timestamp": {"gte": since_iso}}},
             {"exists": {"field": "data.src_ip"}},
@@ -2988,7 +3077,7 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
         ]}},
         "aggs": {
             "actors": {
-                "terms": {"field": "data.src_ip", "size": 150, "order": {"max_lvl": "desc"}},
+                "terms": {"field": "data.src_ip", "size": _pool, "order": {"hp_card": "desc"}},
                 "aggs": {
                     "hp_card":    {"cardinality": {"field": "data.honeypot"}},
                     "max_lvl":    {"max": {"field": "rule.level"}},
@@ -3022,6 +3111,10 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
         return {"error": result["error"], "actors": []}
 
     geo = build_geoip_lookup()
+    # Single candidate pool ordered by honeypot cardinality (hp_card) so genuine
+    # multi-vector actors surface into the pool instead of being buried below the
+    # level-14 SSH brute-force crowd. Final ranking is the Python composite score
+    # below, which still floats multi-vector + high-severity actors to the top.
     actors = []
     for b in result.get("aggregations", {}).get("actors", {}).get("buckets", []):
         ip = b["key"]
@@ -3056,7 +3149,7 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
 
         # Composite threat score: multi-vector actors and those who actually
         # breached (login/commands) or delivered malware rank highest.
-        score = (n_vectors * 25) + min(max_lvl, 15) * 3 + (40 if malware else 0) \
+        score = (n_vectors * 50) + min(max_lvl, 15) * 3 + (40 if malware else 0) \
                 + (20 if logins else 0) + (10 if cmds else 0) + min(total // 100, 20) \
                 + (15 if key_implant else 0) + (10 if cve_probes else 0)
 
@@ -3093,7 +3186,7 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
     # first — that buried high-severity single-vector actors and caused the panel
     # to under-fill on long windows). Multi-vector actors still float to the top
     # because n_vectors contributes heavily to the score.
-    actors.sort(key=lambda a: (a["score"], a["max_level"], a["total_events"]), reverse=True)
+    actors.sort(key=lambda a: (a["n_vectors"], a["score"], a["max_level"], a["total_events"]), reverse=True)
     multi = [a for a in actors if a["n_vectors"] >= 2]
     return {
         "actors": actors[:limit],

@@ -487,6 +487,57 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
 .modal-section-title{font-weight:700;font-size:13px;color:var(--forest);margin-bottom:6px;letter-spacing:.01em}
 .modal-section p{margin:0;font-size:13px;line-height:1.65;color:var(--text2)}
 @media(max-width:560px){.hdr-search input{width:150px!important}.seg{display:none}}
+/* ===== Most Dangerous Attackers panel ===== */
+.danger-card{border:1px solid var(--border);border-radius:8px;margin-bottom:8px;background:var(--bg2);overflow:hidden}
+.danger-card[data-rank="1"]{border-color:rgba(200,90,58,.4)}
+.danger-head{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;transition:background .12s}
+.danger-head:hover{background:var(--bg3)}
+.danger-rank{font-family:monospace;font-size:15px;font-weight:700;color:var(--text3);min-width:30px}
+.danger-card[data-rank="1"] .danger-rank{color:var(--red)}
+.danger-main{flex:1;min-width:0}
+.danger-ip-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
+.danger-geo{font-size:11px;color:var(--text3)}
+.danger-verdict{font-size:12px;color:var(--text2);line-height:1.4}
+.danger-score{font-family:monospace;font-size:18px;font-weight:700;min-width:46px;text-align:right}
+.danger-chevron{font-size:13px;color:var(--text3);margin-left:2px}
+.danger-body{border-top:1px solid var(--border);background:var(--bg3);padding:14px}
+.danger-loading{color:var(--muted);font-size:12px;padding:8px 0}
+
+/* deep dive */
+.dd-wrap{display:flex;flex-direction:column;gap:14px}
+.dd-story{font-size:13px;line-height:1.6;color:var(--text2);background:var(--bg2);border-left:3px solid var(--forest);padding:10px 12px;border-radius:0 6px 6px 0}
+.dd-section{}
+.dd-h{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;margin-bottom:7px;border-bottom:1px solid var(--border);padding-bottom:4px;display:flex;align-items:center;gap:8px}
+.dd-sub{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:4px}
+.dd-kv{font-size:12px;line-height:1.8;color:var(--text2)}
+.dd-kv b{color:var(--text2);font-weight:600}
+.dd-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.dd-grid2{grid-template-columns:1fr}}
+.dd-list{max-height:230px;overflow-y:auto}
+.dd-mono{font-family:monospace;font-size:11px;word-break:break-all}
+.dd-dim{color:var(--muted);font-size:10px}
+.dd-cred{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)}
+.dd-cred.ok{background:rgba(74,124,89,.12);border-radius:3px;padding:2px 6px}
+.dd-cred.ok .dd-mono{color:var(--forest);font-weight:600}
+.dd-ok-note{font-size:11px;color:var(--forest);background:rgba(74,124,89,.1);border:1px solid rgba(74,124,89,.25);border-radius:4px;padding:4px 8px;margin-bottom:6px}
+.dd-cmd{display:flex;justify-content:space-between;gap:8px;padding:3px 6px;background:var(--bg2);border-left:2px solid var(--border);margin-bottom:2px}
+.dd-ua{padding:2px 6px;background:var(--bg2);margin-bottom:2px;border-radius:3px;color:var(--text3)}
+.dd-chip{display:inline-block;margin:2px;padding:2px 8px;border-radius:4px;font-size:10px}
+.dd-chip.cve{background:rgba(123,168,196,.14);color:#7BA8C4;font-family:monospace}
+.dd-mal{padding:5px 0;border-bottom:1px solid var(--border)}
+.dd-hash{color:var(--text2);cursor:pointer}
+.dd-hash:hover{color:var(--forest)}
+.dd-persist{font-size:12px;color:var(--text2);margin-bottom:3px}
+.dd-phases{display:flex;align-items:stretch;gap:5px;flex-wrap:wrap}
+.dd-phase{flex:1;min-width:62px;text-align:center}
+.dd-phase-name{font-size:9px;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.dd-phase-bar{height:5px;border-radius:3px;margin:4px 0;opacity:.85}
+.dd-phase-count{font-size:11px;font-family:monospace;color:var(--text2)}
+.dd-phase-arrow{align-self:center;color:var(--text3);font-size:12px}
+.dd-ioc{font-family:monospace;font-size:10px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:8px;max-height:200px;overflow:auto;color:var(--text2);white-space:pre;margin:0}
+.dd-copy-btn{background:none;border:1px solid var(--border);border-radius:4px;font-size:10px;color:var(--forest);cursor:pointer;padding:1px 8px;margin-left:auto}
+.dd-copy-btn:hover{background:var(--bg2)}
+
 </style>
 </head>
 <body>
@@ -967,6 +1018,20 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     </div>
     <div id="ta-list" style="padding:4px 0">
       <div style="color:var(--muted);font-size:12px;padding:8px 0">Loading threat actors…</div>
+    </div>
+  </div>
+
+
+  <!-- Row 7.6: Most Dangerous Attackers (deep dive) -->
+  <div class="section-label">Most Dangerous Attackers</div>
+  <div class="panel" style="margin-bottom:12px">
+    <div class="panel-hdr">
+      <span class="panel-title">Top 5 by Impact</span>
+      <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Ranked by a destruction score weighting malware delivery, confirmed SSH breach, persistence/backdoor implants, command activity, and multi-vector breadth. Click any actor for a full deep-dive: what they did, how, and the impact — with real commands, credentials, malware, and IOCs.">ranked by impact · click to expand ⓘ</span>
+      <span class="panel-meta" id="danger-meta" style="margin-left:auto"></span>
+    </div>
+    <div id="danger-list" style="padding:4px 0">
+      <div style="color:var(--muted);font-size:12px;padding:8px 0">Loading…</div>
     </div>
   </div>
 
@@ -3305,7 +3370,7 @@ function renderDrawer(d, narr){
       <h3>Recent commands</h3>${cmds}
     </div>
     <div class="drawer-sec">
-      <h3>Last ${(d.last_events||[]).length} events</h3>${events}
+      <h3>Significant events (noise filtered)</h3>${narr?renderSignificantEvents(narr):events}
     </div>
     <div class="drawer-sec">
       <h3>Response playbook</h3>
@@ -3329,6 +3394,55 @@ function renderDrawer(d, narr){
 }
 
 /** The cohesive cross-honeypot attacker narrative (the correlation view). */
+// ── Shared narrative depth helpers (tactic→evidence + significant events) ──
+// TACTIC_TECH_HINT: short plain-language label per MITRE technique seen in data.
+function _evIcon(eid){
+  if(/login\.success/.test(eid)) return '🔓';
+  if(/login\.failed/.test(eid)) return '🔑';
+  if(/command/.test(eid)) return '⌨';
+  if(/file_download|binary\.captured/.test(eid)) return '⬇';
+  if(/nginx\.probe/.test(eid)) return '🌐';
+  if(/incident|exploit/.test(eid)) return '💥';
+  return '•';
+}
+
+// Pair each MITRE tactic with the concrete commands/events that triggered it.
+function renderTacticEvidence(n){
+  const te = n.tactic_evidence || {};
+  const tactics = Object.keys(te);
+  if(!tactics.length) return '';
+  const rows = tactics.map(t=>{
+    const color = (typeof TACTIC_COLORS!=='undefined' && TACTIC_COLORS[t]) || 'var(--bg3)';
+    const items = (te[t]||[]).map(e=>`
+      <div style="font-family:monospace;font-size:10px;padding:2px 6px;background:var(--bg2);border-left:2px solid ${color};margin:2px 0;word-break:break-all;color:var(--text2)">
+        ${escHtml(e.evidence)}${(e.techniques&&e.techniques.length)?`<span style="color:var(--muted);font-size:9px"> · ${escHtml(e.techniques.join(', '))}</span>`:''}
+      </div>`).join('');
+    return `<div style="margin-bottom:8px">
+      <span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${color};color:#fff;font-size:10px;font-weight:600;margin-bottom:3px">${escHtml(t)}</span>
+      ${items||'<div style="font-size:10px;color:var(--muted)">tagged, no command captured</div>'}
+    </div>`;
+  }).join('');
+  return `<div class="dd-section"><div class="dd-h">Why each tactic — evidence</div>${rows}</div>`;
+}
+
+// Ordered timeline of meaningful actions (noise already stripped server-side).
+function renderSignificantEvents(n){
+  const ev = n.significant_events || [];
+  if(!ev.length) return '<div style="font-size:11px;color:var(--muted)">No significant (non-noise) events captured in this window.</div>';
+  const rows = ev.map(e=>{
+    const tac = (e.tactics&&e.tactics.length)?e.tactics.map(t=>`<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:${(typeof TACTIC_COLORS!=='undefined'&&TACTIC_COLORS[t])||'var(--bg3)'};color:#fff;margin-left:4px">${escHtml(t)}</span>`).join(''):'';
+    const ts = (e.ts||'').slice(0,19).replace('T',' ');
+    return `<div style="display:flex;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px;align-items:flex-start">
+      <span style="font-size:12px;min-width:16px">${_evIcon(e.eventid)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:monospace;font-size:9px;color:var(--muted)">${escHtml(ts)} · ${escHtml(e.eventid)} <span style="color:var(--text3)">L${e.level}</span>${tac}</div>
+        <div style="font-family:monospace;font-size:10px;color:var(--text2);word-break:break-all;margin-top:1px">${escHtml(e.evidence||e.desc||'')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="dd-list" style="max-height:340px">${rows}</div>`;
+}
+
 function renderNarrativeBlock(n){
   if(!n) return '';
   const PHASE_LABEL = {recon:'Recon',access:'Access',execution:'Execution',download:'Download',persistence:'Persistence',exfil:'Exfil',other:'Other'};
@@ -3384,6 +3498,8 @@ function renderNarrativeBlock(n){
         </div>
       </div>
       ${mal?`<div style="margin-top:10px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px">Malware Delivered</div>${mal}</div>`:''}
+      <div style="margin-top:12px">${renderTacticEvidence(n)}</div>
+      <div style="margin-top:12px"><div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:4px">Attack Timeline — significant events (${(n.significant_events||[]).length})</div>${renderSignificantEvents(n)}</div>
     </div>`;
 }
 
@@ -3702,6 +3818,7 @@ async function loadThreatActors() {
     const r = await apiFetch(`/api/threat_actors?minutes=${currentWindow}`);
     const d = await r.json();
     renderThreatActors(d);
+    try { renderDangerPanel(d); } catch(e) { console.error('danger panel', e); }
   } catch (e) {
     const el = document.getElementById('ta-list');
     if (el) el.innerHTML = `<div style="color:#8a3030;font-size:12px">Failed to load: ${escHtml(e.message)}</div>`;
@@ -3767,6 +3884,214 @@ function fallbackCopy(text, cb) {
 function escHtml(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ============================================================
+// MOST DANGEROUS ATTACKERS — Top 5, destructive-weighted, lazy deep-dive
+// Reuses /api/threat_actors (already loaded for the correlation panel) for the
+// list, and lazily calls /api/actor/<ip> only when a row is expanded.
+// ============================================================
+
+// Cache of deep-dive payloads so re-expanding a row is instant.
+const _dangerCache = {};
+
+// Destructive score — distinct from the composite "threat score". This ranks by
+// what actually causes harm/impact, not just noise volume:
+//   malware delivered (heaviest) > confirmed SSH breach > persistence established
+//   > command execution > multi-vector breadth > raw severity.
+function destructionScore(a) {
+  let s = 0;
+  s += (a.malware_delivered || 0) * 120;            // dropped real malware = worst
+  s += (a.ssh_login_success ? 80 : 0);              // actually got in
+  s += Math.min(a.ssh_login_success || 0, 50);      // ...and how persistently
+  s += (a.key_implant ? 70 : 0);                    // installed a backdoor
+  s += (a.immutable_flag ? 25 : 0);                 // anti-removal hardening
+  s += Math.min((a.commands_run || 0) / 20, 60);    // hands-on-keyboard activity
+  s += (a.n_vectors >= 2 ? 50 : 0);                 // coordinated multi-surface
+  s += (a.n_vectors >= 3 ? 30 : 0);
+  s += ((a.cve_probes && a.cve_probes.length) ? 20 : 0);
+  s += Math.min(a.max_level || 0, 15) * 2;          // rule severity
+  return Math.round(s);
+}
+
+// One-line plain-language verdict explaining WHY this actor is dangerous.
+function dangerVerdict(a) {
+  const parts = [];
+  if (a.ssh_login_success) parts.push('breached SSH');
+  if (a.key_implant) parts.push('implanted a backdoor');
+  if (a.immutable_flag) parts.push('hardened against removal');
+  if (a.malware_delivered) parts.push(`delivered ${a.malware_delivered} malware sample${a.malware_delivered>1?'s':''}`);
+  if (a.cve_probes && a.cve_probes.length) parts.push(`probed ${a.cve_probes.length} CVE class${a.cve_probes.length>1?'es':''}`);
+  if (a.n_vectors >= 2) parts.push(`hit ${a.n_vectors} attack surfaces`);
+  if (!parts.length) parts.push(`${(a.total_events||0).toLocaleString()} events, no confirmed access`);
+  // Capitalize first word
+  let v = parts.join(', ');
+  return v.charAt(0).toUpperCase() + v.slice(1) + '.';
+}
+
+function dangerScoreColor(s) {
+  return s >= 250 ? 'var(--red)' : s >= 150 ? 'var(--orange)' : s >= 80 ? 'var(--peak)' : 'var(--slate)';
+}
+
+// Build the Top-5 list from the threat_actors payload (no extra query).
+function renderDangerPanel(d) {
+  const el = document.getElementById('danger-list');
+  const meta = document.getElementById('danger-meta');
+  if (!el) return;
+  if (d && d.error) { el.innerHTML = `<div style="color:var(--muted);font-size:12px;padding:8px 0">${escHtml(d.error)}</div>`; return; }
+  const actors = (d && d.actors) ? d.actors.slice() : [];
+  if (!actors.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">No attackers in this window</div>'; if (meta) meta.textContent = ''; return; }
+
+  // Rank by destruction score, take top 5
+  actors.forEach(a => { a._dscore = destructionScore(a); });
+  actors.sort((x, y) => y._dscore - x._dscore);
+  const top = actors.slice(0, 5);
+  if (meta) meta.textContent = `top 5 by impact · of ${d.total_actors||actors.length} actors`;
+
+  el.innerHTML = top.map((a, i) => {
+    const vecs = (a.vectors||[]).map(v => `<span class="ta-vec ${v}">${v}</span>`).join('');
+    const flags = [];
+    if (a.malware_delivered) flags.push(`<span class="ta-flag mal">${a.malware_delivered} malware</span>`);
+    if (a.ssh_login_success) flags.push(`<span class="ta-flag breach">SSH breach</span>`);
+    if (a.key_implant) flags.push(`<span class="ta-flag" style="background:rgba(200,90,58,.12);color:var(--red);border:1px solid rgba(200,90,58,.3)">backdoor</span>`);
+    return `<div class="danger-card" data-ip="${a.ip}" data-rank="${i+1}">
+      <div class="danger-head" onclick="toggleDanger(this)">
+        <div class="danger-rank">#${i+1}</div>
+        <div class="danger-main">
+          <div class="danger-ip-row">
+            <span class="ta-ip">${a.ip}</span>
+            <span class="danger-geo">${escHtml(a.country||'—')}${a.org?` · ${escHtml(a.org)}`:''}</span>
+            ${vecs}${flags.join('')}
+          </div>
+          <div class="danger-verdict">${escHtml(dangerVerdict(a))}</div>
+        </div>
+        <div class="danger-score" style="color:${dangerScoreColor(a._dscore)}" title="Destruction score — weights malware, breach, persistence, multi-vector">${a._dscore}</div>
+        <div class="danger-chevron">▶</div>
+      </div>
+      <div class="danger-body" style="display:none">
+        <div class="danger-loading">Loading full attacker analysis…</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Expand/collapse a card. Lazy-fetch the deep dive on first open.
+async function toggleDanger(headEl) {
+  const card = headEl.closest('.danger-card');
+  const body = card.querySelector('.danger-body');
+  const chevron = card.querySelector('.danger-chevron');
+  const ip = card.getAttribute('data-ip');
+  const isOpen = body.style.display !== 'none';
+
+  if (isOpen) {
+    body.style.display = 'none';
+    chevron.textContent = '▶';
+    return;
+  }
+  body.style.display = 'block';
+  chevron.textContent = '▼';
+
+  // Already loaded once? render from cache instantly.
+  if (_dangerCache[ip]) { body.innerHTML = renderDangerDeepDive(_dangerCache[ip]); return; }
+
+  body.innerHTML = '<div class="danger-loading">Loading full attacker analysis…</div>';
+  try {
+    const r = await apiFetch(`/api/actor/${encodeURIComponent(ip)}?minutes=${currentWindow}`);
+    const n = await r.json();
+    if (n && n.error) { body.innerHTML = `<div style="color:#8a3030;font-size:12px;padding:8px">${escHtml(n.error)}</div>`; return; }
+    _dangerCache[ip] = n;
+    body.innerHTML = renderDangerDeepDive(n);
+  } catch (e) {
+    body.innerHTML = `<div style="color:#8a3030;font-size:12px;padding:8px">Failed to load deep-dive: ${escHtml(e.message)}</div>`;
+  }
+}
+
+// The deep-dive: WHAT / HOW / IMPACT / EVIDENCE / IOCs, rendered from /api/actor.
+function renderDangerDeepDive(n) {
+  const PHASE_LABEL = {recon:'Recon',access:'Access',execution:'Execution',download:'Download',persistence:'Persistence',exfil:'Exfil',other:'Other'};
+  const PHASE_COLOR = {recon:'#7BA8C4',access:'#b89050',execution:'var(--forest)',download:'#8B5E3C',persistence:'var(--red)',exfil:'#a04668',other:'var(--text3)'};
+
+  // ── Narrative ──
+  const story = n.story ? `<div class="dd-story">${escHtml(n.story)}</div>` : '';
+
+  // ── Kill chain strip ──
+  const phases = (n.phases||[]).map(p => `
+    <div class="dd-phase">
+      <div class="dd-phase-name" style="color:${PHASE_COLOR[p.phase]||'var(--text3)'}">${PHASE_LABEL[p.phase]||p.phase}</div>
+      <div class="dd-phase-bar" style="background:${PHASE_COLOR[p.phase]||'var(--text3)'}"></div>
+      <div class="dd-phase-count">${(p.events||0).toLocaleString()}</div>
+    </div>`).join('<div class="dd-phase-arrow">→</div>');
+  const killchain = phases ? `<div class="dd-section"><div class="dd-h">Kill Chain</div><div class="dd-phases">${phases}</div></div>` : '';
+
+  // ── WHAT: vectors, services, ports ──
+  const services = Object.entries(n.services||{}).map(([k,v]) => `${escHtml(k)} <span class="dd-dim">(${v})</span>`).join(', ');
+  const ports = Object.entries(n.dst_ports||{}).map(([k,v]) => `${escHtml(k)} <span class="dd-dim">(${v})</span>`).join(', ');
+  const whatRows = [];
+  whatRows.push(`<div><b>Vectors:</b> ${(n.vectors||[]).map(v=>`<span class="ta-vec ${v}">${v}</span>`).join(' ')||'—'}</div>`);
+  whatRows.push(`<div><b>Events:</b> ${(n.total_events||0).toLocaleString()} across ${n.sessions||0} sessions · max severity L${n.max_level||0}</div>`);
+  if (services) whatRows.push(`<div><b>Services hit:</b> ${services}</div>`);
+  if (ports) whatRows.push(`<div><b>Target ports:</b> ${ports}</div>`);
+  whatRows.push(`<div><b>Active:</b> ${escHtml((n.first_seen||'').slice(0,16).replace('T',' '))} → ${escHtml((n.last_seen||'').slice(0,16).replace('T',' '))}</div>`);
+  const what = `<div class="dd-section"><div class="dd-h">What — attack surface</div><div class="dd-kv">${whatRows.join('')}</div></div>`;
+
+  // ── HOW: credentials, commands, CVE probes ──
+  const credRows = (n.credentials_tried||[]).slice(0,12).map(c => `
+    <div class="dd-cred ${c.success?'ok':''}">
+      <span class="dd-mono">${escHtml(c.cred)}${c.success?' ✓':''}</span>
+      <span class="dd-dim">${(c.count||0).toLocaleString()}×</span>
+    </div>`).join('');
+  const okNote = (n.credentials_succeeded||[]).length
+    ? `<div class="dd-ok-note">✓ ${n.credentials_succeeded.length} credential pair(s) SUCCEEDED: <span class="dd-mono">${n.credentials_succeeded.slice(0,5).map(escHtml).join(', ')}</span></div>` : '';
+  const cmdRows = (n.commands||[]).slice(0,15).map(c => `
+    <div class="dd-cmd"><span class="dd-mono">${escHtml(c.cmd.length>140?c.cmd.slice(0,140)+'…':c.cmd)}</span><span class="dd-dim">${(c.count||0).toLocaleString()}×</span></div>`).join('');
+  const cve = (n.cve_probes||[]).map(c => `<span class="dd-chip cve">${escHtml(c)}</span>`).join('');
+  const webPaths = (n.web_paths||[]).slice(0,8).map(p => `<div class="dd-cmd"><span class="dd-mono">${escHtml(p.path)}</span><span class="dd-dim">${(p.count||0).toLocaleString()}×</span></div>`).join('');
+  const uas = (n.user_agents||[]).map(u => `<div class="dd-mono dd-ua">${escHtml(u)}</div>`).join('');
+
+  let how = `<div class="dd-section"><div class="dd-h">How — tradecraft</div>`;
+  how += `<div class="dd-grid2">`;
+  how += `<div><div class="dd-sub">Credentials tried (${n.credentials_tried?n.credentials_tried.length:0}${(n.credentials_succeeded||[]).length?`, ${n.credentials_succeeded.length} ok`:''})</div>${okNote}<div class="dd-list">${credRows||'<span class="dd-dim">none captured</span>'}</div></div>`;
+  how += `<div><div class="dd-sub">Commands executed (${n.commands?n.commands.length:0} distinct)</div><div class="dd-list">${cmdRows||'<span class="dd-dim">none</span>'}</div></div>`;
+  how += `</div>`;
+  if (cve) how += `<div class="dd-sub" style="margin-top:8px">Web / CVE probes</div><div>${cve}</div>`;
+  if (webPaths) how += `<div class="dd-sub" style="margin-top:8px">Top probed paths</div><div class="dd-list">${webPaths}</div>`;
+  if (uas) how += `<div class="dd-sub" style="margin-top:8px">User agents</div>${uas}`;
+  how += `</div>`;
+
+  // ── IMPACT: malware + persistence ──
+  const mal = (n.malware||[]).map(m => {
+    const vt = (typeof m.vt_malicious === 'number')
+      ? `<span style="color:${m.vt_malicious>=20?'var(--red)':m.vt_malicious>0?'var(--orange)':'var(--text3)'};font-weight:600">${m.vt_malicious}/${m.vt_total||'?'} VT</span>`
+      : '<span class="dd-dim">no VT</span>';
+    const link = m.vt_permalink ? ` · <a href="${escHtml(m.vt_permalink)}" target="_blank" rel="noopener" style="color:var(--pine)">VT report</a>` : '';
+    return `<div class="dd-mal">
+      <div class="dd-mono dd-hash" onclick="copyToClipboard('${escHtml(m.sha256)}', this)" title="click to copy SHA256">${escHtml(m.sha256_short||m.sha256)}</div>
+      <div class="dd-dim">${m.vt_label?escHtml(m.vt_label)+' · ':''}${vt}${link}${m.service?' · '+escHtml(m.service):''}${m.file_size?' · '+escHtml(String(m.file_size))+' B':''}${m.count>1?' · seen '+m.count+'×':''}</div>
+    </div>`;
+  }).join('');
+  const persist = (n.persistence||[]).map(p => `<div class="dd-persist">⚠ ${escHtml(p.label)}</div>`).join('');
+  let impact = '';
+  if (mal || persist) {
+    impact = `<div class="dd-section"><div class="dd-h">Impact — what they achieved</div>`;
+    if (persist) impact += `<div class="dd-sub">Persistence established</div>${persist}`;
+    if (mal) impact += `<div class="dd-sub" style="margin-top:8px">Malware delivered</div>${mal}`;
+    impact += `</div>`;
+  }
+
+  // ── MITRE ──
+  const mitre = (n.mitre_tactics||[]).map(t => `<span class="dd-chip" style="background:${(typeof TACTIC_COLORS!=='undefined'&&TACTIC_COLORS[t])||'var(--bg3)'};color:${(typeof TACTIC_COLORS!=='undefined'&&TACTIC_COLORS[t])?'#fff':'var(--text2)'}">${escHtml(t)}</span>`).join('');
+  const mitreSec = mitre ? `<div class="dd-section"><div class="dd-h">MITRE ATT&CK tactics observed</div><div>${mitre}</div></div>` : '';
+  const tacticEvSec = renderTacticEvidence(n);
+  const timelineSec = `<div class="dd-section"><div class="dd-h">Attack Timeline — significant events (${(n.significant_events||[]).length})</div>${renderSignificantEvents(n)}</div>`;
+
+  // ── IOCs (copyable) ──
+  const iocs = n.iocs || {};
+  const iocText = JSON.stringify(iocs, null, 2);
+  const iocSec = `<div class="dd-section"><div class="dd-h">Indicators of Compromise <button class="dd-copy-btn" onclick='copyToClipboard(${JSON.stringify(iocText)}, this)'>copy IOCs</button></div>
+    <pre class="dd-ioc">${escHtml(iocText)}</pre></div>`;
+
+  return `<div class="dd-wrap">${story}${killchain}${what}${how}${impact}${tacticEvSec}${timelineSec}${mitreSec}${iocSec}</div>`;
+}
+
 </script>
 </body>
 </html>
