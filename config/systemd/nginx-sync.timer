@@ -1,0 +1,11 @@
+[Unit]
+Description=Run nginx log sync + parse every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=nginx-sync.service
+
+[Install]
+WantedBy=timers.target

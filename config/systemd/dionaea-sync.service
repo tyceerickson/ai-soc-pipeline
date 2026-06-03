@@ -1,0 +1,11 @@
+[Unit]
+Description=Dionaea sync + parse (VPS -> Wazuh feed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=terickson
+#Environment=VT_API_KEY=PUT_YOUR_VIRUSTOTAL_API_KEY_HERE
+ExecStart=/opt/cowrie-tools/pipeline/sync_dionaea.sh
+TimeoutStartSec=300

@@ -374,7 +374,7 @@ def main():
     written = 0
     with open(OUTPUT_FILE, "w") as out_f:
         for ev in deduped:
-            out_f.write(json.dumps(ev) + "\n")
+            out_f.write(json.dumps({"data": ev}) + "\n")
             written += 1
 
     save_state({"last_ts": time.time()})

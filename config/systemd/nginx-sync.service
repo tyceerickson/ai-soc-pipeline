@@ -1,0 +1,10 @@
+[Unit]
+Description=nginx log sync + parse (VPS -> Wazuh feed)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=terickson
+ExecStart=/opt/cowrie-tools/pipeline/sync_nginx.sh
+TimeoutStartSec=300

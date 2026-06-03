@@ -1,0 +1,7 @@
+[Unit]
+Description=Cowrie log sync (VPS -> Wazuh feed)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/cowrie-tools/pipeline/sync_cowrie.sh

@@ -464,7 +464,7 @@ def main():
     # binaries are deduped by hash via seen_hashes state).
     with open(OUTPUT_FILE, "w") as out_f:
         for ev in deduped:
-            out_f.write(json.dumps(_clean(ev)) + "\n")
+            out_f.write(json.dumps({"data": _clean(ev)}) + "\n")
 
     n_binaries = sum(1 for e in deduped if e.get("eventid") == "dionaea.binary.captured")
     save_state({
