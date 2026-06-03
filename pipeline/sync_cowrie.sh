@@ -17,6 +17,10 @@ echo "[$(date -Is)] cowrie sync start"
 remote_size=$(ssh ${SSH_OPTS} "${VPS_HOST}" "stat -c%s '${VPS_LOG}' 2>/dev/null" || echo 0)
 local_size=$(stat -c%s "${LOCAL_LOG}" 2>/dev/null || echo 0)
 
+if [ -z "${remote_size}" ] || [ "${remote_size}" -eq 0 ]; then
+    echo "[$(date -Is)] remote unreachable or empty (size=${remote_size}) — skipping run, NOT truncating local"
+    exit 0
+fi
 if [ "${remote_size}" -lt "${local_size}" ]; then
     # Rotation happened on the VPS — the remote file restarted smaller.
     # Truncate local and pull fresh so we don't append onto stale data.
