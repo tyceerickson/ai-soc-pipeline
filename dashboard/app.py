@@ -619,12 +619,6 @@ def get_live_stats(minutes=60):
             "low":    b.get("low",    {}).get("doc_count", 0),
         })
 
-    countries = {}
-    for b in aggs.get("by_country", {}).get("buckets", []):
-        k = b["key"]
-        if k and k != "Unknown":
-            countries[k] = b["doc_count"]
-
     event_types = {}
     for b in aggs.get("by_eventid", {}).get("buckets", []):
         k = b["key"].replace("cowrie.", "").replace(".", " ")
@@ -646,6 +640,20 @@ def get_live_stats(minutes=60):
     uncached = [ip["ip"] for ip in top_ips if not ip.get("country")]
     if uncached:
         resolve_missing_ips_async(uncached)
+
+    # Build country totals from GeoIP-enriched top_ips so cowrie events
+    # (which lack data.location.country_name in the index) are included.
+    # This aligns the Top Attacker Countries panel with the Geographic Map.
+    countries = {}
+    for ip_info in top_ips:
+        c = ip_info.get("country", "")
+        if c:
+            countries[c] = countries.get(c, 0) + ip_info["count"]
+    if not countries:
+        for b in aggs.get("by_country", {}).get("buckets", []):
+            k = b["key"]
+            if k and k != "Unknown":
+                countries[k] = b["doc_count"]
 
     mitre_tactics    = {b["key"]: b["doc_count"] for b in aggs.get("mitre_tactics",    {}).get("buckets", [])}
     mitre_techniques = {b["key"]: b["doc_count"] for b in aggs.get("mitre_techniques", {}).get("buckets", [])}

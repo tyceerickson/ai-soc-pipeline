@@ -73,14 +73,16 @@
     <group>honeypot,cowrie,brute_force,</group>
   </rule>
 
-  <!-- Successful login — INITIAL ACCESS via valid (default/weak) credentials.
-       Tagged ONLY Initial Access; the credential-guessing is captured by the
-       failed-login / brute-force rules above. -->
+  <!-- Successful login — CREDENTIAL ACCESS (T1110, brute-force succeeded) +
+       INITIAL ACCESS (T1078, valid account used). T1078 is scoped to Initial
+       Access only via the MITRE DB phase fix; Persistence/PrivEsc/DefEvasion
+       from T1078 are intentionally removed there — those tactics attach only
+       when specific post-login commands are observed (rules 100150-100163). -->
   <rule id="100112" level="10">
     <if_sid>100100</if_sid>
     <field name="data.eventid">cowrie.login.success</field>
     <description>Cowrie: Successful SSH login [$(data.username)/$(data.password)] from $(data.src_ip) — honeypot compromised</description>
-    <mitre><id>T1078</id></mitre>
+    <mitre><id>T1110</id><id>T1078</id></mitre>
     <group>honeypot,cowrie,authentication_success,initial_access,</group>
   </rule>
 
