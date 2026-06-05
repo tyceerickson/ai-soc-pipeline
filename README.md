@@ -29,8 +29,10 @@ threat-intelligence panels across three honeypot sources. Which is currently sti
 | Unique attacker IPs | 1,000+ |
 | Countries observed | 99 |
 | Active botnets identified | 6 |
-| MITRE ATT&CK tactics | 7 |
+| MITRE ATT&CK techniques | 27 (across ~12 tactics) |
 | Peak day | ~2.8M alerts / 24h |
+
+> **Detection ruleset rebuilt June 2026.** The custom rule set was re-engineered for accurate, per-behavior MITRE ATT&CK mapping (57 rules, 27 techniques across ~12 tactics — see below). The historical alert totals above reflect the original May 21–29 collection window; going forward the system tags each event with its single correct technique/tactic instead of indexing raw session-lifecycle noise, so day-to-day alert *counts* are lower but every alert is meaningful and actionable.
 
 ## Architecture
 
@@ -43,12 +45,12 @@ Internet Attackers
   nginx Web Honeypot                           RTX 4070 (8GB VRAM)
   Dionaea Malware Capture
         │                                              │
-        │ rsync / 15min (Tailscale)                    │ HTTP API (Tailscale)
+        │ rsync / 5–15 min per honeypot (Tailscale)    │ HTTP API (Tailscale)
         ▼                                              │
 [Ubuntu Server — aarch64]                              │
   Wazuh SIEM + OpenSearch                               │
   GeoIP + VirusTotal Enrichment                         │
-  parse_nginx.py + parse_dionaea.py                     │
+  forward_cowrie.py + parse_nginx.py + parse_dionaea.py │
   Flask SOC Dashboard ──────────────────────────────────┘
         │
         ▼
@@ -127,8 +129,11 @@ ai-soc-pipeline/
 │   └── templates/
 │       └── index.html               # SOC dashboard frontend (12 panels)
 ├── pipeline/
-│   ├── parse_nginx.py               # nginx CLF → Wazuh JSON parser
+│   ├── parse_nginx.py               # nginx CLF → Wazuh JSON parser (wraps events as {"data":{...}})
 │   ├── parse_dionaea.py             # Dionaea SQLite → Wazuh JSON; SHA256 + VirusTotal + archive
+│   ├── forward_cowrie.py            # wraps Cowrie events as {"data":{...}} and appends to the Wazuh feed
+│   ├── sync_cowrie.sh               # VPS → SIEM cowrie sync (rsync --append + unreachable/rotation guard) → forward
+│   ├── sync_nginx.sh                # VPS → SIEM nginx access.log sync (homeserver-owned) → parse
 │   ├── sync_dionaea.sh              # VPS → SIEM sync (SQLite + binaries), then parse
 │   └── rebuild_geoip_cache.py       # MaxMind GeoLite2 cache refresh
 ├── triage/
@@ -139,13 +144,19 @@ ai-soc-pipeline/
 │   └── resolve_alert_ips.py         # GeoIP backfill for alert IPs
 ├── config/
 │   ├── soc-dashboard.service        # Dashboard systemd unit
+│   ├── cowrie-sync.service          # Cowrie sync+forward systemd unit
+│   ├── cowrie-sync.timer            # 5-min timer for cowrie sync
+│   ├── nginx-sync.service           # nginx sync+parse systemd unit
+│   ├── nginx-sync.timer             # 5-min timer for nginx sync
 │   ├── dionaea-sync.service         # Dionaea sync+parse systemd unit
 │   ├── dionaea-sync.timer           # 15-min timer for the above
 │   ├── geoip-enrich.cron            # Hourly enrichment cron
-│   ├── wazuh-cowrie-rules.xml       # Cowrie detection rules (100100–100110)
-│   ├── wazuh-honeypot-web-rules.xml # Dionaea + nginx rules (100200–100360)
+│   ├── wazuh-cowrie-rules.xml       # Cowrie detection rules (100100–100191, 29 rules)
+│   ├── wazuh-honeypot-web-rules.xml # Dionaea + nginx rules (100200–100344, 28 rules)
+│   ├── ingest-pipeline-filebeat-wazuh-alerts.json  # OpenSearch ingest pipeline (data.data flatten fix)
+│   ├── mitre-db-fixes.sql           # Wazuh MITRE-DB tactic-mapping fix (re-apply after upgrades)
 │   └── wazuh-ossec-snippet.xml      # Wazuh agent localfile config
-├── docs/                            # 01–09 architecture, deployment, design, findings
+├── docs/                            # 01–09 + operations runbook
 ├── data/samples/                    # Sample alert JSON for testing
 ├── requirements.txt
 └── README.md
@@ -177,7 +188,7 @@ ai-soc-pipeline/
 ## Technology Stack
 
 - **Honeypots:** Cowrie SSH/Telnet, nginx, Dionaea (Docker on DigitalOcean NYC1)
-- **Transport:** rsync over Tailscale VPN (15-min intervals)
+- **Transport:** rsync over Tailscale VPN — homeserver-owned systemd timers per honeypot (cowrie & nginx every 5 min, dionaea every 15 min)
 - **Enrichment:** Python + MaxMind GeoLite2 (City + ASN) + VirusTotal API (hash-only)
 - **Log parsers:** custom Python for nginx CLF and Dionaea SQLite
 - **SIEM:** Wazuh 4.x + OpenSearch (Ubuntu Server, aarch64)
@@ -194,12 +205,13 @@ See `docs/02-wazuh-installation.md` for full deployment instructions. High-level
 1. Deploy Cowrie, nginx, and Dionaea on a VPS (Docker Compose)
 2. Install Wazuh all-in-one on your SIEM server
 3. Configure key-based sync from VPS → SIEM server via Tailscale
-4. Deploy `pipeline/parse_nginx.py` (cron) and `pipeline/sync_dionaea.sh` (systemd timer)
+4. Deploy the three homeserver-owned sync timers — `cowrie-sync.timer` (`sync_cowrie.sh` + `forward_cowrie.py`), `nginx-sync.timer` (`sync_nginx.sh` + `parse_nginx.py`), `dionaea-sync.timer` (`sync_dionaea.sh` + `parse_dionaea.py`). Each rsyncs its honeypot's data from the VPS over Tailscale and emits `{"data":{...}}`-wrapped Wazuh JSON.
 5. Set up GeoIP enrichment cron (`config/geoip-enrich.cron`)
 6. Add Wazuh rules (`config/wazuh-cowrie-rules.xml`, `config/wazuh-honeypot-web-rules.xml`)
-7. Deploy the Flask dashboard (`config/soc-dashboard.service`); set `OPENSEARCH_PASS` in the unit
-8. (Optional) set `VT_API_KEY` in `config/dionaea-sync.service` to enable VirusTotal enrichment
-9. Install Ollama and pull `llama3.1:8b` on your AI inference machine
+7. Import the OpenSearch ingest pipeline (`config/ingest-pipeline-filebeat-wazuh-alerts.json`) and apply `config/mitre-db-fixes.sql` to the Wazuh MITRE DB (re-apply the latter after any Wazuh upgrade — see `docs/operations.md`)
+8. Deploy the Flask dashboard (`config/soc-dashboard.service`); set `OPENSEARCH_PASS` in the unit
+9. (Optional) set `VT_API_KEY` in `config/dionaea-sync.service` to enable VirusTotal enrichment
+10. Install Ollama and pull `llama3.1:8b` on your AI inference machine
 
 ## Documentation
 
@@ -214,6 +226,8 @@ Full project documentation is in `docs/`:
 7. **Alert Samples** — real attack session analysis
 8. **Lessons Learned** — technical retrospective (incl. the Dionaea schema bug and secrets-handling migration)
 9. **Executive Summary** — CISO-level findings and significance
+
+Plus **Operations Runbook** (`docs/operations.md`) — automated ingestion topology, the non-git artifacts to re-apply after rebuilds/upgrades (ingest pipeline, MITRE-DB fix, fail2ban whitelist), and resilience safeguards.
 
 ---
 

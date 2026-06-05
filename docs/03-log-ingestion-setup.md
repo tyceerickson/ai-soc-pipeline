@@ -2,7 +2,7 @@
 
 ## Overview
 
-Raw data from three honeypots is collected on the DigitalOcean VPS and transported to the Ubuntu Server every 15 minutes over Tailscale. On the Ubuntu Server it is consolidated, enriched (GeoIP + VirusTotal), normalized to Wazuh JSON, and indexed. The pipeline is fully automated and runs unattended.
+Raw data from three honeypots is collected on the DigitalOcean VPS and pulled to the Ubuntu Server over Tailscale by homeserver-owned systemd timers — Cowrie and nginx every 5 minutes, Dionaea every 15 minutes. On the Ubuntu Server it is consolidated, enriched (GeoIP + VirusTotal), normalized to `{"data":{...}}`-wrapped Wazuh JSON, and indexed. The pipeline is fully automated, reboot-safe, and runs unattended.
 
 ---
 
@@ -45,24 +45,27 @@ Cowrie rotates daily at midnight UTC: current day is `cowrie.json`, previous day
 
 ## Stage 2: Transport (VPS → Ubuntu Server)
 
-### Cowrie / nginx — rsync cron (`/etc/cron.d/cowrie-sync` on VPS)
-```cron
-*/15 * * * * root rsync -az --timeout=30 \
-  /home/cowrie/cowrie-data/log/cowrie.json* \
-  terickson@100.82.166.75:/opt/cowrie-logs/
+All three honeypots are now **pulled by homeserver-owned systemd timers** (not VPS-side cron). Each timer runs a sync script that rsyncs the honeypot's data from the VPS over Tailscale, then runs its parser/forwarder. This makes the homeserver the single owner of ingestion (auditable via `systemctl list-timers`), with no dependency on external machines.
 
-*/15 * * * * root rsync -az --timeout=30 \
-  /var/log/nginx/ \
-  terickson@100.82.166.75:/opt/cowrie-logs/nginx/
-```
+| Honeypot | Timer | Script | Cadence |
+|----------|-------|--------|---------|
+| Cowrie | `cowrie-sync.timer` | `sync_cowrie.sh` → `forward_cowrie.py` | 5 min |
+| nginx | `nginx-sync.timer` | `sync_nginx.sh` → `parse_nginx.py` | 5 min |
+| Dionaea | `dionaea-sync.timer` | `sync_dionaea.sh` → `parse_dionaea.py` | 15 min |
 
-### Dionaea — systemd timer (`dionaea-sync.timer` on Ubuntu Server)
-Rather than a VPS-side push, the SIEM **pulls** Dionaea data so it can also fetch the captured binaries and run the parser in one step. `sync_dionaea.sh` (run every 15 min by the timer):
+### Cowrie — `sync_cowrie.sh`
+`rsync --append` of the VPS `cowrie.json` (append-preserves the inode Wazuh's logcollector tails), then `forward_cowrie.py` reads new lines and appends them — **wrapped as `{"data": {...}}`** — to `wazuh-cowrie.json`. Includes an unreachable/rotation guard (below).
+
+### nginx — `sync_nginx.sh`
+`rsync` of the VPS nginx `access.log`, then `parse_nginx.py` converts Combined Log Format to `{"data":{...}}`-wrapped Wazuh JSON in `wazuh-nginx.json`. (Replaced an earlier fragile hourly rsync owned by a separate LAN machine.)
+
+### Dionaea — `sync_dionaea.sh` (systemd timer)
+The SIEM **pulls** Dionaea data so it can also fetch captured binaries and run the parser in one step:
 1. rsyncs `dionaea.sqlite` from the VPS
 2. rsyncs the `binaries/` directory (`--ignore-existing`, append-only)
-3. runs `parse_dionaea.py`, which emits Wazuh events, computes SHA256, looks up VirusTotal, and archives new samples
+3. runs `parse_dionaea.py`, which emits wrapped Wazuh events, computes SHA256, looks up VirusTotal, and archives new samples
 
-Host/port/key for the sync are supplied via environment variables in `config/dionaea-sync.service` — no infrastructure details are committed to source.
+Host/port/key for the syncs are supplied via environment/script variables — no infrastructure details are committed to source.
 
 ### Disk Safety Monitor (`/etc/cron.d/disk-monitor` on VPS)
 ```cron
@@ -111,10 +114,10 @@ Each new sample is copied to `/opt/cowrie-logs/dionaea/archive/YYYY-MM/<sha256>`
 
 ## Stage 5: Wazuh Indexing
 
-The Wazuh agent monitors the JSON feeds (`cowrie_enriched.json`, `wazuh-nginx.json`, `wazuh-dionaea.json`). New lines are forwarded to the manager, which applies custom decoders/rules (see `04-custom-rules.md`) before indexing into OpenSearch.
+Wazuh's logcollector tails the wrapped JSON feeds (`wazuh-cowrie.json`, `wazuh-nginx.json`, `wazuh-dionaea.json`). New lines are decoded (fields exposed as `data.*`), matched against the custom rules (see `04-custom-rules.md`), and indexed into OpenSearch. An OpenSearch **ingest pipeline** (`filebeat-7.10.2-wazuh-alerts-pipeline`) runs a Painless processor that flattens a legacy double-nested `data.data.*` → `data.*` edge case before indexing — without it, wrapped events hit a keyword mapping conflict and are silently dropped.
 
 ```bash
-# agent activity
+# logcollector activity
 tail -f /var/ossec/logs/ossec.log | grep -E 'cowrie|dionaea|nginx'
 
 # malware capture events in the index
@@ -126,12 +129,25 @@ curl -k -u admin:"$OPENSEARCH_PASS" \
 
 ---
 
+## Hardening & Resilience
+
+Lessons baked into the pipeline after real operational failures:
+
+- **`{"data":{...}}` wrapping is mandatory.** Parsers/forwarders wrap every event so Wazuh decodes `data.*` and the rules match. A flat (unwrapped) event matches no rule and produces zero alerts — this silently took nginx/dionaea offline once until corrected.
+- **Ingest-pipeline flatten guard.** The OpenSearch pipeline's Painless processor handles the `data.data.*` double-nest edge case; missing it caused enriched docs to be silently dropped at index time (`Can't get text on a START_OBJECT`).
+- **Sync scripts never truncate on an unreachable VPS.** Each `sync_*.sh` checks the remote file size first; if it's `0`/unreachable, the script exits without modifying the local feed. (An earlier bug truncated the local log on every failed run during a network blip, wiping the logcollector tail.)
+- **fail2ban tailnet whitelist.** Rapid sync reconnections once tripped the VPS's fail2ban and banned the homeserver's Tailscale IP (SYN arrived but was refused). `/etc/fail2ban/jail.local` on the VPS now sets `ignoreip = 127.0.0.1/8 100.64.0.0/10` to exempt the whole tailnet.
+- **alerts.json rotation capped** (monitord) so the file can't bloat and stall Filebeat's harvester.
+- **No `.bak` files in `/var/ossec/etc/rules/`.** Wazuh loads any `.xml`-ish file there as an active ruleset, causing duplicate-ID conflicts; all backups go to `/opt/wazuh-soc/rule-backups/`.
+- **MITRE-DB tactic fix is non-git and reverts on upgrade.** See `operations.md` — `config/mitre-db-fixes.sql` must be re-applied after any Wazuh upgrade.
+
+---
+
 ## File Layout
 
 ```
 /opt/cowrie-logs/
-├── cowrie.json                 # Consolidated raw Cowrie events
-├── cowrie_enriched.json        # GeoIP-enriched (Wazuh reads this)
+├── cowrie.json                 # Synced raw Cowrie events (rsync --append target)
 ├── cowrie.json.2026-05-2x      # Per-day archives
 ├── geoip_cache.json            # IP → GeoIP cache
 ├── nginx/                      # nginx access logs from VPS
@@ -140,15 +156,19 @@ curl -k -u admin:"$OPENSEARCH_PASS" \
 │   ├── binaries/               # captured malware (named by MD5)
 │   ├── archive/YYYY-MM/        # permanent SHA256-named samples + .json sidecars
 │   └── .parse_state_sqlite.json
-└── wazuh/
+└── wazuh/                      # the wrapped feeds Wazuh tails
+    ├── wazuh-cowrie.json
     ├── wazuh-nginx.json
     └── wazuh-dionaea.json
 
 /opt/cowrie-tools/pipeline/
 ├── enrich_logs.py              # GeoIP enrichment
 ├── rebuild_geoip_cache.py      # rebuild GeoIP cache
-├── parse_nginx.py              # nginx CLF → Wazuh JSON
-├── parse_dionaea.py            # Dionaea SQLite → Wazuh JSON (+SHA256/VT/archive)
+├── parse_nginx.py              # nginx CLF → wrapped Wazuh JSON
+├── parse_dionaea.py            # Dionaea SQLite → wrapped Wazuh JSON (+SHA256/VT/archive)
+├── forward_cowrie.py           # wrap + append Cowrie events to wazuh-cowrie.json
+├── sync_cowrie.sh              # VPS pull (cowrie.json, --append + guard) → forward
+├── sync_nginx.sh               # VPS pull (access.log) → parse
 ├── sync_dionaea.sh             # VPS pull (sqlite+binaries) → parse
 ├── export_to_wazuh.py          # format helpers
 └── update_maxmind.py           # weekly MaxMind update

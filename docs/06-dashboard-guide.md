@@ -11,9 +11,9 @@ The SOC dashboard is a custom Flask web application (`app.py`) providing real-ti
 ## Alert Source Explained
 
 ### Where alerts come from
-Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-*`). Wazuh receives the normalized JSON feeds produced by the parsers on the Ubuntu Server (fed from the VPS every 15 minutes). Flow:
+Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-*`). Wazuh receives the normalized `{"data":{...}}`-wrapped JSON feeds produced by the parsers/forwarders on the Ubuntu Server (pulled from the VPS by per-honeypot systemd timers — cowrie/nginx every 5 min, dionaea every 15 min). Flow:
 ```
-VPS honeypots → sync (rsync/timer) → Ubuntu Server parsers → Wazuh → OpenSearch → Dashboard
+VPS honeypots → sync timers (rsync) → Ubuntu Server parsers/forwarder → Wazuh → OpenSearch → Dashboard
 ```
 
 ### What is a "Wazuh alert"?
@@ -22,8 +22,8 @@ A Wazuh alert is a **rule-violation event** generated when a log line matches a 
 ### Credentials are read from the environment
 The dashboard authenticates to OpenSearch using the `OPENSEARCH_PASS` environment variable (set in `soc-dashboard.service`). No credentials are stored in source.
 
-### Why Top Attacker Countries and the Geographic Map can differ
-The Countries bar chart counts **all** alerts via the `data.location.country_name` field (including IPs without a GeoIP cache match). The Map plots only IPs resolved in `geoip_cache.json`. IPs not yet cached show "resolving…" and don't appear on the map.
+### Top Attacker Countries and the Geographic Map
+Both the Countries bar chart and the Geographic Map now derive from the **same source**: the GeoIP-enriched top-IP list (`geoip_cache.json`). This was a deliberate fix — Cowrie events lack a `data.location.country_name` field, so the old country aggregation on that field returned nothing for the highest-volume honeypot. Deriving both panels from the GeoIP-resolved IP list keeps them consistent across all three honeypots.
 
 ---
 
@@ -49,7 +49,7 @@ The Countries bar chart counts **all** alerts via the `data.location.country_nam
 
 **Credential Intelligence** — Failed/success/unique counts and per-credential success rate (`success / (success + failed)`). Distinctive botnet usernames (e.g. `mdrfckr`) are surfaced as named campaigns.
 
-**Attacker Intelligence** — Top 5 attackers by threat level (expandable to all). Each row shows SSH-KEY / DOWNLOAD / LOGIN badges; expand for MITRE tactics with evidence, credentials tried, and proof commands. Ranks distinct attacker IPs (not raw sessions) so a single hyperactive IP can't monopolize the list.
+**Attacker Intelligence** — Top attackers driven by the cross-honeypot `/api/threat_actors` aggregation (every source IP across SSH/web/malware, not a Cowrie-session sample — which previously collapsed the panel to a single IP on long windows). Each row shows attack-vector badges (SSH / WEB / MALWARE), a multi-vector badge, and SSH-KEY / MALWARE / BREACH / CVE indicators, ranked by a composite threat score. Expand for MITRE tactics, credentials tried, top commands, and threat indicators; a 🔍 button opens the full per-IP attack narrative.
 
 **MITRE ATT&CK Framework** — Tactics/techniques discovered dynamically from `rule.mitre.*` aggregations; hover for definitions, click to expand examples.
 
@@ -67,11 +67,11 @@ The activity box supports **1h / 1d / 7d / 30d** windows and tab persistence wit
 
 ### Threat Actor Correlation
 
-**Threat Actor Correlation** — The flagship correlation view. Each row is **one source IP**, with its activity unified across all three honeypots into a single threat-scored profile. Actors are ranked by a composite score (number of attack vectors × weighting, plus rule severity, malware delivery, and confirmed SSH breach). Multi-vector actors — e.g. an IP that brute-forces SSH *and* delivers malware over SMB — are badged and float to the top, revealing coordinated actors that siloed per-sensor panels would miss. Click any row to open the full attacker drawer.
+**Threat Actor Correlation** — The flagship correlation view. Each row is **one source IP**, with its activity unified across all three honeypots into a single threat-scored profile. Actors are ranked by a composite score (attack-vector breadth, rule severity, malware delivery, confirmed SSH breach, persistence). Multi-vector actors — e.g. an IP that brute-forces SSH *and* delivers malware over SMB — are badged and float to the top, revealing coordinated actors that siloed per-sensor panels would miss. Clicking a row opens the full **attack-narrative drawer**: a plain-language story, an ordered kill-chain strip (recon → access → execution → download → persistence), credentials tried with the successful pair highlighted, captured malware with VirusTotal verdicts, web/CVE probes, detected persistence mechanisms, a **per-tactic "why this command maps here" evidence breakdown**, and a copyable IOC block — served by `GET /api/actor/<ip>`. A companion **Most Dangerous Attackers** panel ranks the top actors by a destruction-weighted score (malware delivery, breach, persistence) with the same lazy-loaded deep-dive.
 
 ### Incident Management
 
-**Alert Drawer** — `GET /api/alert/<ip>` opens a full context panel for any source IP (recent events, geo, credentials, commands; copy-as-JSON).
+**Alert Drawer** — `GET /api/alert/<ip>` opens a full context panel for any source IP (recent events, geo, credentials, commands; copy-as-JSON), enriched with the cross-honeypot attack narrative from `GET /api/actor/<ip>` (kill-chain phases, per-tactic command evidence, malware/VT, persistence, copyable IOCs).
 
 **Search / Pivot** — `GET /api/search?q=&type=ip|cred|cmd` pivots across IPs, credentials, and commands.
 

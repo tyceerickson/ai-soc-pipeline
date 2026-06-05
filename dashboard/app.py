@@ -1523,7 +1523,7 @@ def get_dionaea_stats(minutes: int = 10080) -> dict:
                 "filter": {"term": {"data.eventid": "dionaea.binary.captured"}},
                 "aggs": {
                     "hashes": {
-                        "terms": {"field": "data.sha256", "size": 50},
+                        "terms": {"field": "data.sha256", "size": 200},
                         "aggs": {
                             "sources": {"cardinality": {"field": "data.src_ip"}},
                             # Newest doc overall (for metadata even on non-VT samples)
@@ -3048,7 +3048,7 @@ def api_playbooks():
     return jsonify(PLAYBOOKS)
 
 
-def get_threat_actors(minutes: int, limit: int = 15) -> dict:
+def get_threat_actors(minutes: int, limit: int = 15, rank: str = "score") -> dict:
     """Cross-honeypot threat-actor correlation.
 
     For each source IP, aggregate its activity across ALL honeypots (Cowrie SSH,
@@ -3082,6 +3082,11 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
             {"range": {"data.timestamp": {"gte": since_iso}}},
             {"exists": {"field": "data.src_ip"}},
             {"exists": {"field": "data.honeypot"}},
+        ], "must_not": [
+            # Exclude pre-rebuild noise: the old cowrie-raw stream was raw
+            # session-lifecycle spam tagged by superseded rules. Only the
+            # enriched cowrie/nginx/dionaea streams (new ruleset) should rank.
+            {"term": {"data.honeypot": "cowrie-raw"}},
         ]}},
         "aggs": {
             "actors": {
@@ -3093,6 +3098,9 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
                     "eventids":   {"terms": {"field": "data.eventid", "size": 30}},
                     "first_seen": {"min": {"field": "data.timestamp"}},
                     "last_seen":  {"max": {"field": "data.timestamp"}},
+                    "active_days": {"cardinality": {
+                        "script": {"lang": "painless",
+                                   "source": "doc['data.timestamp'].size()>0 ? doc['data.timestamp'].value.toString('yyyy-MM-dd') : null"}}},
                     "mitre":      {"terms": {"field": "rule.mitre.tactic", "size": 12}},
                     "got_malware": {"filter": {"term": {"data.eventid": "dionaea.binary.captured"}}},
                     "got_login":   {"filter": {"term": {"data.eventid": "cowrie.login.success"}}},
@@ -3154,6 +3162,14 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
         eventids    = {x["key"]: x["doc_count"] for x in b.get("eventids", {}).get("buckets", [])}
         ctry_bkts   = b.get("countries", {}).get("buckets", [])
         ctry_evt    = ctry_bkts[0]["key"] if ctry_bkts else ""
+        active_days = int(b.get("active_days", {}).get("value") or 0)
+        _fs = b.get("first_seen", {}).get("value")
+        _ls = b.get("last_seen", {}).get("value")
+        span_days = round((_ls - _fs) / 86400000.0, 1) if (_fs and _ls) else 0.0
+        # Persistence score: rewards breadth of days active and a long active span,
+        # plus sustained volume — "most consistently active over the longest period".
+        persistence_score = (active_days * 40) + min(int(span_days) * 5, 200) \
+                            + min(total // 50, 60) + (n_vectors * 10)
 
         # Composite threat score: multi-vector actors and those who actually
         # breached (login/commands) or delivered malware rank highest.
@@ -3188,19 +3204,28 @@ def get_threat_actors(minutes: int, limit: int = 15) -> dict:
             "malware_family": malware_fam,
             "services": services,
             "eventids": eventids,
+            "active_days": active_days,
+            "span_days": span_days,
+            "persistence_score": persistence_score,
         })
 
     # Rank by composite score across the full candidate set (NOT by n_vectors
     # first — that buried high-severity single-vector actors and caused the panel
     # to under-fill on long windows). Multi-vector actors still float to the top
     # because n_vectors contributes heavily to the score.
-    actors.sort(key=lambda a: (a["n_vectors"], a["score"], a["max_level"], a["total_events"]), reverse=True)
+    if rank == "persistence":
+        # Most consistently active over the longest period (days-active + span).
+        actors.sort(key=lambda a: (a["persistence_score"], a["active_days"], a["span_days"], a["total_events"]), reverse=True)
+    else:
+        # Default: destruction/composite score (multi-vector + breach + malware).
+        actors.sort(key=lambda a: (a["n_vectors"], a["score"], a["max_level"], a["total_events"]), reverse=True)
     multi = [a for a in actors if a["n_vectors"] >= 2]
     return {
         "actors": actors[:limit],
         "multi_vector_count": len(multi),
         "total_actors": len(actors),
         "window_minutes": minutes,
+        "rank": rank,
     }
 
 
@@ -3216,7 +3241,10 @@ def api_threat_actors():
         limit = max(1, min(int(request.args.get("limit", 15)), 100))
     except (ValueError, TypeError):
         limit = 15
-    return jsonify(get_threat_actors(minutes, limit))
+    rank = request.args.get("rank", "score")
+    if rank not in ("score", "persistence"):
+        rank = "score"
+    return jsonify(get_threat_actors(minutes, limit, rank))
 
 
 # ── Cases CRUD ────────────────────────────────────────────────

@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AI-Powered SOC Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M16%202%20L28%206%20V15%20C28%2023%2022%2028%2016%2030%20C10%2028%204%2023%204%2015%20V6%20Z'%20fill='%232d5a27'/%3E%3Cpath%20d='M16%205%20L25%208%20V15%20C25%2021.5%2020.5%2025.5%2016%2027.2%20C11.5%2025.5%207%2021.5%207%2015%20V8%20Z'%20fill='%234a7c59'/%3E%3Cpath%20d='M11%2016%20L14.5%2019.5%20L21%2012'%20fill='none'%20stroke='%23f7f9f5'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M16%202%20L28%206%20V15%20C28%2023%2022%2028%2016%2030%20C10%2028%204%2023%204%2015%20V6%20Z'%20fill='%232d5a27'/%3E%3Cpath%20d='M16%205%20L25%208%20V15%20C25%2021.5%2020.5%2025.5%2016%2027.2%20C11.5%2025.5%207%2021.5%207%2015%20V8%20Z'%20fill='%234a7c59'/%3E%3Cpath%20d='M11%2016%20L14.5%2019.5%20L21%2012'%20fill='none'%20stroke='%23f7f9f5'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="mask-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M16%202%20L28%206%20V15%20C28%2023%2022%2028%2016%2030%20C10%2028%204%2023%204%2015%20V6%20Z'%20fill='%232d5a27'/%3E%3Cpath%20d='M16%205%20L25%208%20V15%20C25%2021.5%2020.5%2025.5%2016%2027.2%20C11.5%2025.5%207%2021.5%207%2015%20V8%20Z'%20fill='%234a7c59'/%3E%3Cpath%20d='M11%2016%20L14.5%2019.5%20L21%2012'%20fill='none'%20stroke='%23f7f9f5'%20stroke-width='2.6'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E" color="#2d5a27">
+
 <style>
 :root{
   /* === WINTER MOUNTAIN FOREST === */
@@ -860,13 +864,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     <div class="panel-hdr" style="flex-wrap:wrap;gap:8px">
       <span class="panel-title">Dionaea &amp; nginx Honeypot Activity</span>
       <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Dionaea captures malware/exploits on FTP/SMB/MSSQL/MySQL. nginx captures web scanning campaigns. Combined view shows cross-honeypot attacker overlap.">malware capture + web scanning ⓘ</span>
-      <span class="panel-meta" id="hp-meta"></span>
-      <div style="display:flex;gap:4px;margin-left:auto">
-        <button onclick="setHpWindow(60)"    id="hpw-60"    class="tl-btn">1h</button>
-        <button onclick="setHpWindow(1440)"  id="hpw-1440"  class="tl-btn">1d</button>
-        <button onclick="setHpWindow(10080)" id="hpw-10080" class="tl-btn tl-btn-active">7d</button>
-        <button onclick="setHpWindow(43200)" id="hpw-43200" class="tl-btn">30d</button>
-      </div>
+      <span class="panel-meta" id="hp-meta" style="margin-left:auto"></span>
     </div>
 
     <!-- Tab switcher -->
@@ -1015,6 +1013,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
       <span class="panel-title">Cross-Vector Threat Actors</span>
       <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Each row is ONE source IP, with its activity unified across all three honeypots. Multi-vector actors (SSH + web + malware from one IP) are coordinated threats, not separate events. Ranked by composite threat score.">unified per-IP profiles · ranked by threat score ⓘ</span>
       <span class="panel-meta" id="ta-meta" style="margin-left:auto"></span>
+      <button id="ta-alltime-btn" class="tl-btn" onclick="toggleTaAllTime()" title="Rank the most consistently active actors over the longest period (all-time, by days-active and active span) instead of the current timeframe">All-Time Persistent</button>
     </div>
     <div id="ta-list" style="padding:4px 0">
       <div style="color:var(--muted);font-size:12px;padding:8px 0">Loading threat actors…</div>
@@ -1029,6 +1028,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
       <span class="panel-title">Top 5 by Impact</span>
       <span class="panel-meta" style="font-size:10px;color:var(--text3)" title="Ranked by a destruction score weighting malware delivery, confirmed SSH breach, persistence/backdoor implants, command activity, and multi-vector breadth. Click any actor for a full deep-dive: what they did, how, and the impact — with real commands, credentials, malware, and IOCs.">ranked by impact · click to expand ⓘ</span>
       <span class="panel-meta" id="danger-meta" style="margin-left:auto"></span>
+      <button id="danger-alltime-btn" class="tl-btn" onclick="toggleDangerAllTime()" title="Rank by highest cumulative destructive activity across all honeypots over all time, instead of the current timeframe">All-Time</button>
     </div>
     <div id="danger-list" style="padding:4px 0">
       <div style="color:var(--muted);font-size:12px;padding:8px 0">Loading…</div>
@@ -1156,6 +1156,10 @@ window.addEventListener('unhandledrejection',function(e){var d=document.createEl
 <script>
 // ===== State =====
 let currentWindow = 60;
+// Shared human label for a window in minutes (matches the global selector).
+function windowLabel(m){
+  return ({60:'1h',360:'6h',1440:'24h',10080:'7d',43200:'30d',129600:'90d'})[m] || (m+'m');
+}
 let tlData = [], tacticTlData = [], tlInterval = '5m';
 let activeSevSeries = new Set(['total']);
 let activeTactics = new Set(), allTactics = [], tacticCounts = {};
@@ -2596,6 +2600,7 @@ function setWindow(v){
   loadStats();
   loadIntelPanels();
   loadThreatActors();
+  if (typeof loadHoneypotPanels === 'function' && _hpLoaded) loadHoneypotPanels();
 }
 
 // ===== Init =====
@@ -2743,7 +2748,7 @@ function switchHpTab(tab) {
 
 async function loadHoneypotPanels() {
   try {
-    const r = await apiFetch(`/api/honeypots?minutes=${_hpWindow}`);
+    const r = await apiFetch(`/api/honeypots?minutes=${currentWindow}`);
     const d = await r.json();
     _hpData = d;
     renderDionaea(d.dionaea || {});
@@ -2765,8 +2770,7 @@ async function loadHoneypotPanels() {
       }
       if(cBadge) cBadge.textContent = both ? `(${both})` : '';
     }catch(e){}
-    document.getElementById('hp-meta').textContent =
-      `${_hpWindow === 1440 ? '24h' : _hpWindow === 10080 ? '7d' : '30d'} window`;
+    document.getElementById('hp-meta').textContent = windowLabel(currentWindow) + ' window';
   } catch(e) {
     console.error('Honeypot panel load failed:', e);
   }
@@ -2832,7 +2836,8 @@ function renderDionaea(d) {
   if ((d.binaries||[]).length === 0) {
     binEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:6px 0">No binaries captured in this window</div>';
   } else {
-    binEl.innerHTML = d.binaries.map(b => {
+    const _bins = d.binaries;
+    const _binCards = _bins.map(b => {
       const sizeKB = b.file_size ? (b.file_size/1024 >= 1024 ? (b.file_size/1048576).toFixed(1)+' MB' : Math.round(b.file_size/1024)+' KB') : '';
       let vt;
       if (typeof b.vt_malicious === 'number' && b.vt_total) {
@@ -2857,7 +2862,13 @@ function renderDionaea(d) {
           ${vtLink}
         </div>
       </div>`;
-    }).join('');
+    });
+    const _top = _binCards.slice(0,5).join('');
+    const _rest = _binCards.slice(5).join('');
+    binEl.innerHTML = _top + (_rest
+      ? `<div style="margin-top:6px"><details><summary style="cursor:pointer;font-size:11px;color:var(--slate);padding:4px 0">Show all ${_bins.length} captured binaries ▾</summary>
+           <div style="max-height:340px;overflow-y:auto;margin-top:4px;padding-right:6px">${_rest}</div></details></div>`
+      : '');
   }
 
   // Timeline
@@ -3813,16 +3824,49 @@ function exportCases(){
 }
 
 // ── Threat Actor Correlation ──────────────────────────────────────────────
+// Per-panel all-time toggle state (false = follow the global timeframe).
+let _taAllTime = false;      // Threat Actor Correlation -> rank=persistence, all-time
+let _dangerAllTime = false;  // Most Dangerous -> destruction, all-time
+
 async function loadThreatActors() {
+  // Both panels default to the global window. Each can independently switch to
+  // all-time via its toggle (Correlation = persistence ranking; Danger = score).
+  loadTaCorrelation();
+  loadDangerPanelData();
+}
+
+async function loadTaCorrelation() {
+  const el = document.getElementById('ta-list');
+  const mins = _taAllTime ? 129600 : currentWindow;
+  const rank = _taAllTime ? 'persistence' : 'score';
   try {
-    const r = await apiFetch(`/api/threat_actors?minutes=${currentWindow}`);
-    const d = await r.json();
-    renderThreatActors(d);
-    try { renderDangerPanel(d); } catch(e) { console.error('danger panel', e); }
+    const r = await apiFetch(`/api/threat_actors?minutes=${mins}&limit=15&rank=${rank}`);
+    renderThreatActors(await r.json());
   } catch (e) {
-    const el = document.getElementById('ta-list');
     if (el) el.innerHTML = `<div style="color:#8a3030;font-size:12px">Failed to load: ${escHtml(e.message)}</div>`;
   }
+}
+
+async function loadDangerPanelData() {
+  const mins = _dangerAllTime ? 129600 : currentWindow;
+  try {
+    const r = await apiFetch(`/api/threat_actors?minutes=${mins}&limit=100&rank=score`);
+    renderDangerPanel(await r.json());
+  } catch(e) { console.error('danger panel', e); }
+}
+
+function toggleTaAllTime() {
+  _taAllTime = !_taAllTime;
+  const b = document.getElementById('ta-alltime-btn');
+  if (b) b.classList.toggle('tl-btn-active', _taAllTime);
+  loadTaCorrelation();
+}
+
+function toggleDangerAllTime() {
+  _dangerAllTime = !_dangerAllTime;
+  const b = document.getElementById('danger-alltime-btn');
+  if (b) b.classList.toggle('tl-btn-active', _dangerAllTime);
+  loadDangerPanelData();
 }
 
 function scoreColor(s) { return s >= 90 ? 'var(--red)' : s >= 60 ? 'var(--orange)' : s >= 35 ? 'var(--peak)' : 'var(--slate)'; }
@@ -3832,15 +3876,22 @@ function renderThreatActors(d) {
   const meta = document.getElementById('ta-meta');
   if (d.error) { el.innerHTML = `<div style="color:var(--muted);font-size:12px">${escHtml(d.error)}</div>`; return; }
   const actors = d.actors || [];
-  if (meta) meta.textContent = `${d.multi_vector_count||0} multi-vector of ${d.total_actors||0} actors`;
+  const persist = (d.rank === 'persistence');
+  if (meta) meta.textContent = persist
+    ? `most persistent · of ${d.total_actors||0} actors`
+    : `${d.multi_vector_count||0} multi-vector of ${d.total_actors||0} actors`;
   if (!actors.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">No actors in this window</div>'; return; }
 
-  el.innerHTML = actors.map((a, i) => {
+  const rowHtml = (a, i) => {
     const vecs = a.vectors.map(v => `<span class="ta-vec ${v}">${v}</span>`).join('');
     const flags = [];
     if (a.malware_delivered) flags.push(`<span class="ta-flag mal">${a.malware_delivered} malware</span>`);
     if (a.ssh_login_success) flags.push(`<span class="ta-flag breach">SSH breach</span>`);
     const multi = a.n_vectors >= 2 ? `<span class="ta-multi-badge" title="Attacked ${a.n_vectors} honeypot types">${a.n_vectors}-vector</span>` : '';
+    // In persistence mode show days-active/span; otherwise the composite score.
+    const metric = persist
+      ? `<div class="ta-score" style="color:var(--slate)" title="Active on ${a.active_days} day(s), spanning ${a.span_days} days">${a.active_days}d</div>`
+      : `<div class="ta-score" style="color:${scoreColor(a.score)}" title="Composite threat score">${a.score}</div>`;
     return `<div class="ta-row" onclick="openDrawer('${a.ip}')" title="Click for full attacker context">
       <div class="ta-rank">#${i+1}</div>
       <div class="ta-ip">${a.ip}</div>
@@ -3848,9 +3899,15 @@ function renderThreatActors(d) {
       <div class="ta-vectors">${vecs}</div>
       ${multi}
       <div class="ta-flags">${flags.join('')}</div>
-      <div class="ta-score" style="color:${scoreColor(a.score)}" title="Composite threat score">${a.score}</div>
+      ${metric}
     </div>`;
-  }).join('');
+  };
+  const top = actors.slice(0, 5).map(rowHtml).join('');
+  const rest = actors.slice(5).map((a, i) => rowHtml(a, i + 5)).join('');
+  el.innerHTML = top + (rest
+    ? `<details><summary style="cursor:pointer;font-size:11px;color:var(--slate);padding:6px 0">Show all ${actors.length} threat actors ▾</summary>
+         <div style="max-height:360px;overflow-y:auto;padding-right:6px">${rest}</div></details>`
+    : '');
 }
 
 // ── Clipboard (works over plain HTTP, where navigator.clipboard is undefined) ──
@@ -3945,7 +4002,7 @@ function renderDangerPanel(d) {
   actors.forEach(a => { a._dscore = destructionScore(a); });
   actors.sort((x, y) => y._dscore - x._dscore);
   const top = actors.slice(0, 5);
-  if (meta) meta.textContent = `top 5 by impact · of ${d.total_actors||actors.length} actors`;
+  if (meta) meta.textContent = (_dangerAllTime ? 'top 5 by impact · all-time' : `top 5 by impact · ${windowLabel(currentWindow)}`) + ` · of ${d.total_actors||actors.length} actors`;
 
   el.innerHTML = top.map((a, i) => {
     const vecs = (a.vectors||[]).map(v => `<span class="ta-vec ${v}">${v}</span>`).join('');

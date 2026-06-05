@@ -99,7 +99,7 @@ Natural Earth geodata.
 
 ## Security Capabilities Demonstrated
 
-1. **Real-time SIEM operations** — custom decoders/rules, MITRE ATT&CK mapping, 11M+ alerts
+1. **Real-time SIEM operations** — custom decoders/rules with accurate per-behavior MITRE ATT&CK mapping (57 rules, 27 techniques across ~12 tactics, rebuilt June 2026), 11M+ alerts
    indexed with sub-second query response.
 2. **Behavioral threat intelligence** — botnets identified by behavioral signature
    (credentials, commands, SSH keys), more durable than IP-based detection as infrastructure rotates.
