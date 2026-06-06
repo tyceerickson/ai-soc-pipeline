@@ -18,7 +18,7 @@ A walkthrough of the dashboard running on real honeypot data — attack timeline
 
 ## Dashboard View (Updated June 5th, 2026)
 
-![Dashboard screenshot of June 5, 2026](docs/images/)
+![Dashboard screenshot of June 5, 2026](docs/dashboard-demo-thumbnail.png)
 
 ## Live Stats
 
