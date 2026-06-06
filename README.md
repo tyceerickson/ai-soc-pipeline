@@ -48,15 +48,15 @@ indexed **11.6M events** (peaking at ~2.8M/day) — but the overwhelming majorit
 SSH session-lifecycle events (connect / key-exchange / disconnect) that carry no analytic
 value. High volume, low signal.
 
-In June 2026 I re-engineered the detection ruleset (57 rules, 27 MITRE techniques) so that
+From June 2-5, 2026 I re-engineered the detection ruleset (57 rules, 27 MITRE techniques) so that
 each rule tags the **single correct technique and tactic** for the behavior it detects, and
 session-lifecycle noise is suppressed at rule level 0. The result: daily alert *counts*
 dropped by ~99%, but every remaining alert is a **meaningful, MITRE-classified, actionable
-detection** — a failed/successful login, a discovery command, a persistence implant, a
+detection** which includes a failed/successful login, a discovery command, a persistence implant, a
 malware drop, a CVE probe. A SOC analyst wants the ~25k signal, not the 2.8M noise.
 
-That transition — recognizing that raw data volume is not detection quality, then doing the
-detection-engineering work to fix it — is the core security-operations lesson of the project.
+That transition, recognizing that raw data volume is not detection quality, then doing the
+detection-engineering work to fix it, is the core security-operations lesson of the project, that I unexpectedly learned.
 (Full write-up in `docs/08-lessons-learned.md`.)
 
 ## Architecture
