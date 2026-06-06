@@ -8,7 +8,7 @@ internet — Cowrie (SSH/Telnet), nginx (web), and Dionaea (malware capture) —
 live attack data across distinct vectors. That data is processed through a Wazuh SIEM,
 enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
 locally-hosted large language model. A custom real-time dashboard provides analysts with
-**12 integrated intelligence panels** spanning attack-chain analysis, behavioral botnet
+**17 integrated intelligence panels** spanning attack-chain analysis, behavioral botnet
 fingerprinting, geographic attribution, session-level kill-chain reconstruction, captured
 malware analysis, cross-honeypot threat-actor correlation, and on-demand AI threat briefings.
 
@@ -27,6 +27,13 @@ Over the active collection window (**May 21–29, 2026**), the sensors recorded:
 - **6** distinct botnet campaigns identified and fingerprinted
 - **7** unique malware binaries captured and VirusTotal-verified
 - Peak day: ~2.8M alerts in 24 hours
+
+> **Volume vs. signal:** the 11.6M figure reflects the initial pipeline, which indexed
+> raw SSH session-lifecycle events alongside genuine attacks. The detection ruleset was
+> subsequently re-engineered (57 rules, 27 MITRE techniques) to suppress that noise and
+> tag each event with its single correct technique/tactic — reducing daily alert volume by
+> ~99% to ~20–30k *meaningful, actionable* detections. The raw scale demonstrates exposure;
+> the rebuilt signal demonstrates detection engineering. (See `docs/08-lessons-learned.md`.)
 
 The attack surface was a small set of exposed services on a single VPS. The volume represents the baseline threat level any internet-connected system faces — on the order of 20+ attack events per second at sustained volume.
 

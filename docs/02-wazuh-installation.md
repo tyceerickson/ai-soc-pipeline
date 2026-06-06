@@ -70,7 +70,7 @@ Edit `/var/ossec/etc/ossec.conf` and add inside `<ossec_config>` (see `config/wa
 ```xml
 <localfile>
   <log_format>json</log_format>
-  <location>/opt/cowrie-logs/cowrie_enriched.json</location>
+  <location>/opt/cowrie-logs/wazuh/wazuh-cowrie.json</location>
 </localfile>
 <localfile>
   <log_format>json</log_format>

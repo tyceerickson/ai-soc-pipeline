@@ -7,18 +7,18 @@ A production-grade, AI-powered Security Operations Center pipeline built on real
 attack data. Three honeypots exposed to the public internet collect live attack traffic
 across SSH, web, and malware-capture vectors. Data is processed through a Wazuh SIEM,
 enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
-locally-hosted large language model. A custom real-time dashboard provides 12 integrated
-threat-intelligence panels across three honeypot sources. Which is currently still live and collecting data in real time.
+locally-hosted large language model. A custom real-time dashboard provides 17 integrated
+threat-intelligence panels across three honeypot sources, and is currently live and collecting attack data in real time.
 
 **This is not a simulation. Every alert in this dataset came from a real attacker.**
 
 ## 🎥 Live Demo
 
-[![Watch the SOC dashboard demo](docs/images/dashboard-demo-thumbnail.png)](https://youtu.be/YOUR_VIDEO_ID "Watch the 3-minute demo")
+A walkthrough of the dashboard running on real honeypot data — attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis — is available on request. (Screenshots in `docs/images/`.)
 
-**▶ [Watch the 3-minute walkthrough](https://youtu.be/YOUR_VIDEO_ID)** — a live tour of the dashboard running on real honeypot data: attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
+## Live Stats
 
-## Live Stats (collection window May 21–29, 2026)
+### Initial collection (May 21–29, 2026 — raw-volume era)
 
 | Metric | Value |
 |--------|-------|
@@ -29,10 +29,35 @@ threat-intelligence panels across three honeypot sources. Which is currently sti
 | Unique attacker IPs | 1,000+ |
 | Countries observed | 99 |
 | Active botnets identified | 6 |
-| MITRE ATT&CK techniques | 27 (across ~12 tactics) |
 | Peak day | ~2.8M alerts / 24h |
 
-> **Detection ruleset rebuilt June 2026.** The custom rule set was re-engineered for accurate, per-behavior MITRE ATT&CK mapping (57 rules, 27 techniques across ~12 tactics — see below). The historical alert totals above reflect the original May 21–29 collection window; going forward the system tags each event with its single correct technique/tactic instead of indexing raw session-lifecycle noise, so day-to-day alert *counts* are lower but every alert is meaningful and actionable.
+### Current state (post rule-rebuild — signal era)
+
+| Metric | Value |
+|--------|-------|
+| Meaningful alerts/day | ~20k–30k (noise suppressed) |
+| MITRE ATT&CK techniques | 27 (across ~12 tactics) |
+| Custom detection rules | 57 (per-behavior MITRE-mapped) |
+| Honeypots correlated | 3 (Cowrie · nginx · Dionaea) |
+| Still live? | Yes — collecting in real time |
+
+### Detection Engineering: From Volume to Signal
+
+The two tables above tell the most important story in this project. The initial pipeline
+indexed **11.6M events** (peaking at ~2.8M/day) — but the overwhelming majority were
+SSH session-lifecycle events (connect / key-exchange / disconnect) that carry no analytic
+value. High volume, low signal.
+
+In June 2026 I re-engineered the detection ruleset (57 rules, 27 MITRE techniques) so that
+each rule tags the **single correct technique and tactic** for the behavior it detects, and
+session-lifecycle noise is suppressed at rule level 0. The result: daily alert *counts*
+dropped by ~99%, but every remaining alert is a **meaningful, MITRE-classified, actionable
+detection** — a failed/successful login, a discovery command, a persistence implant, a
+malware drop, a CVE probe. A SOC analyst wants the ~25k signal, not the 2.8M noise.
+
+That transition — recognizing that raw data volume is not detection quality, then doing the
+detection-engineering work to fix it — is the core security-operations lesson of the project.
+(Full write-up in `docs/08-lessons-learned.md`.)
 
 ## Architecture
 
@@ -63,7 +88,7 @@ the public internet. Credentials are supplied via environment variables, never s
 
 ## Dashboard
 
-The custom Flask dashboard provides **12 real-time intelligence panels** across three sections.
+The custom Flask dashboard provides **17 real-time intelligence panels** across three sections. All panels are driven by a single global timeframe selector (1h / 6h / 24h / 7d / 30d / 90d) so every view stays cohesive, with dedicated "all-time" ranking toggles on the threat-actor panels.
 
 ### Cowrie SSH Honeypot
 | Panel | Description |
@@ -85,7 +110,8 @@ The custom Flask dashboard provides **12 real-time intelligence panels** across 
 | Dionaea Malware Capture | Captured binaries with **VirusTotal verdict, malware family, source attribution, file size**, service breakdown, and activity timeline |
 | nginx Web Honeypot | Scanner fingerprints, CVE probe paths, user agents, request timeline |
 | Cross-Honeypot Attackers | IPs seen attacking multiple honeypots simultaneously |
-| **Threat Actor Correlation** | Unified per-IP profiles across all three honeypots, ranked by composite threat score — links SSH, web, and malware activity into single coordinated-actor views |
+| **Threat Actor Correlation** | Unified per-IP profiles across all three honeypots, ranked by composite threat score — links SSH, web, and malware activity into single coordinated-actor views. Top-5 with scrollable full list; "All-Time Most Persistent" ranking toggle |
+| **Most Dangerous Attackers** | Top actors ranked by destruction-weighted score (malware delivery, SSH breach, persistence); lazy-loaded deep-dive with full cross-honeypot attack narrative, kill-chain phases, per-tactic command evidence, and copyable IOCs. "All-Time" ranking toggle |
 
 ### Incident Management
 Built-in case management (open/investigating/closed, severity, audit log), alert pivoting
@@ -124,10 +150,10 @@ At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet 
 ```
 ai-soc-pipeline/
 ├── dashboard/
-│   ├── app.py                       # Flask backend — 16 API endpoints
+│   ├── app.py                       # Flask backend — 28 API endpoints
 │   ├── schema.sql                   # Incident-management SQLite schema
 │   └── templates/
-│       └── index.html               # SOC dashboard frontend (12 panels)
+│       └── index.html               # SOC dashboard frontend (17 panels)
 ├── pipeline/
 │   ├── parse_nginx.py               # nginx CLF → Wazuh JSON parser (wraps events as {"data":{...}})
 │   ├── parse_dionaea.py             # Dionaea SQLite → Wazuh JSON; SHA256 + VirusTotal + archive
@@ -164,26 +190,32 @@ ai-soc-pipeline/
 
 ## API Endpoints
 
+The Flask backend exposes **28 API endpoints** (plus the dashboard root). Highlights:
+
 | Endpoint | Description |
 |----------|-------------|
+| `GET /api/health` · `GET /api/honeypot_health` | Service + per-honeypot health checks |
 | `GET /api/stats?minutes=N` | Full stats: timeline, countries, IPs, MITRE, credentials, commands |
 | `GET /api/attack_chain?minutes=N` | Kill-chain funnel stage counts |
 | `GET /api/velocity` | Real-time attacks/min + 60-min spark data |
 | `GET /api/heatmap` | 14-day hour × day attack matrix |
 | `GET /api/sessions?minutes=N` | Top sessions with full event chains |
 | `GET /api/botnets?minutes=N` | Behavioral botnet fingerprints |
+| `POST /api/botnet_analysis` | AI analysis of a specific campaign |
 | `GET /api/intel?minutes=N` | Parallel: attack chain + sessions + botnets + cred_intel |
 | `GET /api/cred_intel?minutes=N` | Credential success rates + coordination detection |
-| `POST /api/botnet_analysis` | AI analysis of a specific campaign |
 | `GET /api/dionaea?minutes=N` | Dionaea malware stats + VirusTotal-enriched binaries |
 | `GET /api/nginx?minutes=N` | nginx web honeypot stats |
 | `GET /api/honeypots?minutes=N` | Combined Dionaea + nginx (parallel) |
-| `GET /api/threat_actors?minutes=N` | Cross-honeypot threat-actor correlation |
+| `GET /api/threat_actors?minutes=N&rank=` | Cross-honeypot threat-actor correlation (rank `score` or `persistence`) |
+| `GET /api/actor/<ip>` | Unified cross-honeypot attack narrative (kill-chain, per-tactic evidence, IOCs) |
 | `GET /api/alert/<ip>` | Full alert/context drawer for a source IP |
 | `GET /api/search?q=&type=` | Pivot/search across IPs, credentials, commands |
-| `GET /api/cases` · `POST /api/cases` · `PATCH /api/cases/<id>` | Incident case management |
 | `GET /api/playbooks` | Response playbooks |
-| `GET /api/triage` · `POST /api/analysis/run` | AI triage report / on-demand analysis |
+| `GET /api/triage` · `POST /api/analysis/run` · `GET /api/analysis/status` | AI triage report / on-demand analysis / status |
+| `POST /api/refresh` · `GET /api/refresh/status` | Trigger + poll a data refresh |
+| `GET /api/export` | Export current view |
+| `GET /api/cases` · `POST /api/cases` · `GET·PATCH /api/cases/<id>` · `GET /api/cases/export` | Incident case management (CRUD + CSV) |
 
 ## Technology Stack
 
