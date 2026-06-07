@@ -11,7 +11,7 @@ geoip2>=4.8.0         # MaxMind GeoLite2 lookups (pipeline GeoIP enrichment)
 # ── External services (not pip-installable; configured separately) ──────────
 #   Wazuh indexer (OpenSearch)   — queried over HTTPS at https://localhost:9200
 #                                   (credentials supplied via OPENSEARCH_PASS env var)
-#   Ollama + llama3.1:8b         — local LLM inference, reached over the Tailscale
+#   qwen2.5:7b-instruct          — local LLM inference, reached over the Tailscale
 #                                   mesh (host/port set via environment, not hardcoded)
 #   VirusTotal API (optional)    — malware hash enrichment; set VT_API_KEY in the
 #                                   dionaea-sync systemd unit to enable
