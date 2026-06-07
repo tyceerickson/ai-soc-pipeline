@@ -51,7 +51,8 @@ At millions of events, query design is the difference between a 2-second respons
 `llama3.3:70b` produced better reasoning than `llama3.1:8b`, but the RTX 4070's 8GB VRAM couldn't hold it. Ollama offloaded ~42GB to system RAM and inference took 10–15 minutes instead of 15–30 seconds.
 
 ### Resolution
-Reverted to `llama3.1:8b` (fits entirely in VRAM) and compensated with prompt engineering — feeding pre-aggregated statistics directly rather than asking the model to infer scale from a small sample.
+Reverted to a model that fits entirely in VRAM and compensated with prompt engineering, feeding pre-aggregated statistics directly rather than asking the model to infer scale from a small sample. Later moved the primary model from llama3.1:8b to qwen2.5:7b-instruct for stronger JSON adherence and reasoning at the same speed, and discovered the bigger win: Ollama's default 2048-token context was silently truncating prompts until num_ctx was set explicitly to 16384. Consider adding a new lesson titled "Ollama's silent context default" — it's a
+genuinely good war story for a portfolio.
 
 ### Takeaway
 Consumer GPU hardware is a real constraint for local LLM deployment. A smaller model with well-structured inputs often beats a larger model with poorly structured ones.

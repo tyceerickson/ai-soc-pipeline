@@ -13,6 +13,7 @@ RestartSec=15
 StandardOutput=append:/opt/wazuh-soc/logs/dashboard.log
 StandardError=append:/opt/wazuh-soc/logs/dashboard.log
 Environment=PYTHONUNBUFFERED=1
+Environment=OLLAMA_MODEL=qwen2.5:7b-instruct
 
 [Install]
 WantedBy=multi-user.target

@@ -4,7 +4,8 @@ import os
 ai_triage.py — AI-Powered Alert Triage Layer
 =============================================
 Reads normalized alerts from alert_poller.py output, sends them to
-Ollama (llama3.1:8b on Alienware RTX 4070) for analysis, and writes
+Ollama (qwen2.5:7b-instruct on Alienware RTX 4070) for analysis, and writes
+
 structured triage reports with plain-English explanations.
 
 Part of the wazuh-soc-pipeline — Project 4
@@ -89,8 +90,9 @@ def build_intelligence_summary(minutes=10080):
             {"range":  {"data.timestamp": {"gte": since}}},
             {"exists": {"field": "data.honeypot"}},
         ]}},
-        "aggs": {
+         "aggs": {
             "total":          {"value_count": {"field": "data.src_ip"}},
+            "unique_ips":     {"cardinality": {"field": "data.src_ip"}},
             "by_severity_high":   {"filter": {"range": {"rule.level": {"gte": 12}}}},
             "by_severity_med":    {"filter": {"range": {"rule.level": {"gte": 7, "lt": 12}}}},
             "login_success":      {"filter": {"term": {"data.eventid": "cowrie.login.success"}}},
@@ -183,6 +185,7 @@ def build_intelligence_summary(minutes=10080):
     summary = {
         "window_minutes":    minutes,
         "total_events":      total,
+        "unique_ips": aggs.get("unique_ips", {}).get("value", 0),
         "high_severity":     aggs.get("by_severity_high", {}).get("doc_count", 0),
         "medium_severity":   aggs.get("by_severity_med",  {}).get("doc_count", 0),
         "login_success":     aggs.get("login_success",    {}).get("doc_count", 0),
@@ -202,13 +205,14 @@ def build_intelligence_summary(minutes=10080):
 # Configuration
 # ============================================================
 OLLAMA_URL   = "http://100.72.171.104:11434"
-OLLAMA_MODEL = "llama3.1:8b"
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b-instruct")
+OLLAMA_FALLBACK_MODEL = "llama3.1:8b"
 
 DEFAULT_INPUT  = "/opt/wazuh-soc/data/alerts_raw.json"
 DEFAULT_OUTPUT = "/opt/wazuh-soc/data/triage_report.json"
 
 # How many alerts to send per AI batch
-# llama3.1:8b context = 8192 tokens — larger batches for richer analysis
+# qwen2.5:7b-instruct context raised to 16384 via num_ctx — richer batches
 BATCH_SIZE = 15
 
 
@@ -225,8 +229,10 @@ def ollama_generate(prompt, system=None, timeout=600):
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature": 0.2,   # low temp = consistent, factual output
-            "num_predict": 4096,
+            "temperature": 0.25,
+            "num_ctx": 16384,     # <-- critical: default is 2048, was truncating intel
+            "num_predict": 6144,  # allow longer reports
+            "repeat_penalty": 1.15,  # discourages the model from padding/looping
         }
     }
     if system:
@@ -460,89 +466,11 @@ def triage_batch_mode(alerts, stats):
     return results
 
 
-def triage_summary_mode(alerts, stats):
-    """
-    Summary mode: build full intelligence summary from OpenSearch,
-    send to LLM in one comprehensive prompt for maximum depth.
-    """
-    minutes = stats.get("window_minutes", 10080) if isinstance(stats, dict) else 10080
-
-    print(f"[+] Building intelligence summary from OpenSearch (window: {minutes} min)...")
-    intel = build_intelligence_summary(minutes)
-
-    print(f"[+] Summary mode: {intel['total_events']:,} total events, "
-          f"{intel['high_severity']:,} high, "
-          f"{len(intel['notable_events'])} notable events for analysis...")
-
-    prompt = f"""You are analyzing a Cowrie SSH honeypot deployment. You have access to
-COMPLETE AGGREGATED INTELLIGENCE across ALL {intel['total_events']:,} events — not just a sample.
-Be SPECIFIC, DETAILED, and name actual IPs, countries, organizations, credentials, and commands.
-
-=== FULL INTELLIGENCE SUMMARY ===
-Window: last {intel['window_minutes']} minutes
-Total events: {intel['total_events']:,}
-High severity: {intel['high_severity']:,} | Medium: {intel['medium_severity']:,}
-Login successes: {intel['login_success']:,} | Login failures: {intel['login_failed']:,}
-Commands executed: {intel['commands_executed']:,} | Files downloaded: {intel['files_downloaded']:,}
-
-TOP 20 ATTACKER IPs (by volume):
-{chr(10).join(f"  {ip}" for ip in intel['top_attacker_ips'])}
-
-TOP CREDENTIALS USED:
-{chr(10).join(f"  {c}" for c in intel['top_credentials'][:15])}
-
-TOP COMMANDS EXECUTED:
-{chr(10).join(f"  {c}" for c in intel['top_commands'][:10])}
-
-MITRE ATT&CK TACTICS:
-{json.dumps(intel['mitre_tactics'], indent=2)}
-
-MITRE TECHNIQUE IDs: {', '.join(intel['mitre_technique_ids'])}
-
-=== 20 MOST NOTABLE INDIVIDUAL EVENTS ===
-{json.dumps(intel['notable_events'], indent=2)}
-
-Respond with ONLY valid JSON:
-{{
-  "threat_assessment": "6-10 sentences. Use specific numbers throughout. Name top attacker IPs with their countries and organizations. Describe the dominant attack pattern in detail, including exactly what commands were run and what the attackers were trying to accomplish. Explain what would happen to a real system. Mention specific botnet campaigns by name and their credential signatures.",
-  "attacker_profile": "3-4 sentences. Identify specific threat actors by behavior. Is this Mirai? A credential stuffing botnet? Name the mdrfckr SSH key implant if present. Characterize sophistication level.",
-  "top_threats": [
-    {{
-      "threat_type": "specific name",
-      "count": "how many times observed",
-      "explanation": "2-3 sentences with specific details — IPs, creds, commands involved",
-      "recommended_action": "specific action with details (e.g. block AS12345, add IOC to threat intel)"
-    }}
-  ],
-  "iocs": {{
-    "ip_addresses": ["IP (Country, Org) for top 10 most active"],
-    "credentials": ["top credentials with repeat counts"],
-    "commands": ["notable commands with what they do"]
-  }},
-  "mitre_summary": "3 sentences naming specific techniques by ID and name, explaining what they indicate",
-  "severity_verdict": "critical|high|medium|low",
-  "analyst_notes": "3-4 sentences of specific threat intelligence observations — patterns, anomalies, attack infrastructure, threat actor signatures"
-}}"""
-
-    response = ollama_generate(prompt, system=SYSTEM_PROMPT, timeout=300)
-    try:
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
-        result = json.loads(clean.strip())
-        result["batch_number"] = 1
-        result["alerts_in_batch"] = intel["total_events"]
-        return [result]
-    except json.JSONDecodeError:
-        return [{"raw_response": response, "parse_error": True}]
-
-
 def triage_executive_mode(alerts, stats, batch_results):
     """
-    Executive mode: use full intelligence summary for CISO-level output.
-    Runs after batch analysis to add strategic context.
+    Executive mode: two-pass CISO-level analysis.
+    Pass 1 reasons over the raw intelligence; Pass 2 writes the briefing
+    using those notes. Runs after batch analysis to add strategic context.
     """
     print("[+] Generating executive summary with full intelligence context...")
 
@@ -554,6 +482,20 @@ def triage_executive_mode(alerts, stats, batch_results):
     verdicts = Counter(r.get("severity_verdict","") for r in batch_results if "severity_verdict" in r)
     top_verdict = verdicts.most_common(1)[0][0] if verdicts else "high"
 
+    # --- PASS 1: free-form reasoning (not shown to user, feeds pass 2) ---
+    print("[+] Pass 1/2: analytical reasoning...")
+    reasoning_prompt = f"""You are a SOC analyst. Study this honeypot intelligence and
+think step by step. Do NOT write a report yet. Produce dense analytical notes covering:
+which actors are distinct and why, what each command chain actually accomplishes, how the
+credential campaigns relate, what the attacker's end goal is, and what a defender should
+worry about most. Be specific with IPs, orgs, creds, commands.
+
+{json.dumps(intel, indent=2, default=str)[:9000]}
+
+Write 12-18 bullet points of analytical notes. Plain text, no JSON."""
+    analysis_notes = ollama_generate(reasoning_prompt, system=SYSTEM_PROMPT, timeout=300)
+    print("[+] Pass 2/2: writing executive briefing...")
+
     prompt = f"""Write a comprehensive executive security briefing for a CISO based on
 real honeypot threat intelligence data. Be SPECIFIC — include actual numbers,
 country names, IP addresses, and attack patterns.
@@ -561,6 +503,7 @@ country names, IP addresses, and attack patterns.
 === COMPLETE THREAT INTELLIGENCE ===
 Window: last {intel['window_minutes']} minutes
 Total events: {intel['total_events']:,}
+Unique attacker IPs: {intel['unique_ips']:,}
 High severity: {intel['high_severity']:,} | Medium: {intel['medium_severity']:,}
 Successful logins: {intel['login_success']:,} | Failed attempts: {intel['login_failed']:,}
 Commands run by attackers: {intel['commands_executed']:,}
@@ -577,27 +520,38 @@ COMMAND INTELLIGENCE:
 
 MITRE ATT&CK: {json.dumps(intel['mitre_tactics'])}
 TECHNIQUE IDs: {', '.join(intel['mitre_technique_ids'])}
+
+ANALYST PRE-ANALYSIS NOTES (use these to inform your briefing):
+{analysis_notes}
+
 OVERALL VERDICT: {top_verdict.upper()}
 
-Respond with ONLY valid JSON:
+Respond with ONLY valid JSON (no markdown fences):
 {{
-  "executive_summary": "5-6 sentences for a CISO. Start with the threat level and total scope. Name the dominant attack source countries. Describe the primary attack methodology. Mention credential patterns (the 345gs5662d34 botnet if present). Quantify the successful intrusion attempts. End with operational impact assessment.",
+  "executive_summary": "8-12 sentences for a CISO. Start with the threat level and total scope (cite total_events). Name the dominant attack source countries with their volumes. Describe the primary attack methodology end to end. Mention credential patterns by value (the 345gs5662d34 botnet and the mdrfckr SSH key implant if present). Quantify the successful intrusion attempts against failed ones. Distinguish automated botnet noise from any hands-on-keyboard activity. End with an operational impact assessment.",
   "key_findings": [
-    "Finding 1: specific numbers and geography (e.g. X attacks from Y countries, top attacker Z org)",
-    "Finding 2: credential analysis (dominant patterns, botnet signatures)",
-    "Finding 3: command/technique analysis (what attackers did after login)",
-    "Finding 4: attack infrastructure (hosting providers, ASNs used)",
-    "Finding 5: MITRE ATT&CK coverage and technique breakdown"
+    "5 to 8 findings total. Each finding must include specific numbers and a concrete artifact (IP, org, ASN, credential pair, command, or MITRE ID).",
+    "Cover: geography/volume, credential campaigns, post-login command/technique behavior, attack infrastructure (hosting providers/ASNs), MITRE ATT&CK breakdown, and any malware captured.",
+    "Add additional findings beyond these if the data supports them — do not pad to a fixed count."
   ],
   "threat_level": "{top_verdict}",
   "recommended_actions": [
-    "Specific action 1 with details",
-    "Specific action 2 with details",
-    "Specific action 3 with details",
-    "Specific action 4 with details",
-    "Specific action 5 with details"
+    "5 to 7 prioritized actions. Prefix each with its priority tag: [Immediate], [Short-term], or [Strategic].",
+    "Each action names the concrete artifact to act on (e.g. [Immediate] Block ASN AS12345, [Short-term] Add the mdrfckr SSH key fingerprint to the authorized_keys watchlist, [Strategic] Deploy fail2ban with the observed credential signatures).",
+    "Order them by priority, Immediate first."
   ],
   "threat_actors": "3-4 sentences. Characterize the threat actors by their tools, credentials, infrastructure, and behavior. Identify botnets by name if recognizable. Assess nation-state vs criminal vs opportunistic.",
+  "business_impact": "3-4 sentences translating the technical findings into business and operational risk language a board would understand — data exposure, service availability, compliance/regulatory exposure, and reputational risk. Avoid jargon.",
+  "metrics_snapshot": {{
+    "total_events": {intel['total_events']},
+    "unique_attacker_ips": {intel['unique_ips']},
+    "high_severity": {intel['high_severity']},
+    "medium_severity": {intel['medium_severity']},
+    "login_success": {intel['login_success']},
+    "login_failed": {intel['login_failed']},
+    "commands_executed": {intel['commands_executed']},
+    "files_downloaded": {intel['files_downloaded']}
+  }},
   "ioc_summary": {{
     "top_ips": [list top 5 attacker IPs with country and org],
     "botnet_credentials": [list the most-repeated credential pairs],

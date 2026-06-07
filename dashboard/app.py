@@ -2067,7 +2067,7 @@ def analyze_botnet_with_ai(name, count, unique_ips):
             {"wildcard": {"data.input":    f"*{name.split()[0]}*"}},
         ], "minimum_should_match": 1}}
     sample_body = {
-        "size": 25,
+        "size": 40,
         "query": {"bool": {"filter": [
             {"exists": {"field": "data.honeypot"}},
             query,
@@ -2088,29 +2088,38 @@ def analyze_botnet_with_ai(name, count, unique_ips):
             "eventid": d.get("eventid", ""),
         })
 
-    prompt = f"""You are a threat intelligence analyst. Analyze this botnet detected in a Cowrie SSH honeypot.
+    prompt = f"""You are a senior threat intelligence analyst writing a briefing on a
+    botnet/campaign captured by a Cowrie SSH honeypot on DigitalOcean NYC1. Be SPECIFIC and
+    TECHNICAL. Reference the actual IPs, credentials, and commands in the sample data below by
+    value. Explain the *why* behind each behavior, not just the *what*. Do not pad or repeat.
 
-Botnet: {name}
-Total events: {count:,}
-Unique source IPs: {unique_ips}
+    Campaign: {name}
+    Total events: {count:,}
+    Unique source IPs: {unique_ips}
 
-Sample events:
-{json.dumps(samples, indent=2)}
+    Sample events (real captured data):
+    {json.dumps(samples, indent=2)}
 
-Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid JSON:
-{{
-  "description": "What this botnet is, its name/family if known, and its primary purpose",
-  "methodology": "How it operates — what credentials it uses, what commands it runs, attack pattern",
-  "detection": "How it was recognized in this honeypot — specific signatures, credential patterns, command sequences",
-  "threat_level": "Threat assessment — sophistication level, risk, what damage it could do on a real system"
-}}"""
+    Respond with ONLY valid JSON (no markdown fences). Each field has a minimum depth:
+    {{
+      "description": "4-5 sentences. Identify the botnet/malware family if recognizable (Mirai, Gafgyt, the mdrfckr SSH implant, the 345gs5662d34 credential campaign, etc.). State its primary objective and what stage of the kill chain these events represent.",
+      "methodology": "5-6 sentences. Walk through the operational sequence step by step: initial access vector, credential strategy (cite the actual user/pass pairs), the exact post-login command sequence and what each command accomplishes, and any persistence or anti-forensic technique observed (e.g. chattr/lockr to lock .ssh, authorized_keys implant).",
+      "detection": "3-4 sentences. Name the specific signatures that clustered these events — credential strings, command regex, event IDs, protocol. Explain why these are high-confidence indicators versus false positives.",
+      "mitre": "2-3 sentences mapping observed behavior to MITRE ATT&CK techniques by ID and name (e.g. T1110.001 Password Guessing, T1098.004 SSH Authorized Keys, T1222 File/Dir Permissions Modification).",
+      "impact": "3-4 sentences. Concretely describe what would happen on a real production server that accepted this access — data at risk, lateral movement potential, resource hijacking (cryptomining/DDoS conscription), and dwell time.",
+      "threat_level": "One of: critical|high|medium|low, followed by a 2-sentence justification citing sophistication and automation level.",
+      "recommended_actions": ["4-5 specific, actionable items — block specific ASNs/IPs, add the SSH key fingerprint to a watchlist, alert rule tuning, etc. Each item names the concrete artifact to act on."]
+    }}"""
 
     # Ollama call with retry logic and fallback template
     _OLLAMA_FALLBACK = {
         "description": "AI analysis unavailable — Ollama may be offline or busy.",
         "methodology": "Unable to generate analysis at this time.",
         "detection": "Campaign was detected via credential/command clustering.",
+        "mitre": "Manual MITRE mapping recommended.",
+        "impact": "Manual impact assessment recommended.",
         "threat_level": "Manual review recommended.",
+        "recommended_actions": ["Re-run analysis once Ollama host is awake."],
     }
     # Fast reachability pre-check: if Ollama's host is down (e.g. laptop asleep),
     # fail in ~3s instead of waiting out the full generation timeout twice.
@@ -2135,10 +2144,15 @@ Provide a SHORT analysis (2-3 sentences each section). Respond with ONLY valid J
             ctx.check_hostname = False
             ctx.verify_mode = _ssl.CERT_NONE
             body = json.dumps({
-                "model": "llama3.1:8b",
+                "model": os.environ.get("OLLAMA_MODEL", "qwen2.5:7b-instruct"),
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": 0.3, "num_predict": 2048},
+                "options": {
+                    "temperature": 0.3,
+                    "num_ctx": 8192,
+                    "num_predict": 3072,
+                    "repeat_penalty": 1.15,
+                },
             }).encode()
             req = urllib.request.Request(
                 OLLAMA_URL, data=body,

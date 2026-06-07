@@ -49,6 +49,13 @@
   --lavender:#8b6f9e;
   --orchid: #a07890;
 }
+
+/* Additional Info — executive metrics snapshot chips */
+.metrics-snapshot{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.metric-chip{font-size:11px;background:var(--bg);border:1px solid var(--border);
+  border-radius:6px;padding:4px 10px;color:var(--text3)}
+.metric-chip b{color:var(--text);font-size:13px;margin-right:3px}
+
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
 header{background:var(--snow);border-bottom:1px solid var(--border);padding:12px 24px;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -550,7 +557,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     <div class="live-dot"></div>
     <div>
       <h1>AI-Powered SOC Dashboard</h1>
-      <small>Wazuh SIEM · Cowrie Honeypot · llama3.1:8b · RTX 4070</small>
+      <small>Wazuh SIEM · Cowrie Honeypot · qwen2.5:7b-instruct · RTX 4070</small>
     </div>
   </div>
   <div class="header-right">
@@ -929,7 +936,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
       <!-- AI analysis button -->
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">
         <button class="icon-btn" onclick="analyzeDionaea()" id="dio-ai-btn">◈ AI Analysis of Malware Activity</button>
-        <span style="font-size:10px;color:var(--muted)">llama3.1:8b · analyzes service patterns, top attackers, and binary captures</span>
+        <span style="font-size:10px;color:var(--muted)">qwen2.5:7b-instruct · analyzes service patterns, top attackers, and binary captures</span>
       </div>
       <div id="dio-ai-out" style="display:none;margin-top:10px;padding:12px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);font-size:12px;line-height:1.7"></div>
     </div>
@@ -988,7 +995,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
       <!-- AI analysis button -->
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px">
         <button class="icon-btn" onclick="analyzeNginx()" id="ngx-ai-btn">◈ AI Analysis of Web Scanning</button>
-        <span style="font-size:10px;color:var(--muted)">llama3.1:8b · identifies scanning campaigns, CVE probes, and attacker intent</span>
+        <span style="font-size:10px;color:var(--muted)">qwen2.5:7b-instruct · identifies scanning campaigns, CVE probes, and attacker intent</span>
       </div>
       <div id="ngx-ai-out" style="display:none;margin-top:10px;padding:12px;background:var(--bg3);border-radius:6px;border:1px solid var(--border);font-size:12px;line-height:1.7"></div>
     </div>
@@ -1039,7 +1046,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
   <!-- Row 8: AI Analysis -->
   <div class="section-label">On-Demand AI Analysis</div>
   <div class="ai-panel">
-    <div class="ai-title">◈ AI Threat Analysis — llama3.1:8b on RTX 4070</div>
+    <div class="ai-title">◈ AI Threat Analysis — qwen2.5:7b-instruct on RTX 4070</div>
     <div class="controls">
       <div class="ctrl-grp"><div class="ctrl-label">Analysis Mode</div>
         <select id="ai-mode">
@@ -1093,6 +1100,10 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
       <div id="exec-section" style="display:none">
         <div style="border-top:1px solid var(--border);margin:14px 0;padding-top:14px">
           <div class="t-section"><h4>Executive Summary</h4><p id="t-exec"></p></div>
+          <div class="t-section" id="t-bizimpact-wrap" style="display:none">
+            <h4>Business Impact</h4><p id="t-bizimpact"></p>
+          </div>
+          <div id="t-metrics" class="metrics-snapshot" style="display:none"></div>
           <div class="g2">
             <div class="t-section"><h4>Key Findings</h4><ul class="find-list" id="t-finds"></ul></div>
             <div class="t-section"><h4>Recommended Actions</h4><ul class="act-list" id="t-acts"></ul></div>
@@ -1144,7 +1155,7 @@ footer{text-align:center;padding:14px;color:var(--muted);font-size:11px;border-t
     <span style="display:flex;align-items:center;gap:3px" title="nginx web honeypot"><span id="sb-hp-nginx" style="width:6px;height:6px;border-radius:50%;background:var(--muted);display:inline-block"></span>web<span id="sb-hp-nginx-n" style="color:var(--text3)"></span></span>
   </span>
   <span id="sb-error" style="color:#8a3030;display:none;margin-left:6px"></span>
-  <span style="margin-left:auto;opacity:.4">wazuh-soc-pipeline · CMU MSISPM Portfolio · Tyce Erickson · DigitalOcean NYC1 · llama3.1:8b on RTX 4070</span>
+  <span style="margin-left:auto;opacity:.4">wazuh-soc-pipeline · CMU MSISPM Portfolio · Tyce Erickson · DigitalOcean NYC1 · qwen2.5:7b-instruct on RTX 4070</span>
 </div>
 <div style="height:26px"></div>
 
@@ -2465,6 +2476,18 @@ function renderTriage(d){
     es.style.display='block';set('t-exec',exec.executive_summary);
     const rl=(id,items)=>{const e=document.getElementById(id);if(e)e.innerHTML=(items||[]).map(i=>`<li>${i}</li>`).join('');};
     rl('t-finds',exec.key_findings);rl('t-acts',exec.recommended_actions);
+    // Business impact (new)
+    const bi=document.getElementById('t-bizimpact-wrap');
+    if(exec.business_impact){document.getElementById('t-bizimpact').textContent=exec.business_impact;bi.style.display='block';}
+    else{bi.style.display='none';}
+    // Metrics snapshot (new) — render as labeled stat chips
+    const ms=exec.metrics_snapshot,mEl=document.getElementById('t-metrics');
+    if(ms&&typeof ms==='object'){
+      const labels={total_events:'Total Events',unique_attacker_ips:'Unique IPs',high_severity:'High Sev',medium_severity:'Med Sev',login_success:'Logins OK',login_failed:'Logins Failed',commands_executed:'Commands',files_downloaded:'Files DL'};
+      mEl.innerHTML=Object.keys(labels).filter(k=>ms[k]!=null).map(k=>
+        `<span class="metric-chip"><b>${Number(ms[k]).toLocaleString()}</b> ${labels[k]}</span>`).join('');
+      mEl.style.display='flex';
+    }else{mEl.style.display='none';}
   }else{es.style.display='none';}
   set('t-m-model',`Model: ${d.model}`);set('t-m-alerts',`Alerts: ${d.alerts_analyzed}`);set('t-m-time',`Generated: ${timeAgo(d.generated_at)}`);
 }
@@ -2475,7 +2498,7 @@ const _bCache={};let _bCtrl=null;
 function cancelBotnetAnalysis(){if(_bCtrl){_bCtrl.abort();_bCtrl=null;}document.getElementById('botnet-modal').style.display='none';}
 function renderBotnetResult(body,d,count,ips){
   if(d.error){body.innerHTML=`<div style="color:#8a3030;font-family:monospace">${d.error}</div>`;return;}
-  body.innerHTML=`<div class='modal-section'><div class='modal-section-title'>What is this campaign?</div><p>${d.description||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>How it operates</div><p>${d.methodology||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>How it was detected</div><p>${d.detection||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>Threat assessment</div><p>${d.threat_level||'—'}</p></div><div style='font-family:monospace;font-size:10px;color:var(--text3);margin-top:12px;padding-top:10px;border-top:1px solid var(--border)'>${fmt(count)} events · ${ips} IPs · llama3.1:8b · <span style='color:var(--forest,#4a7c59)'>cached 5min</span></div>`;
+  body.innerHTML=`<div class='modal-section'><div class='modal-section-title'>What is this campaign?</div><p>${d.description||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>How it operates</div><p>${d.methodology||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>How it was detected</div><p>${d.detection||'—'}</p></div><div class='modal-section'><div class='modal-section-title'>Threat assessment</div><p>${d.threat_level||'—'}</p></div><div style='font-family:monospace;font-size:10px;color:var(--text3);margin-top:12px;padding-top:10px;border-top:1px solid var(--border)'>${fmt(count)} events · ${ips} IPs · qwen2.5:7b-instruct · <span style='color:var(--forest,#4a7c59)'>cached 5min</span></div>`;
 }
 async function analyzeBotnet(name, count, uniqueIps){
   const modal=document.getElementById('botnet-modal');
@@ -2485,8 +2508,8 @@ async function analyzeBotnet(name, count, uniqueIps){
   title.textContent=`◈ ${name} — AI Analysis`;
   const ck=`${name}|${currentWindow}`;
   if(_bCache[ck]&&Date.now()-_bCache[ck].ts<300000){renderBotnetResult(body,_bCache[ck].d,count,uniqueIps);return;}
-  body.innerHTML=`<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><div style="width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--forest,#4a7c59);border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0"></div><span>Fetching events &amp; analyzing with llama3.1:8b…</span></div><div style="margin-top:10px"><button onclick="cancelBotnetAnalysis()" style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 12px;font-size:11px;color:var(--text3);cursor:pointer">✕ Cancel</button></div>`;
   _bCtrl=new AbortController();
+  body.innerHTML=`<div style="display:flex;align-items:center;gap:10px;color:var(--text3)"><div style="width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--forest,#4a7c59);border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0"></div><span>Fetching events &amp; analyzing with qwen2.5:7b-instruct…</span></div><div style="margin-top:10px"><button onclick="cancelBotnetAnalysis()" style="background:none;border:1px solid var(--border);border-radius:5px;padding:4px 12px;font-size:11px;color:var(--text3);cursor:pointer">✕ Cancel</button></div>`;
   try{
     const r = await fetch('/api/botnet_analysis', {
       method: 'POST',
@@ -3207,7 +3230,7 @@ async function analyzeDionaea() {
       <div class="modal-section"><div class="modal-section-title">Attack methodology</div><p>${result.methodology||'—'}</p></div>
       <div class="modal-section"><div class="modal-section-title">Detection</div><p>${result.detection||'—'}</p></div>
       <div class="modal-section"><div class="modal-section-title">Threat level</div><p>${result.threat_level||'—'}</p></div>
-      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:14px;border-top:1px solid var(--border);padding-top:8px">Dionaea · ${fmt(d.total)} events · llama3.1:8b</div>`;
+      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:14px;border-top:1px solid var(--border);padding-top:8px">Dionaea · ${fmt(d.total)} events · qwen2.5:7b-instruct</div>`;
     _dioAiCache[ck] = {html, ts: Date.now()}; lruEvict(_dioAiCache,20);
     out.innerHTML = html; out.style.display = 'block';
   } catch(e) {
@@ -3261,7 +3284,7 @@ async function analyzeNginx() {
       <div class="modal-section"><div class="modal-section-title">Methodology</div><p>${result.methodology||'—'}</p></div>
       <div class="modal-section"><div class="modal-section-title">Detection signals</div><p>${result.detection||'—'}</p></div>
       <div class="modal-section"><div class="modal-section-title">Threat level</div><p>${result.threat_level||'—'}</p></div>
-      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">nginx · ${fmt(d.total)} requests · llama3.1:8b</div>`;
+      <div style="font-family:monospace;font-size:10px;color:var(--text3);margin-top:10px;border-top:1px solid var(--border);padding-top:8px">nginx · ${fmt(d.total)} requests · qwen2.5:7b-instruct</div>`;
     _ngxAiCache[ck] = {html, ts: Date.now()}; lruEvict(_ngxAiCache,20);
     out.innerHTML = html; 
     out.style.display = 'block';

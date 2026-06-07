@@ -70,13 +70,13 @@ Internet Attackers
         │
         ▼
 [DigitalOcean VPS — NYC1]                    [Alienware m16 R2]
-  Cowrie SSH/Telnet Honeypot                   Ollama + llama3.1:8b
+  Cowrie SSH/Telnet Honeypot                   Ollama + qwen2.5:7b-instruct
   nginx Web Honeypot                           RTX 4070 (8GB VRAM)
   Dionaea Malware Capture
-        │                                              │
-        │ rsync / 5–15 min per honeypot (Tailscale)    │ HTTP API (Tailscale)
-        ▼                                              │
-[Ubuntu Server — aarch64]                              │
+        │                                               │
+        │ rsync / 5–15 min per honeypot (Tailscale)     │ HTTP API (Tailscale)
+        ▼                                               │
+[Ubuntu Server — aarch64]                               │
   Wazuh SIEM + OpenSearch                               │
   GeoIP + VirusTotal Enrichment                         │
   forward_cowrie.py + parse_nginx.py + parse_dionaea.py │
@@ -106,7 +106,7 @@ The custom Flask dashboard provides **17 real-time intelligence panels** across 
 | Credential Intelligence | Success rates, coordinated-attack detection, botnet badges |
 | Attacker Intelligence | Threat-scored attackers with full session breakdown |
 | MITRE ATT&CK Framework | Dynamic tactic/technique mapping from live alert data |
-| On-Demand AI Analysis | llama3.1:8b summary, full, and executive triage modes |
+| On-Demand AI Analysis | qwen2.5:7b-instruct summary, full, and executive triage modes |
 
 ### Multi-Honeypot & Correlation (nginx + Dionaea)
 | Panel | Description |
@@ -230,7 +230,7 @@ The Flask backend exposes **28 API endpoints** (plus the dashboard root). Highli
 - **SIEM:** Wazuh 4.x + OpenSearch (Ubuntu Server, aarch64)
 - **Backend:** Python 3, Flask (minimal dependencies — `flask`, `geoip2`)
 - **Frontend:** vanilla HTML/CSS/JS, HTML5 Canvas, Natural Earth 50m geodata
-- **AI:** Ollama + llama3.1:8b on NVIDIA RTX 4070 (fully local inference)
+- **AI:** Ollama + qwen2.5:7b-instruct on NVIDIA RTX 4070 (fully local inference)
 - **Network:** Tailscale mesh VPN (no public dashboard exposure)
 - **Secrets:** environment-variable based; no credentials in source
 
@@ -247,7 +247,7 @@ See `docs/02-wazuh-installation.md` for full deployment instructions. High-level
 7. Import the OpenSearch ingest pipeline (`config/ingest-pipeline-filebeat-wazuh-alerts.json`) and apply `config/mitre-db-fixes.sql` to the Wazuh MITRE DB (re-apply the latter after any Wazuh upgrade — see `docs/operations.md`)
 8. Deploy the Flask dashboard (`config/soc-dashboard.service`); set `OPENSEARCH_PASS` in the unit
 9. (Optional) set `VT_API_KEY` in `config/dionaea-sync.service` to enable VirusTotal enrichment
-10. Install Ollama and pull `llama3.1:8b` on your AI inference machine
+10. Install Ollama and pull `qwen2.5:7b-instruct` on your AI inference machine
 
 ## Documentation
 

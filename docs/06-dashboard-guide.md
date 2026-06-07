@@ -2,30 +2,35 @@
 
 ## Overview
 
-The SOC dashboard is a custom Flask web application (`app.py`) providing real-time visibility into all three honeypots. It queries OpenSearch (Wazuh) directly for live statistics, renders 12 intelligence panels across three sections, and integrates with Ollama `llama3.1:8b` for on-demand threat analysis. Accessible at `http://100.82.166.75:5000` via Tailscale.
+The SOC dashboard is a custom Flask web application (`app.py`) providing real-time visibility into all three honeypots. It queries OpenSearch (Wazuh) directly for live statistics, renders 12 intelligence panels across three sections, and integrates with Ollama `qwen2.5:7b-instruct` for on-demand threat analysis. Accessible at `http://100.82.166.75:5000` via Tailscale.
 
 **Data sources:** the dashboard visualizes **all three honeypots** — Cowrie (SSH/Telnet), Dionaea (malware capture), and nginx (web). The Cowrie panels cover the highest-volume SSH attack data; the Multi-Honeypot section covers malware capture and web scanning; the Threat Actor Correlation panel unifies activity across all three.
 
----
+\---
 
 ## Alert Source Explained
 
 ### Where alerts come from
-Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-*`). Wazuh receives the normalized `{"data":{...}}`-wrapped JSON feeds produced by the parsers/forwarders on the Ubuntu Server (pulled from the VPS by per-honeypot systemd timers — cowrie/nginx every 5 min, dionaea every 15 min). Flow:
+
+Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-\*`). Wazuh receives the normalized `{"data":{...}}`-wrapped JSON feeds produced by the parsers/forwarders on the Ubuntu Server (pulled from the VPS by per-honeypot systemd timers — cowrie/nginx every 5 min, dionaea every 15 min). Flow:
+
 ```
 VPS honeypots → sync timers (rsync) → Ubuntu Server parsers/forwarder → Wazuh → OpenSearch → Dashboard
 ```
 
 ### What is a "Wazuh alert"?
+
 A Wazuh alert is a **rule-violation event** generated when a log line matches a rule. One honeypot event can generate multiple alerts if it matches multiple rules, so raw alert counts are always higher than raw event/session counts. All dashboard queries filter `{"exists": {"field": "data.honeypot"}}`.
 
 ### Credentials are read from the environment
-The dashboard authenticates to OpenSearch using the `OPENSEARCH_PASS` environment variable (set in `soc-dashboard.service`). No credentials are stored in source.
+
+The dashboard authenticates to OpenSearch using the `OPENSEARCH\_PASS` environment variable (set in `soc-dashboard.service`). No credentials are stored in source.
 
 ### Top Attacker Countries and the Geographic Map
-Both the Countries bar chart and the Geographic Map now derive from the **same source**: the GeoIP-enriched top-IP list (`geoip_cache.json`). This was a deliberate fix — Cowrie events lack a `data.location.country_name` field, so the old country aggregation on that field returned nothing for the highest-volume honeypot. Deriving both panels from the GeoIP-resolved IP list keeps them consistent across all three honeypots.
 
----
+Both the Countries bar chart and the Geographic Map now derive from the **same source**: the GeoIP-enriched top-IP list (`geoip\_cache.json`). This was a deliberate fix — Cowrie events lack a `data.location.country\_name` field, so the old country aggregation on that field returned nothing for the highest-volume honeypot. Deriving both panels from the GeoIP-resolved IP list keeps them consistent across all three honeypots.
+
+\---
 
 ## Panel Reference
 
@@ -37,7 +42,7 @@ Both the Countries bar chart and the Geographic Map now derive from the **same s
 
 **Geographic Attack Map** — Natural Earth world map with attack dots sized by volume; uses GeoIP-resolved IPs.
 
-**Top Attacker IPs / Countries** — `data.src_ip` and `data.location.country_name` aggregations, GeoIP-enriched.
+**Top Attacker IPs / Countries** — `data.src\_ip` and `data.location.country\_name` aggregations, GeoIP-enriched.
 
 **Attack Velocity** — Live 60-minute attacks/min spark chart; polls every 30s.
 
@@ -49,11 +54,11 @@ Both the Countries bar chart and the Geographic Map now derive from the **same s
 
 **Credential Intelligence** — Failed/success/unique counts and per-credential success rate (`success / (success + failed)`). Distinctive botnet usernames (e.g. `mdrfckr`) are surfaced as named campaigns.
 
-**Attacker Intelligence** — Top attackers driven by the cross-honeypot `/api/threat_actors` aggregation (every source IP across SSH/web/malware, not a Cowrie-session sample — which previously collapsed the panel to a single IP on long windows). Each row shows attack-vector badges (SSH / WEB / MALWARE), a multi-vector badge, and SSH-KEY / MALWARE / BREACH / CVE indicators, ranked by a composite threat score. Expand for MITRE tactics, credentials tried, top commands, and threat indicators; a 🔍 button opens the full per-IP attack narrative.
+**Attacker Intelligence** — Top attackers driven by the cross-honeypot `/api/threat\_actors` aggregation (every source IP across SSH/web/malware, not a Cowrie-session sample — which previously collapsed the panel to a single IP on long windows). Each row shows attack-vector badges (SSH / WEB / MALWARE), a multi-vector badge, and SSH-KEY / MALWARE / BREACH / CVE indicators, ranked by a composite threat score. Expand for MITRE tactics, credentials tried, top commands, and threat indicators; a 🔍 button opens the full per-IP attack narrative.
 
-**MITRE ATT&CK Framework** — Tactics/techniques discovered dynamically from `rule.mitre.*` aggregations; hover for definitions, click to expand examples.
+**MITRE ATT\&CK Framework** — Tactics/techniques discovered dynamically from `rule.mitre.\*` aggregations; hover for definitions, click to expand examples.
 
-**On-Demand AI Analysis** — `llama3.1:8b` (Ollama via Tailscale). Summary (~30s), Full (~3min), Executive (~5min). Results cached in `triage_report.json`.
+**On-Demand AI Analysis** — `qwen2.5:7b-instruct` (Ollama via Tailscale). Summary (\~30-60s), Full (\~3min), Executive (\~2-3min, two-pass). Results cached in triage\_report.json.
 
 ### Multi-Honeypot Intelligence (nginx + Dionaea)
 
@@ -73,18 +78,21 @@ The activity box supports **1h / 1d / 7d / 30d** windows and tab persistence wit
 
 **Alert Drawer** — `GET /api/alert/<ip>` opens a full context panel for any source IP (recent events, geo, credentials, commands; copy-as-JSON), enriched with the cross-honeypot attack narrative from `GET /api/actor/<ip>` (kill-chain phases, per-tactic command evidence, malware/VT, persistence, copyable IOCs).
 
-**Search / Pivot** — `GET /api/search?q=&type=ip|cred|cmd` pivots across IPs, credentials, and commands.
+**Search / Pivot** — `GET /api/search?q=\&type=ip|cred|cmd` pivots across IPs, credentials, and commands.
 
 **Cases** — Create/track incident cases (status open/investigating/closed, severity, notes, linked alerts, audit log) backed by a local SQLite store (`schema.sql`); CSV export supported.
 
 **Response Playbooks** — Five built-in playbooks for common honeypot findings.
 
----
+\---
 
 ## Status Bar
+
 OpenSearch connectivity (green/yellow/red), GeoIP cache size, honeypot health, last-refresh timestamp (updates every 10s), and alert count in the current window.
 
----
+\---
 
 ## Notes on Copy-to-Clipboard
+
 The dashboard is served over plain HTTP on the Tailscale network, where the browser's secure-context `navigator.clipboard` API is unavailable. A fallback copy helper (using `execCommand`) is used so SHA256 hashes, credentials, and alert JSON can be copied regardless.
+

@@ -17,7 +17,7 @@ OpenSearch (wazuh-alerts-4.x-*)
   alerts_raw.json (structured alert sample)
          │  ai_triage.py  (pre-aggregation + prompt engineering)
          ▼
-  Prompt → Ollama HTTP API (Tailscale) → llama3.1:8b on RTX 4070 (15–30s)
+  Prompt → Ollama HTTP API (Tailscale) → qwen2.5:7b-instruct on RTX 4070 (~30-60s)
          ▼
   triage_report.json → Dashboard /api/triage
 ```
@@ -90,17 +90,27 @@ Respond ONLY with valid JSON:
   "analyst_notes": "..." }
 ```
 
+### Context Window & Two-Pass Reasoning
+Ollama defaults to a 2048-token context regardless of model capacity unless
+`num_ctx` is set explicitly. Because the pre-aggregated intelligence prompt far
+exceeds 2048 tokens, `num_ctx` is raised to 16384 on every call — without this
+the model silently truncated most of the supplied intelligence. Executive mode
+additionally runs a two-pass chain: pass 1 produces free-form analytical notes
+over the raw intel, pass 2 writes the structured CISO briefing using those notes,
+yielding measurably deeper output for the cost of one extra ~20s call.
+
 ### Analysis Modes
 | Mode | Description | Typical Runtime |
 |------|-------------|-----------------|
-| Summary | Top 10 alerts, single LLM call | 15–30s |
-| Full | All alerts in batches of 25 | 2–4 min |
-| Executive | Full analysis + CISO summary with recommendations | 4–6 min |
+| Summary | Full aggregated intel, single deep LLM call | 30-60s |
+| Full | All alerts in batches of 15 | 2-4 min |
+| Executive | Two-pass reasoning + CISO briefing | 1.5-3 min |
 
 ### Model Selection
-- `llama3.3:70b` — excellent reasoning, but ~42GB forced VRAM→RAM offload and 10+ min inference. Rejected.
-- `llama3.1:8b` — fits entirely in the RTX 4070's 8GB VRAM, 15–30s per call, coherent structured JSON. Selected.
-
+- `qwen2.5:7b-instruct` — selected. Fits the RTX 4070 8GB fully in VRAM at a
+  16K context, ~31 tok/s, superior structured-JSON adherence vs llama3.1:8b.
+- `llama3.1:8b` — retained as manual fallback; previously the primary model.
+- `llama3.3:70b` — rejected: ~42GB forced VRAM→RAM offload, 10+ min inference.
 ---
 
 ## Component 3: Triage Runner (`triage_runner.py`)
@@ -124,7 +134,8 @@ Clicking "AI Analysis" on any botnet card POSTs to `/api/botnet_analysis` with t
 
 ```powershell
 winget install Ollama.Ollama
-ollama pull llama3.1:8b
+ollama pull qwen2.5:7b-instruct   # primary
+ollama pull llama3.1:8b           # fallback
 # Bind to Tailscale: set OLLAMA_HOST=100.72.171.104:11434, restart the service
 ```
 
