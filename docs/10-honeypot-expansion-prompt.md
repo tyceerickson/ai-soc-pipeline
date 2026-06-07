@@ -32,7 +32,7 @@ The dashboard is fully working at `http://100.82.166.75:5000`. It currently show
 - Top Credentials + Credential Intelligence
 - Top Commands Executed + Attacker Intelligence
 - MITRE ATT&CK Framework (dynamic, all tactics)
-- On-Demand AI Analysis (Ollama llama3.1:8b)
+- On-Demand AI Analysis (qwen2.5:7b-instruct)
 - Status bar (OpenSearch health, GeoIP count, refresh time)
 
 Backend: `app.py` (Flask, 1733 lines) at `/opt/wazuh-soc/dashboard/app.py`
