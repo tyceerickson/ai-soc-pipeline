@@ -1,0 +1,29 @@
+# Credentials and secrets
+config/credentials.txt
+*.env
+**/override.conf
+
+# Captured malware + honeypot data — NEVER commit
+**/binaries/
+**/archive/
+binaries/
+archive/
+*.sqlite
+*.db
+*.pkl
+*.mmdb
+
+# Large data / runtime state (use data/samples/ instead)
+data/alerts_raw.json
+data/triage_report.json
+data/live/
+opensearch_full.json
+.vt_cache.json
+.parse_state*.json
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
