@@ -4,7 +4,7 @@
 
 This project deploys a production-grade, AI-powered Security Operations Center (SOC)
 pipeline on real internet infrastructure. **Three honeypots** exposed to the public
-internet — Cowrie (SSH/Telnet), nginx (web), and Dionaea (malware capture) — collect
+internet via Cowrie (SSH/Telnet), nginx (web), and Dionaea (malware capture) while collecting real
 live attack data across distinct vectors. That data is processed through a Wazuh SIEM,
 enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
 locally-hosted large language model. A custom real-time dashboard provides analysts with
@@ -35,7 +35,7 @@ Over the active collection window (**May 21–28, 2026**), the sensors recorded:
 > \~99% to \~20–30k \*meaningful, actionable\* detections. The raw scale demonstrates exposure;
 > the rebuilt signal demonstrates detection engineering. (See `docs/08-lessons-learned.md`.)
 
-The attack surface was a small set of exposed services on a single VPS. The volume represents the baseline threat level any internet-connected system faces — on the order of 20+ attack events per second at sustained volume.
+The attack surface was a small set of exposed services on a single VPS. The volume represents the baseline threat level any internet-connected system faces with an average of 20+ attack events per second at sustained volume.
 
 ### Live Malware Capture — WannaCry Still Propagating
 
@@ -45,18 +45,18 @@ hash-verified against VirusTotal:
 * **6 of 7 samples were WannaCry ransomware variants** (59–66 of \~76 VirusTotal engines
 flagging each), the remaining sample a trojan downloader
 * Delivered from source IPs across **multiple countries** (United States, Thailand,
-Sri Lanka, Vietnam) — independent infections all blindly scanning for exposed SMB
+Sri Lanka, Vietnam) all of them are independent infections all blindly scanning for exposed SMB
 * Each sample is SHA256-hashed, attributed to its source IP/country/service, and preserved
 in a permanent read-only archive with metadata
 
 WannaCry continuing to self-propagate over exposed SMB years after its 2017 outbreak is a
-concrete, measurable illustration of long-tail internet threat activity — and of why
+concrete, measurable illustration of long-tail internet threat activity, and shows why
 legacy-protocol exposure remains a live risk.
 
 ### Two Major Attack Waves
 
 * **WWave 1 — the 345gs5662d34 credential-stuffing campaign:** the `345gs5662d34` credential-stuffing campaign.
-`root/345gs5662d34` was attempted **103,084 times across 357 unique IPs** — a coordinated
+`root/345gs5662d34` was attempted **103,084 times across 357 unique IPs** inidcating a coordinated
 multi-source effort and the largest single-credential campaign in the dataset.
 * **Wave 2 — peak day (\~2.7M alerts/24h):** the `mdrfckr` botnet at peak activity,
 combining the credential sweep with a full SSH key-implant playbook on every successful
@@ -84,8 +84,8 @@ manager brute-force.
 
 The Threat Actor Correlation analysis unifies each source IP's activity across all three
 honeypots into a single threat-scored profile. Multiple IPs were observed attacking more
-than one honeypot — e.g. brute-forcing SSH *and* delivering malware over SMB — revealing
-coordinated actors that siloed per-sensor views would miss.
+than one honeypot — e.g. brute-forcing SSH *and* delivering malware over SMB, with the purpose of
+revealing coordinated actors that a siloed per-sensor views would miss.
 
 ## Technical Architecture
 
