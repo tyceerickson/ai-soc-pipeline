@@ -33,7 +33,7 @@ A walkthrough of the dashboard running on real honeypot data — attack timeline
 | Unique attacker IPs | 1,000+ |
 | Countries observed | 99 |
 | Active botnets identified | 6 |
-| Peak day | ~2.8M alerts / 24h |
+| Peak day | ~2.7M alerts / 24h (May 26, 2,688,520) |
 
 ### Current state (post rule-rebuild — signal era)
 
@@ -48,7 +48,7 @@ A walkthrough of the dashboard running on real honeypot data — attack timeline
 ### Detection Engineering: From Volume to Signal
 
 The two tables above tell the most important story in this project. The initial pipeline
-indexed **11.6M events** (peaking at ~2.8M/day) — but the overwhelming majority were
+indexed **11.6M events** (peaking at ~2.7M/day) — but the overwhelming majority were
 SSH session-lifecycle events (connect / key-exchange / disconnect) that carry no analytic
 value. High volume, low signal.
 
@@ -57,7 +57,7 @@ each rule tags the **single correct technique and tactic** for the behavior it d
 session-lifecycle noise is suppressed at rule level 0. The result: daily alert *counts*
 dropped by ~99%, but every remaining alert is a **meaningful, MITRE-classified, actionable
 detection** which includes a failed/successful login, a discovery command, a persistence implant, a
-malware drop, a CVE probe. A SOC analyst wants the ~25k signal, not the 2.8M noise.
+malware drop, a CVE probe. A SOC analyst wants the ~25k signal, not the 2.7M noise.
 
 That transition, recognizing that raw data volume is not detection quality, then doing the
 detection-engineering work to fix it, is the core security-operations lesson of the project, that I unexpectedly learned.
@@ -147,7 +147,7 @@ SendGrid/Twilio API keys, Hikvision CVE-2021-36260 RCE probes, TP-Link firmware 
 (CVE-2021-22161), and Tomcat manager brute-force.
 
 ### Attack Scale
-At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet campaigns. Across the 6-day capture window the system averaged roughly 1.9 million alerts/day, on the order of 20+ attack events every second at sustained volume.
+At peak, a single day saw **~2.7 million alerts**, driven by overlapping botnet campaigns. Across the 6-day capture window the system averaged roughly 1.9 million alerts/day, on the order of 20+ attack events every second at sustained volume.
 
 ## Repository Structure
 
