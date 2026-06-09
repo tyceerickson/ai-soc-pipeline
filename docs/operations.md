@@ -1,6 +1,6 @@
 # Operations Runbook
 
-Operational notes for the AI-Powered SOC Pipeline — covers the components that live
+Operational notes for the AI-Powered SOC Pipeline, this covers the components that live
 outside the git repo and must be re-applied after rebuilds/upgrades, plus the
 automated ingestion topology and resilience safeguards.
 
