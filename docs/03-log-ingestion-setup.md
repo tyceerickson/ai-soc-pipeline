@@ -2,7 +2,7 @@
 
 ## Overview
 
-Raw data from three honeypots is collected on the DigitalOcean VPS and pulled to the Ubuntu Server over Tailscale by homeserver-owned systemd timers — Cowrie and nginx every 5 minutes, Dionaea every 15 minutes. On the Ubuntu Server it is consolidated, enriched (GeoIP + VirusTotal), normalized to `{"data":{...}}`-wrapped Wazuh JSON, and indexed. The pipeline is fully automated, reboot-safe, and runs unattended.
+Raw data from three honeypots is collected on the DigitalOcean VPS and pulled to the Ubuntu Server over Tailscale by homeserver-owned systemd timers. With Cowrie and nginx being pulled every 5 minutes, with Dionaea being pulled every 15 minutes. On the Ubuntu Server it is consolidated, enriched (GeoIP + VirusTotal), normalized to `{"data":{...}}`-wrapped Wazuh JSON, and indexed. The pipeline is fully automated, reboot-safe, and runs unattended.
 
 ---
 
@@ -36,7 +36,7 @@ Cowrie writes one JSON object per line. Example:
 Standard Combined Log Format access log, parsed by `parse_nginx.py`.
 
 ### Dionaea (malware capture)
-Dionaea records connections, logins, **downloads (captured malware)**, and optional VirusTotal results in a SQLite database (`dionaea.sqlite`), and saves each captured binary to a `binaries/` directory named by its MD5. The text log is unstructured scapy debug noise and is **not** used for parsing — the SQLite store is the source of truth.
+Dionaea records connections, logins, **downloads (captured malware)**, and optional VirusTotal results in a SQLite database (`dionaea.sqlite`), and saves each captured binary to a `binaries/` directory named by its MD5. The text log is unstructured scapy debug noise and is **not** used for parsing, the SQLite store is the source of truth.
 
 ### Log Rotation
 Cowrie rotates daily at midnight UTC: current day is `cowrie.json`, previous days are `cowrie.json.YYYY-MM-DD`. This matters for the consolidation step.
@@ -54,7 +54,7 @@ All three honeypots are now **pulled by homeserver-owned systemd timers** (not V
 | Dionaea | `dionaea-sync.timer` | `sync_dionaea.sh` → `parse_dionaea.py` | 15 min |
 
 ### Cowrie — `sync_cowrie.sh`
-`rsync --append` of the VPS `cowrie.json` (append-preserves the inode Wazuh's logcollector tails), then `forward_cowrie.py` reads new lines and appends them — **wrapped as `{"data": {...}}`** — to `wazuh-cowrie.json`. Includes an unreachable/rotation guard (below).
+`rsync --append` of the VPS `cowrie.json` (append-preserves the inode Wazuh's logcollector tails), then `forward_cowrie.py` reads new lines and appends them **wrapped as `{"data": {...}}`** — to `wazuh-cowrie.json`. Includes an unreachable/rotation guard (below).
 
 ### nginx — `sync_nginx.sh`
 `rsync` of the VPS nginx `access.log`, then `parse_nginx.py` converts Combined Log Format to `{"data":{...}}`-wrapped Wazuh JSON in `wazuh-nginx.json`. (Replaced an earlier fragile hourly rsync owned by a separate LAN machine.)
@@ -65,7 +65,7 @@ The SIEM **pulls** Dionaea data so it can also fetch captured binaries and run t
 2. rsyncs the `binaries/` directory (`--ignore-existing`, append-only)
 3. runs `parse_dionaea.py`, which emits wrapped Wazuh events, computes SHA256, looks up VirusTotal, and archives new samples
 
-Host/port/key for the syncs are supplied via environment/script variables — no infrastructure details are committed to source.
+Host/port/key for the syncs are supplied via environment/script variables there are no infrastructure details are committed to source.
 
 ### Disk Safety Monitor (`/etc/cron.d/disk-monitor` on VPS)
 ```cron
@@ -105,7 +105,7 @@ Across the May 21–29 window this yields **872,871 Cowrie events**.
 Resolves each unique `src_ip` against MaxMind GeoLite2 (City + ASN), adding country, city, lat/lon, org, and ASN. Results are cached in `/opt/cowrie-logs/geoip_cache.json`; only uncached IPs are resolved on each run.
 
 ### VirusTotal (captured malware, in `parse_dionaea.py`)
-For each captured binary, the parser computes the real **SHA256** from the file on disk and looks the hash up on VirusTotal — *hash only; the sample is never uploaded*. The detection ratio, threat label, and permalink are attached to the event and recorded in the permanent archive sidecar. Lookups are cached so each hash is queried once; free-tier rate limits are respected. Enable by setting `VT_API_KEY` in `config/dionaea-sync.service`.
+For each captured binary, the parser computes the real **SHA256** from the file on disk and looks the hash up on VirusTotal *hash only; the malware sample is never uploaded*. The detection ratio, threat label, and permalink are attached to the event and recorded in the permanent archive sidecar. Lookups are cached so each hash is queried once; free-tier rate limits are respected. Enable by setting `VT_API_KEY` in `config/dionaea-sync.service`.
 
 ### Permanent Malware Archive
 Each new sample is copied to `/opt/cowrie-logs/dionaea/archive/YYYY-MM/<sha256>` (read-only, mode 400) with a JSON metadata sidecar (source IP, country, service, size, VT verdict) — surviving index rollover and container rotation.
@@ -114,7 +114,7 @@ Each new sample is copied to `/opt/cowrie-logs/dionaea/archive/YYYY-MM/<sha256>`
 
 ## Stage 5: Wazuh Indexing
 
-Wazuh's logcollector tails the wrapped JSON feeds (`wazuh-cowrie.json`, `wazuh-nginx.json`, `wazuh-dionaea.json`). New lines are decoded (fields exposed as `data.*`), matched against the custom rules (see `04-custom-rules.md`), and indexed into OpenSearch. An OpenSearch **ingest pipeline** (`filebeat-7.10.2-wazuh-alerts-pipeline`) runs a Painless processor that flattens a legacy double-nested `data.data.*` → `data.*` edge case before indexing — without it, wrapped events hit a keyword mapping conflict and are silently dropped.
+Wazuh's logcollector tails the wrapped JSON feeds (`wazuh-cowrie.json`, `wazuh-nginx.json`, `wazuh-dionaea.json`). New lines are decoded (fields exposed as `data.*`), matched against the custom rules (see `04-custom-rules.md`), and indexed into OpenSearch. An OpenSearch **ingest pipeline** (`filebeat-7.10.2-wazuh-alerts-pipeline`) runs a Painless processor that flattens a legacy double-nested `data.data.*` → `data.*` edge case before indexing, without it, wrapped events hit a keyword mapping conflict and are silently dropped.
 
 ```bash
 # logcollector activity
@@ -133,11 +133,11 @@ curl -k -u admin:"$OPENSEARCH_PASS" \
 
 Lessons baked into the pipeline after real operational failures:
 
-- **`{"data":{...}}` wrapping is mandatory.** Parsers/forwarders wrap every event so Wazuh decodes `data.*` and the rules match. A flat (unwrapped) event matches no rule and produces zero alerts — this silently took nginx/dionaea offline once until corrected.
+- **`{"data":{...}}` wrapping is mandatory.** Parsers/forwarders wrap every event so Wazuh decodes `data.*` and the rules match. A flat (unwrapped) event matches no rule and produces zero alerts, this silently took nginx/dionaea offline once until corrected.
 - **Ingest-pipeline flatten guard.** The OpenSearch pipeline's Painless processor handles the `data.data.*` double-nest edge case; missing it caused enriched docs to be silently dropped at index time (`Can't get text on a START_OBJECT`).
 - **Sync scripts never truncate on an unreachable VPS.** Each `sync_*.sh` checks the remote file size first; if it's `0`/unreachable, the script exits without modifying the local feed. (An earlier bug truncated the local log on every failed run during a network blip, wiping the logcollector tail.)
 - **fail2ban tailnet whitelist.** Rapid sync reconnections once tripped the VPS's fail2ban and banned the homeserver's Tailscale IP (SYN arrived but was refused). `/etc/fail2ban/jail.local` on the VPS now sets `ignoreip = 127.0.0.1/8 100.64.0.0/10` to exempt the whole tailnet.
-- **alerts.json rotation capped** (monitord) so the file can't bloat and stall Filebeat's harvester.
+- **alerts.json rotation capped** (monitored) so the file can't bloat and stall Filebeat's harvester.
 - **No `.bak` files in `/var/ossec/etc/rules/`.** Wazuh loads any `.xml`-ish file there as an active ruleset, causing duplicate-ID conflicts; all backups go to `/opt/wazuh-soc/rule-backups/`.
 - **MITRE-DB tactic fix is non-git and reverts on upgrade.** See `operations.md` — `config/mitre-db-fixes.sql` must be re-applied after any Wazuh upgrade.
 
