@@ -20,7 +20,7 @@ curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh
 bash wazuh-install.sh -a
 ```
 
-The `-a` flag installs all components (manager, indexer, dashboard) in one step. Installation takes ~10–15 minutes. On completion the installer prints admin credentials — save them immediately.
+The `-a` flag installs all components (manager, indexer, dashboard) in one step. Installation takes ~10–15 minutes. On completion the installer prints admin credentials, save them immediately.
 
 ### Credentials
 The installer-generated credentials (dashboard `admin`, API `wazuh`, OpenSearch `admin`) are **not stored in this repository**. In this project the OpenSearch password is supplied to every consumer (dashboard, parsers, triage, cron) via the `OPENSEARCH_PASS` environment variable — set in the relevant systemd unit or cron file, never hardcoded in source. See `08-lessons-learned.md` for the migration from hardcoded credentials to environment variables.
@@ -36,7 +36,7 @@ systemctl status wazuh-indexer
 systemctl status wazuh-dashboard
 ```
 
-All three should show `active (running)`. If the indexer takes more than 60 seconds on first boot, that is normal — OpenSearch performs index recovery.
+All three should show `active (running)`. If the indexer takes more than 60 seconds on first boot, that is normal, OpenSearch performs index recovery which takes a minute or two.
 
 ### 2. Confirm OpenSearch is Accessible
 ```bash
