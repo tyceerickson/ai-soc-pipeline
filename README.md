@@ -14,7 +14,7 @@ threat-intelligence panels across three honeypot sources, and is currently live 
 
 ## 🎥 Live Demo
 
-A walkthrough of the dashboard running on real honeypot data — attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis — is available on request. (Screenshots in `docs/images/`.)
+A walkthrough of the dashboard running on real honeypot data which includes attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis at this link ...
 
 ## Dashboard View (Updated June 5th, 2026)
 
@@ -48,7 +48,7 @@ A walkthrough of the dashboard running on real honeypot data — attack timeline
 ### Detection Engineering: From Volume to Signal
 
 The two tables above tell the most important story in this project. The initial pipeline
-indexed **11.6M events** (peaking at ~2.7M/day) — but the overwhelming majority were
+indexed **11.6M events** (peaking at ~2.7M/day), but the overwhelming majority were
 SSH session-lifecycle events (connect / key-exchange / disconnect) that carry no analytic
 value. High volume, low signal.
 
@@ -60,7 +60,7 @@ detection** which includes a failed/successful login, a discovery command, a per
 malware drop, a CVE probe. A SOC analyst wants the ~25k signal, not the 2.7M noise.
 
 That transition, recognizing that raw data volume is not detection quality, then doing the
-detection-engineering work to fix it, is the core security-operations lesson of the project, that I unexpectedly learned.
+detection-engineering work to fix it, is one of the core security-operations lessons I unexpectedly learned in this project.
 (Full write-up in `docs/08-lessons-learned.md`.)
 
 ## Architecture
@@ -101,7 +101,7 @@ The custom Flask dashboard provides **17 real-time intelligence panels** across 
 | Geographic Attack Map | Natural Earth world map with volume-scaled attack dots |
 | Attack Chain Funnel | Kill-chain dropout: Connect → KEX → Login → Commands → Downloads |
 | Attack Velocity | Real-time attacks/min with 60-min spark chart |
-| Attack Heatmap | 14-day hour × day intensity grid |
+| Attack Heatmap | 14-day, hour × day intensity grid |
 | Botnet Fingerprints | Auto-detected campaigns with timelines and on-click AI analysis |
 | Credential Intelligence | Success rates, coordinated-attack detection, botnet badges |
 | Attacker Intelligence | Threat-scored attackers with full session breakdown |
@@ -114,19 +114,19 @@ The custom Flask dashboard provides **17 real-time intelligence panels** across 
 | Dionaea Malware Capture | Captured binaries with **VirusTotal verdict, malware family, source attribution, file size**, service breakdown, and activity timeline |
 | nginx Web Honeypot | Scanner fingerprints, CVE probe paths, user agents, request timeline |
 | Cross-Honeypot Attackers | IPs seen attacking multiple honeypots simultaneously |
-| **Threat Actor Correlation** | Unified per-IP profiles across all three honeypots, ranked by composite threat score — links SSH, web, and malware activity into single coordinated-actor views. Top-5 with scrollable full list; "All-Time Most Persistent" ranking toggle |
+| **Threat Actor Correlation** | Unified per-IP profiles across all three honeypots, ranked by composite threat score via links SSH, web, and malware activity into single coordinated-actor views. Top-5 with scrollable full list; "All-Time Most Persistent" ranking toggle |
 | **Most Dangerous Attackers** | Top actors ranked by destruction-weighted score (malware delivery, SSH breach, persistence); lazy-loaded deep-dive with full cross-honeypot attack narrative, kill-chain phases, per-tactic command evidence, and copyable IOCs. "All-Time" ranking toggle |
 
 ### Incident Management
 Built-in case management (open/investigating/closed, severity, audit log), alert pivoting
-and search, and five response playbooks — backed by a local SQLite store (`schema.sql`).
+and search, and five response playbooks, which is backed by a local SQLite store (`schema.sql`).
 
 ## Key Findings
 
 ### Live WannaCry Capture
 The Dionaea honeypot captured **7 unique malware binaries** over SMB — **6 confirmed
 WannaCry ransomware variants** (59–66 of ~76 VirusTotal engines flagging each) plus one
-trojan downloader — delivered from source IPs in the United States, Thailand, Sri Lanka, and
+trojan downloader delivered from source IPs in the United States, Thailand, Sri Lanka, and
 Vietnam. Each sample is SHA256-hashed, VirusTotal-verified, attributed to its source, and
 preserved in a permanent read-only archive. WannaCry still self-propagating over exposed SMB
 years after 2017 is a concrete demonstration of long-tail internet threat activity.
@@ -138,7 +138,7 @@ The most sophisticated campaign observed. Installs a persistent SSH backdoor via
 in the collection window from hundreds of distributed IPs.
 
 ### The 345gs5662d34 Campaign
-Massive credential stuffing using `root/345gs5662d34` — attempted **103,084 times from 357
+Massive credential stuffing using `root/345gs5662d34` was attempted **103,084 times from 357
 unique IPs**, the largest single-credential effort in the dataset.
 
 ### nginx Web Honeypot
@@ -224,11 +224,11 @@ The Flask backend exposes ** API endpoints** (plus the dashboard root). Highligh
 ## Technology Stack
 
 - **Honeypots:** Cowrie SSH/Telnet, nginx, Dionaea (Docker on DigitalOcean NYC1)
-- **Transport:** rsync over Tailscale VPN — homeserver-owned systemd timers per honeypot (cowrie & nginx every 5 min, dionaea every 15 min)
+- **Transport:** rsync over Tailscale VPN via a homeserver-owned systemd timers per honeypot (cowrie & nginx every 5 min, dionaea every 15 min)
 - **Enrichment:** Python + MaxMind GeoLite2 (City + ASN) + VirusTotal API (hash-only)
 - **Log parsers:** custom Python for nginx CLF and Dionaea SQLite
 - **SIEM:** Wazuh 4.x + OpenSearch (Ubuntu Server, aarch64)
-- **Backend:** Python 3, Flask (minimal dependencies — `flask`, `geoip2`)
+- **Backend:** Python 3, Flask (minimal dependencies `flask` & `geoip2`)
 - **Frontend:** vanilla HTML/CSS/JS, HTML5 Canvas, Natural Earth 50m geodata
 - **AI:** Ollama + qwen2.5:7b-instruct on NVIDIA RTX 4070 (fully local inference)
 - **Network:** Tailscale mesh VPN (no public dashboard exposure)
@@ -241,7 +241,7 @@ See `docs/02-wazuh-installation.md` for full deployment instructions. High-level
 1. Deploy Cowrie, nginx, and Dionaea on a VPS (Docker Compose)
 2. Install Wazuh all-in-one on your SIEM server
 3. Configure key-based sync from VPS → SIEM server via Tailscale
-4. Deploy the three homeserver-owned sync timers — `cowrie-sync.timer` (`sync_cowrie.sh` + `forward_cowrie.py`), `nginx-sync.timer` (`sync_nginx.sh` + `parse_nginx.py`), `dionaea-sync.timer` (`sync_dionaea.sh` + `parse_dionaea.py`). Each rsyncs its honeypot's data from the VPS over Tailscale and emits `{"data":{...}}`-wrapped Wazuh JSON.
+4. Deploy the three homeserver-owned sync timers `cowrie-sync.timer` (`sync_cowrie.sh` + `forward_cowrie.py`), `nginx-sync.timer` (`sync_nginx.sh` + `parse_nginx.py`), `dionaea-sync.timer` (`sync_dionaea.sh` + `parse_dionaea.py`). Each rsyncs its honeypot's data from the VPS over Tailscale and emits `{"data":{...}}`-wrapped Wazuh JSON.
 5. Set up GeoIP enrichment cron (`config/geoip-enrich.cron`)
 6. Add Wazuh rules (`config/wazuh-cowrie-rules.xml`, `config/wazuh-honeypot-web-rules.xml`)
 7. Import the OpenSearch ingest pipeline (`config/ingest-pipeline-filebeat-wazuh-alerts.json`) and apply `config/mitre-db-fixes.sql` to the Wazuh MITRE DB (re-apply the latter after any Wazuh upgrade — see `docs/operations.md`)
@@ -263,7 +263,7 @@ Full project documentation is in `docs/`:
 8. **Lessons Learned** — technical retrospective (incl. the Dionaea schema bug and secrets-handling migration)
 9. **Executive Summary** — CISO-level findings and significance
 
-Plus **Operations Runbook** (`docs/operations.md`) — automated ingestion topology, the non-git artifacts to re-apply after rebuilds/upgrades (ingest pipeline, MITRE-DB fix, fail2ban whitelist), and resilience safeguards.
+Plus **Operations Runbook** (`docs/operations.md`) an automated ingestion topology, the non-git artifacts to re-apply after rebuilds/upgrades (ingest pipeline, MITRE-DB fix, fail2ban whitelist), and resilience safeguards.
 
 ---
 
