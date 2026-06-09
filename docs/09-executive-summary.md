@@ -55,10 +55,10 @@ legacy-protocol exposure remains a live risk.
 
 ### Two Major Attack Waves
 
-* **Wave 1 — May 22 (\~1.3M alerts/24h):** the `345gs5662d34` credential-stuffing campaign.
+* **WWave 1 — the 345gs5662d34 credential-stuffing campaign:** the `345gs5662d34` credential-stuffing campaign.
 `root/345gs5662d34` was attempted **103,084 times across 357 unique IPs** — a coordinated
 multi-source effort and the largest single-credential campaign in the dataset.
-* **Wave 2 — peak day (\~2.8M alerts/24h):** the `mdrfckr` botnet at peak activity,
+* **Wave 2 — peak day (\~2.7M alerts/24h):** the `mdrfckr` botnet at peak activity,
 combining the credential sweep with a full SSH key-implant playbook on every successful
 session.
 
