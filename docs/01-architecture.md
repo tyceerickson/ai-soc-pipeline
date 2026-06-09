@@ -104,7 +104,7 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 
 \---
 
-## Key Statistics (collection window May 21–29, 2026)
+## Key Statistics (collection window May 21–28, 2026)
 
 |Metric|Value|
 |-|-|
@@ -118,5 +118,5 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 |MITRE ATT\&CK techniques (post-rebuild)|27 across \~12 tactics|
 |Peak day|\~2.8M alerts / 24h|
 
-> Stats reflect the original May 21–29 collection window. The detection ruleset was rebuilt in June 2026 for per-behavior MITRE accuracy (57 rules, 27 techniques); see `04-custom-rules.md`.
+> Stats reflect the original May 21–28 collection window. The detection ruleset was rebuilt in June 2026 for per-behavior MITRE accuracy (57 rules, 27 techniques); see `04-custom-rules.md`.
 
