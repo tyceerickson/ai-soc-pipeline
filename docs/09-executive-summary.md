@@ -19,7 +19,7 @@ malware sample in this dataset came from a real attacker on the internet.
 
 ### Scale of Observed Threat Activity
 
-Over the active collection window (**May 21–29, 2026**), the sensors recorded:
+Over the active collection window (**May 21–28, 2026**), the sensors recorded:
 
 * **11,611,908** total security alerts processed by Wazuh SIEM
 * **872,871** Cowrie SSH/Telnet events
