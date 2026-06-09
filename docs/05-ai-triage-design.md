@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI triage system takes raw OpenSearch alert data, pre-aggregates it into structured threat intelligence, and sends a carefully engineered prompt to a locally-hosted large language model (LLM) running on an NVIDIA RTX 4070. The model produces natural-language threat assessments, attacker profiles, IOC lists, and — in executive mode — a CISO-ready summary with recommended actions.
+The AI triage system takes raw OpenSearch alert data, pre-aggregates it into structured threat intelligence, and sends a carefully engineered prompt to a locally-hosted large language model (LLM) running on an NVIDIA RTX 4070. The model produces natural-language threat assessments, attacker profiles, IOC lists, and in executive mode, a CISO-ready summary with recommended actions.
 
 The system runs automatically every 30 minutes in summary mode and can be triggered on-demand from the dashboard in three modes: Summary, Full, and Executive.
 
@@ -73,6 +73,8 @@ Before prompting the LLM, `ai_triage.py` queries OpenSearch directly for full-da
 Without this step the LLM would under-report the true scale.
 
 ### Prompt Engineering (summary mode example)
+> [!NOTE]
+> Each prompt is dyanmically adjusted based on the most current data.
 ```
 You are a senior SOC analyst reviewing honeypot threat intelligence.
 
@@ -93,7 +95,7 @@ Respond ONLY with valid JSON:
 ### Context Window & Two-Pass Reasoning
 Ollama defaults to a 2048-token context regardless of model capacity unless
 `num_ctx` is set explicitly. Because the pre-aggregated intelligence prompt far
-exceeds 2048 tokens, `num_ctx` is raised to 16384 on every call — without this
+exceeds 2048 tokens, `num_ctx` is raised to 16384 on every call. Without this
 the model silently truncated most of the supplied intelligence. Executive mode
 additionally runs a two-pass chain: pass 1 produces free-form analytical notes
 over the raw intel, pass 2 writes the structured CISO briefing using those notes,
