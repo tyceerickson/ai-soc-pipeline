@@ -22,7 +22,7 @@ A walkthrough of the dashboard running on real honeypot data — attack timeline
 
 ## Live Stats
 
-### Initial collection Period (May 21–29, 2026 — raw-volume era)
+### Initial collection Period (May 21–28, 2026 — raw-volume era)
 
 | Metric | Value |
 |--------|-------|
@@ -154,7 +154,7 @@ At peak, a single day saw **~2.8 million alerts**, driven by overlapping botnet 
 ```
 ai-soc-pipeline/
 ├── dashboard/
-│   ├── app.py                       # Flask backend — 28 API endpoints
+│   ├── app.py                       # Flask backend —  API endpoints
 │   ├── schema.sql                   # Incident-management SQLite schema
 │   └── templates/
 │       └── index.html               # SOC dashboard frontend (17 panels)
@@ -182,7 +182,7 @@ ai-soc-pipeline/
 │   ├── dionaea-sync.timer           # 15-min timer for the above
 │   ├── geoip-enrich.cron            # Hourly enrichment cron
 │   ├── wazuh-cowrie-rules.xml       # Cowrie detection rules (100100–100191, 29 rules)
-│   ├── wazuh-honeypot-web-rules.xml # Dionaea + nginx rules (100200–100344, 28 rules)
+│   ├── wazuh-honeypot-web-rules.xml # Dionaea + nginx rules (100200–100344,  rules)
 │   ├── ingest-pipeline-filebeat-wazuh-alerts.json  # OpenSearch ingest pipeline (data.data flatten fix)
 │   ├── mitre-db-fixes.sql           # Wazuh MITRE-DB tactic-mapping fix (re-apply after upgrades)
 │   └── wazuh-ossec-snippet.xml      # Wazuh agent localfile config
@@ -194,7 +194,7 @@ ai-soc-pipeline/
 
 ## API Endpoints
 
-The Flask backend exposes **28 API endpoints** (plus the dashboard root). Highlights:
+The Flask backend exposes ** API endpoints** (plus the dashboard root). Highlights:
 
 | Endpoint | Description |
 |----------|-------------|
