@@ -7,7 +7,7 @@ Wazuh ships with built-in rules for many log sources but has no native support f
 - `config/wazuh-cowrie-rules.xml` — Cowrie SSH/Telnet (IDs **100100–100191**, 29 rules)
 - `config/wazuh-honeypot-web-rules.xml` — Dionaea + nginx (IDs **100200–100344**, 28 rules)
 
-> **Rebuilt June 2026 for per-behavior MITRE accuracy.** The ruleset was re-engineered so each rule tags the *single correct* MITRE technique/tactic for the behavior it detects — 57 rules covering 27 distinct techniques across ~12 tactics, grounded in the lab's real captured attacker behavior. The snippets below are illustrative of structure and intent; the authoritative current definitions live in the two XML files in `config/`.
+> **Rebuilt June 2026 for per-behavior MITRE accuracy.** The ruleset was re-engineered so each rule tags the *single correct* MITRE technique/tactic for the behavior it now detects 57 rules covering 27 distinct techniques across ~12 tactics, grounded in the lab's real captured attacker behavior. The snippets below are illustrative of structure and intent; the authoritative current definitions live in the two XML files in `config/`.
 
 ---
 
