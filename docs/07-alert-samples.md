@@ -56,7 +56,7 @@ On a real system this grants permanent SSH access even after a password change. 
 ```
 
 ### Analysis
-A **reconnaissance session** — login, system enumeration, disconnect, no persistence. The commands (`uname`, `cat /proc/cpuinfo`, `free -m`, `cat /etc/issue`) profile OS, CPU, and memory — consistent with an automated cryptomining operation qualifying targets by compute resources before deploying a miner. The credential `root/345gs5662d34` was attempted **103,084 times from 357 unique IPs**, the single most-used credential in the dataset.
+A **reconnaissance session** — login, system enumeration, disconnect, no persistence. The commands (`uname`, `cat /proc/cpuinfo`, `free -m`, `cat /etc/issue`) profile OS, CPU, and memory, consistent with an automated cryptomining operation qualifying targets by compute resources before deploying a miner. The credential `root/345gs5662d34` was attempted **103,084 times from 357 unique IPs**, the single most-used credential in the dataset.
 
 ---
 
@@ -98,11 +98,11 @@ A two-stage payload: architecture check (`busybox TEST`), download-and-execute a
 ```
 
 ### Analysis
-The Dionaea honeypot, emulating a vulnerable SMB service, captured a real malware payload delivered by an attacker. The parser computed the **SHA256 from the saved file**, attributed it to the source IP/country/service, and looked the hash up on VirusTotal (hash only — the sample was never uploaded).
+The Dionaea honeypot, emulating a vulnerable SMB service, captured a real malware payload delivered by an attacker. The parser computed the **SHA256 from the saved file**, attributed it to the source IP/country/service, and looked the hash up on VirusTotal (hash only, the malware sample was never uploaded).
 
-Across the window, **7 unique binaries** were captured: **6 confirmed WannaCry ransomware variants** (59–66 of ~76 VirusTotal engines flagging each) plus one trojan downloader. The same ~5.27MB WannaCry payload arrived from **multiple countries** (United States, Thailand, Sri Lanka, Vietnam) — independent infected hosts all blindly scanning for exposed SMB. Each sample is preserved (read-only) in the permanent archive with a metadata sidecar.
+Across the window, **7 unique binaries** were captured: **6 confirmed WannaCry ransomware variants** (59–66 of ~76 VirusTotal engines flagging each) plus one trojan downloader. The same ~5.27MB WannaCry payload arrived from **multiple countries** (United States, Thailand, Sri Lanka, Vietnam), independent infected hosts all blindly scanning for exposed SMB. Each sample is preserved (read-only) in the permanent archive with a metadata sidecar.
 
-**Significance:** WannaCry continuing to self-propagate over exposed SMB years after its 2017 outbreak is a concrete, measurable illustration of long-tail internet threat activity — and of why legacy-protocol exposure remains a live risk.
+**Significance:** WannaCry continuing to self-propagate over exposed SMB years after its 2017 outbreak is a concrete, measurable illustration of long-tail internet threat activity, and of why legacy-protocol exposure remains a live risk.
 
 ---
 
@@ -122,7 +122,7 @@ solana/password  — 398 attempts
 ```
 
 ### Analysis
-A targeted scanner hunting Solana blockchain infrastructure — validator nodes, wallet servers, or developer machines with default credentials. The narrow, purpose-built credential list (unlike broad botnet dictionaries) and low volume from few IPs indicate targeted scanning rather than mass spray.
+A targeted scanner hunting Solana blockchain infrastructure validator nodes, wallet servers, or developer machines with default credentials. The narrow, purpose-built credential list (unlike broad botnet dictionaries) and low volume from few IPs indicate targeted scanning rather than mass spray.
 
 ---
 
