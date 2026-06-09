@@ -2,9 +2,9 @@
 
 ## Overview
 
-The SOC dashboard is a custom Flask web application (`app.py`) providing real-time visibility into all three honeypots. It queries OpenSearch (Wazuh) directly for live statistics, renders 12 intelligence panels across three sections, and integrates with Ollama `qwen2.5:7b-instruct` for on-demand threat analysis. Accessible at `http://100.82.166.75:5000` via Tailscale.
+The SOC dashboard is a custom Flask web application (`app.py`) providing real-time visibility into all three honeypots. It queries OpenSearch (Wazuh) directly for live statistics, renders 17 intelligence panels across three sections, and integrates with Ollama `qwen2.5:7b-instruct` for on-demand threat analysis. Accessible at `http://100.82.166.75:5000` via Tailscale.
 
-**Data sources:** the dashboard visualizes **all three honeypots** — Cowrie (SSH/Telnet), Dionaea (malware capture), and nginx (web). The Cowrie panels cover the highest-volume SSH attack data; the Multi-Honeypot section covers malware capture and web scanning; the Threat Actor Correlation panel unifies activity across all three.
+**Data sources:** the dashboard visualizes **all three honeypots** Cowrie (SSH/Telnet), Dionaea (malware capture), and nginx (web). The Cowrie panels cover the highest-volume SSH attack data; the Multi-Honeypot section covers malware capture and web scanning; the Threat Actor Correlation panel unifies activity across all three.
 
 \---
 
@@ -12,7 +12,7 @@ The SOC dashboard is a custom Flask web application (`app.py`) providing real-ti
 
 ### Where alerts come from
 
-Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-\*`). Wazuh receives the normalized `{"data":{...}}`-wrapped JSON feeds produced by the parsers/forwarders on the Ubuntu Server (pulled from the VPS by per-honeypot systemd timers — cowrie/nginx every 5 min, dionaea every 15 min). Flow:
+Every number comes from **Wazuh OpenSearch** (`wazuh-alerts-4.x-\*`). Wazuh receives the normalized `{"data":{...}}`-wrapped JSON feeds produced by the parsers/forwarders on the Ubuntu Server (pulled from the VPS by per-honeypot systemd timers, cowrie/nginx every 5 min, dionaea every 15 min). Flow:
 
 ```
 VPS honeypots → sync timers (rsync) → Ubuntu Server parsers/forwarder → Wazuh → OpenSearch → Dashboard
@@ -28,7 +28,7 @@ The dashboard authenticates to OpenSearch using the `OPENSEARCH\_PASS` environme
 
 ### Top Attacker Countries and the Geographic Map
 
-Both the Countries bar chart and the Geographic Map now derive from the **same source**: the GeoIP-enriched top-IP list (`geoip\_cache.json`). This was a deliberate fix — Cowrie events lack a `data.location.country\_name` field, so the old country aggregation on that field returned nothing for the highest-volume honeypot. Deriving both panels from the GeoIP-resolved IP list keeps them consistent across all three honeypots.
+Both the Countries bar chart and the Geographic Map now derive from the **same source**: the GeoIP-enriched top-IP list (`geoip\_cache.json`). This was a deliberate fix, Cowrie events lack a `data.location.country\_name` field, so the old country aggregation on that field returned nothing for the highest-volume honeypot. Deriving both panels from the GeoIP-resolved IP list keeps them consistent across all three honeypots.
 
 \---
 
@@ -72,7 +72,7 @@ The activity box supports **1h / 1d / 7d / 30d** windows and tab persistence wit
 
 ### Threat Actor Correlation
 
-**Threat Actor Correlation** — The flagship correlation view. Each row is **one source IP**, with its activity unified across all three honeypots into a single threat-scored profile. Actors are ranked by a composite score (attack-vector breadth, rule severity, malware delivery, confirmed SSH breach, persistence). Multi-vector actors — e.g. an IP that brute-forces SSH *and* delivers malware over SMB — are badged and float to the top, revealing coordinated actors that siloed per-sensor panels would miss. Clicking a row opens the full **attack-narrative drawer**: a plain-language story, an ordered kill-chain strip (recon → access → execution → download → persistence), credentials tried with the successful pair highlighted, captured malware with VirusTotal verdicts, web/CVE probes, detected persistence mechanisms, a **per-tactic "why this command maps here" evidence breakdown**, and a copyable IOC block — served by `GET /api/actor/<ip>`. A companion **Most Dangerous Attackers** panel ranks the top actors by a destruction-weighted score (malware delivery, breach, persistence) with the same lazy-loaded deep-dive.
+**Threat Actor Correlation** — The flagship correlation view. Each row is **one source IP**, with its activity unified across all three honeypots into a single threat-scored profile. Actors are ranked by a composite score (attack-vector breadth, rule severity, malware delivery, confirmed SSH breach, persistence). Multi-vector actors, e.g. an IP that brute-forces SSH *and* delivers malware over SMB, are badged and float to the top, revealing coordinated actors that siloed per-sensor panels would miss. Clicking a row opens the full **attack-narrative drawer**: a plain-language story, an ordered kill-chain strip (recon → access → execution → download → persistence), credentials tried with the successful pair highlighted, captured malware with VirusTotal verdicts, web/CVE probes, detected persistence mechanisms, a **per-tactic "why this command maps here" evidence breakdown**, and a copyable IOC block, served by `GET /api/actor/<ip>`. A companion **Most Dangerous Attackers** panel ranks the top actors by a destruction-weighted score (malware delivery, breach, persistence) with the same lazy-loaded deep-dive.
 
 ### Incident Management
 
