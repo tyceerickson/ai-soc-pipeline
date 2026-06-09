@@ -111,9 +111,9 @@ Dionaea and nginx events with MITRE mapping.
 
 ## Results (collection window May 21–29, 2026)
 
-The Dionaea pipeline captured **7 unique malware binaries** over SMB — **6 confirmed
+The Dionaea pipeline captured **7 unique malware binaries** over SMB **6 confirmed
 WannaCry ransomware variants** (59–66 of ~76 VirusTotal engines flagging each) and one
-trojan downloader — delivered from source IPs across multiple countries (United States,
+trojan downloader, delivered from source IPs across multiple countries (United States,
 Thailand, Sri Lanka, Vietnam). Each sample is SHA256-hashed, VirusTotal-verified, attributed
 to its source, and preserved in the permanent archive. WannaCry continuing to self-propagate
 over exposed SMB years after 2017 is a concrete illustration of long-tail internet threat
