@@ -116,7 +116,7 @@ Tailscale acts as a zero-trust overlay — each device authenticates with a cryp
 |Data gap (disk outage)|May 24 22:12 → May 25 21:39 UTC|
 |Active botnets identified|6|
 |MITRE ATT\&CK techniques (post-rebuild)|27 across \~12 tactics|
-|Peak day|\~2.8M alerts / 24h|
+|Peak day|\~2.7M alerts / 24h (May 26)|
 
 > Stats reflect the original May 21–28 collection window. The detection ruleset was rebuilt in June 2026 for per-behavior MITRE accuracy (57 rules, 27 techniques); see `04-custom-rules.md`.
 
