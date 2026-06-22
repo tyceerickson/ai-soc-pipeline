@@ -4,7 +4,7 @@
 # Using rsync --append preserves the inode; a full replace (rsync -az) would
 # swap the inode and silently break the tail.
 set -uo pipefail
-VPS_HOST="root@100.89.15.57"
+VPS_HOST="<sync-user>@<vps-host>"
 VPS_PORT="2222"
 SSH_KEY="/home/terickson/.ssh/vps_sync"
 SSH_OPTS="-p ${VPS_PORT} -i ${SSH_KEY} -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new"
