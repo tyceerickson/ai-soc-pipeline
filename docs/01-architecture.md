@@ -10,7 +10,7 @@ The architecture spans three physical machines across two networks, connected vi
 
 ## Infrastructure
 
-### DigitalOcean VPS — `174.138.35.11` (NYC1)
+### DigitalOcean VPS — <VPS_PUBLIC_IP> (NYC1)
 
 **Role:** Public-facing honeypot host
 
