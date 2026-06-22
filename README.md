@@ -200,7 +200,7 @@ ai-soc-pipeline/
 │   ├── dionaea-sync.timer           # 15-min timer for the above
 │   ├── geoip-enrich.cron            # Hourly enrichment cron
 │   ├── wazuh-cowrie-rules.xml       # Cowrie detection rules (100100–100191, 29 rules)
-│   ├── wazuh-honeypot-web-rules.xml # Dionaea + nginx rules (100200–100344,  rules)
+│   ├── wazuh-honeypot-web-rules.xml # Dionaea + nginx rules (100200–100344, 28 rules)
 │   ├── ingest-pipeline-filebeat-wazuh-alerts.json  # OpenSearch ingest pipeline (data.data flatten fix)
 │   ├── mitre-db-fixes.sql           # Wazuh MITRE-DB tactic-mapping fix (re-apply after upgrades)
 │   └── wazuh-ossec-snippet.xml      # Wazuh agent localfile config
@@ -212,7 +212,7 @@ ai-soc-pipeline/
 
 ## API Endpoints
 
-The Flask backend exposes ** API endpoints** (plus the dashboard root). Highlights:
+The Flask backend exposes **31 API endpoints** (plus the dashboard root). Highlights:
 
 | Endpoint | Description |
 |----------|-------------|
