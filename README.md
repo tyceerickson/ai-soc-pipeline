@@ -172,7 +172,7 @@ At peak, a single day saw **~2.7 million alerts**, driven by overlapping botnet 
 ```
 ai-soc-pipeline/
 ├── dashboard/
-│   ├── app.py                       # Flask backend —  API endpoints
+│   ├── app.py                       # Flask backend —  31 API endpoints
 │   ├── schema.sql                   # Incident-management SQLite schema
 │   └── templates/
 │       └── index.html               # SOC dashboard frontend (17 panels)
