@@ -3,7 +3,7 @@
 **CMU MSISPM Portfolio — Project 4**
 Tyce Erickson · May 2026
 
-A production-grade, AI-powered Security Operations Center pipeline built on real internet
+A full stack, AI-powered Security Operations Center pipeline built on real internet
 attack data. Three honeypots exposed to the public internet collect live attack traffic
 across SSH, web, and malware-capture vectors. Data is processed through a Wazuh SIEM,
 enriched with geolocation and VirusTotal threat intelligence, and analyzed by a
@@ -14,7 +14,7 @@ threat-intelligence panels across three honeypot sources, and is currently live 
 
 ## 🎥 Live Demo
 
-A walkthrough of the dashboard running on real honeypot data — including the attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
+A walkthrough of the dashboard running on real honeypot data, including the attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
 
 <p align="center">
   <strong>▶ Highlights Demo (~2 min)</strong>
