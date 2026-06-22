@@ -14,14 +14,25 @@ threat-intelligence panels across three honeypot sources, and is currently live 
 
 ## 🎥 Live Demo
 
-A walkthrough of the dashboard running on real honeypot data which includes attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
+A walkthrough of the dashboard running on real honeypot data — including the attack timeline and geographic map, behavioral botnet fingerprinting, VirusTotal-verified WannaCry malware capture, cross-honeypot threat-actor correlation, and on-demand AI threat analysis.
 
 <p align="center">
-  <a href="https://youtu.be">
-    <img src="https://youtube.com" alt="Watch the Demo Video" width="600">
+  <strong>▶ Highlights Demo (~2 min)</strong>
+  <br><br>
+  <a href="https://youtu.be/3VGOel27qb4">
+    <img src="https://img.youtube.com/vi/3VGOel27qb4/maxresdefault.jpg" alt="Watch the Highlights Demo" width="600">
   </a>
 </p>
 
+<br>
+
+<p align="center">
+  <strong>▶ Full Walkthrough (~5 min)</strong>
+  <br><br>
+  <a href="https://youtu.be/hK9KvkaCy3I">
+    <img src="https://img.youtube.com/vi/hK9KvkaCy3I/maxresdefault.jpg" alt="Watch the Full Demo" width="600">
+  </a>
+</p>
 
 ## Dashboard View (Updated June 5th, 2026)
 
